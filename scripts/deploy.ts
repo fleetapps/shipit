@@ -1586,6 +1586,9 @@ class CloudflareDeploymentManager {
 	private async wranglerDeploy(): Promise<void> {
 		console.log('🚀 Deploying to Cloudflare Workers...');
 
+		// Check if containers are configured
+		const hasContainers = this.config.containers && this.config.containers.length > 0;
+
 		try {
 			execSync('wrangler deploy', {
 				stdio: 'inherit',
@@ -1594,22 +1597,10 @@ class CloudflareDeploymentManager {
 
 			console.log('✅ Wrangler deployment completed');
 		} catch (error: any) {
-			// Try to capture stderr if available
-			const stderr = error.stderr?.toString() || '';
-			const stdout = error.stdout?.toString() || '';
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			const combinedError = `${errorMessage} ${stderr} ${stdout}`.toLowerCase();
-
-			// Check if it's a container-related authorization error
-			// Look for "Unauthorized" in any form (case-insensitive) or 401 errors
-			const isUnauthorizedError = 
-				combinedError.includes('unauthorized') ||
-				combinedError.includes('401') ||
-				(combinedError.includes('✘') && combinedError.includes('error') && combinedError.includes('unauthorized'));
-
-			if (isUnauthorizedError) {
-				console.log('\n⚠️  Container deployment failed (authentication/authorization issue detected)');
-				console.log('🔄 Attempting deployment without containers...');
+			// If containers are configured and deployment fails, try fallback
+			if (hasContainers) {
+				console.log('\n⚠️  Deployment failed with containers configured');
+				console.log('🔄 Attempting deployment without containers as fallback...');
 				console.log('📝 Note: Sandbox feature will be disabled without containers');
 				console.log('   - AI code generation will still work');
 				console.log('   - Preview/running generated apps will not work');
@@ -1637,7 +1628,7 @@ class CloudflareDeploymentManager {
 					);
 				}
 			} else {
-				// Not a container error, throw as normal
+				// No containers configured, throw as normal
 				throw new DeploymentError(
 					'Failed to deploy with Wrangler',
 					error instanceof Error ? error : new Error(String(error)),
