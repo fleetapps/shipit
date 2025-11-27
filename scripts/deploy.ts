@@ -1587,33 +1587,27 @@ class CloudflareDeploymentManager {
 		console.log('🚀 Deploying to Cloudflare Workers...');
 
 		try {
-			// Capture both stdout and stderr to detect errors
-			let output = '';
-			try {
-				output = execSync('wrangler deploy', {
-					encoding: 'utf-8',
-					cwd: PROJECT_ROOT,
-					stdio: ['inherit', 'pipe', 'pipe'],
-				}) as string;
-			} catch (execError: any) {
-				// execSync throws on non-zero exit, but we want to capture the output
-				output = execError.stdout || execError.stderr || execError.message || '';
-				throw execError;
-			}
+			execSync('wrangler deploy', {
+				stdio: 'inherit',
+				cwd: PROJECT_ROOT,
+			});
 
 			console.log('✅ Wrangler deployment completed');
 		} catch (error: any) {
+			// Try to capture stderr if available
+			const stderr = error.stderr?.toString() || '';
+			const stdout = error.stdout?.toString() || '';
 			const errorMessage = error instanceof Error ? error.message : String(error);
-			const errorOutput = error.stdout || error.stderr || error.toString() || '';
-			const combinedError = `${errorMessage} ${errorOutput}`.toLowerCase();
+			const combinedError = `${errorMessage} ${stderr} ${stdout}`.toLowerCase();
 
 			// Check if it's a container-related authorization error
-			// Look for "Unauthorized" in any form (case-insensitive)
-			if (
+			// Look for "Unauthorized" in any form (case-insensitive) or 401 errors
+			const isUnauthorizedError = 
 				combinedError.includes('unauthorized') ||
 				combinedError.includes('401') ||
-				(combinedError.includes('container') && combinedError.includes('error'))
-			) {
+				(combinedError.includes('✘') && combinedError.includes('error') && combinedError.includes('unauthorized'));
+
+			if (isUnauthorizedError) {
 				console.log('\n⚠️  Container deployment failed (authentication/authorization issue detected)');
 				console.log('🔄 Attempting deployment without containers...');
 				console.log('📝 Note: Sandbox feature will be disabled without containers');
