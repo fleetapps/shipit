@@ -36,12 +36,34 @@ jobs:
 
       - name: Create D1 database if it doesn't exist
         run: |
-          # Check if database exists, create if not
-          if ! npx wrangler d1 list | grep -q "vibesdk-db"; then
-            echo "Creating D1 database: vibesdk-db"
-            npx wrangler d1 create vibesdk-db || echo "Database may already exist or creation failed"
+          echo "Checking for D1 database: vibesdk-db"
+          DB_LIST=$(npx wrangler d1 list 2>&1 || echo "")
+          
+          if echo "$DB_LIST" | grep -q "vibesdk-db"; then
+            echo "✅ Database vibesdk-db already exists"
+            # Extract and display database ID
+            DB_ID=$(echo "$DB_LIST" | grep "vibesdk-db" | head -1 | awk '{print $2}' || echo "")
+            if [ -n "$DB_ID" ]; then
+              echo "Database ID: $DB_ID"
+            fi
           else
-            echo "Database vibesdk-db already exists"
+            echo "Creating D1 database: vibesdk-db"
+            DB_OUTPUT=$(npx wrangler d1 create vibesdk-db 2>&1)
+            echo "$DB_OUTPUT"
+            
+            if [ $? -eq 0 ]; then
+              echo "✅ Database created successfully"
+              # Extract database ID from output
+              DB_ID=$(echo "$DB_OUTPUT" | grep -o 'database_id = "[^"]*"' | sed 's/database_id = "\(.*\)"/\1/' || echo "")
+              if [ -n "$DB_ID" ]; then
+                echo "New Database ID: $DB_ID"
+                echo "⚠️  IMPORTANT: Update database_id in wrangler.jsonc to: $DB_ID"
+                echo "⚠️  Or the deployment will fail with database not found error"
+              fi
+            else
+              echo "❌ Failed to create database"
+              exit 1
+            fi
           fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
