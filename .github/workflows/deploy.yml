@@ -1,5 +1,13 @@
 name: Deploy to Cloudflare
 
+# Required API Token Permissions:
+# - Account → Workers Scripts → Edit
+# - Account → Workers KV Storage → Edit
+# - Account → D1 → Edit
+# - Account → Containers → Edit
+# - Account → R2 Storage → Edit (if using R2)
+# - Account → AI Gateway → Read, Edit, Run
+
 on:
   push:
     branches:
