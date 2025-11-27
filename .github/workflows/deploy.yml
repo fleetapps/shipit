@@ -153,11 +153,43 @@ jobs:
           SANDBOX_INSTANCE_TYPE="${{ secrets.SANDBOX_INSTANCE_TYPE }}"
           EOF
 
+      - name: Authenticate Docker to Cloudflare Registry
+        run: |
+          echo "🔐 Authenticating Docker to Cloudflare container registry..."
+          # Get Cloudflare account email from API
+          ACCOUNT_EMAIL=$(curl -s -X GET "https://api.cloudflare.com/client/v4/user" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" | jq -r '.result.email // empty')
+          
+          if [ -z "$ACCOUNT_EMAIL" ]; then
+            echo "⚠️  Could not retrieve account email, trying alternative authentication method"
+            # Try using API token directly as username
+            echo "$CLOUDFLARE_API_TOKEN" | docker login registry.cloudflare.com -u "$CLOUDFLARE_ACCOUNT_ID" --password-stdin || echo "Docker login failed, wrangler will handle authentication"
+          else
+            echo "Using account email: $ACCOUNT_EMAIL"
+            echo "$CLOUDFLARE_API_TOKEN" | docker login registry.cloudflare.com -u "$ACCOUNT_EMAIL" --password-stdin || echo "Docker login failed, wrangler will handle authentication"
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Deploy to Cloudflare
         run: bun run deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Check Wrangler Logs on Failure
+        if: failure()
+        run: |
+          echo "📋 Checking wrangler logs for detailed error information..."
+          if ls "$HOME/.config/.wrangler/logs/"*.log 1> /dev/null 2>&1; then
+            echo "Latest wrangler log:"
+            LATEST_LOG=$(ls -t "$HOME/.config/.wrangler/logs/"*.log | head -1)
+            tail -100 "$LATEST_LOG" || echo "Could not read log file"
+          else
+            echo "No wrangler log files found"
+          fi
 
       - name: Deployment Summary
         if: success()
