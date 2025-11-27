@@ -7,7 +7,7 @@
 		"setup": "tsx scripts/setup.ts",
 		"prepare": "husky",
 		"dev": "DEV_MODE=true vite",
-		"build": "tsc -b --incremental --noEmitOnError false || true && vite build",
+		"build": "tsc -b --incremental || echo 'TypeScript errors ignored' && vite build",
 		"typecheck": "tsc -b --incremental --noEmit",
 		"lint": "eslint .",
 		"preview": "npm run build && vite preview",
