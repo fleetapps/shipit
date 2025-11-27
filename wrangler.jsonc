@@ -101,14 +101,15 @@
             }
 		]
 	},
-    // R2 bucket binding commented out - enable R2 in Cloudflare Dashboard first
-    // "r2_buckets": [
-    //   {
-    //     "binding": "TEMPLATES_BUCKET",
-    //     "bucket_name": "vibesdk-templates",
-    //     "remote": true
-    //   }
-    // ],
+    // R2 bucket for templates - REQUIRED for code generation
+    // Create the bucket in Cloudflare Dashboard first: https://dash.cloudflare.com → R2 → Create bucket
+    "r2_buckets": [
+      {
+        "binding": "TEMPLATES_BUCKET",
+        "bucket_name": "vibesdk-templates",
+        "remote": true
+      }
+    ],
     // KV namespace commented out - create it in Cloudflare Dashboard first
     // To create: wrangler kv:namespace create "VibecoderStore" --preview=false
     // Then update the id below
