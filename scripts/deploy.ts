@@ -984,11 +984,10 @@ class CloudflareDeploymentManager {
 		originalCustomDomain: string | null
 	): Promise<{ zoneName: string | null; zoneId: string | null; success: boolean }> {
 		try {
-			if (!originalCustomDomain) {
-				return { zoneName: null, zoneId: null, success: false };
-			}
-
-			const { zoneName, zoneId } = await this.detectZoneForDomain(customDomain, originalCustomDomain);
+			// Use customDomain directly if originalCustomDomain is not available (first-time setup)
+			const domainToCheck = originalCustomDomain || customDomain;
+			
+			const { zoneName, zoneId } = await this.detectZoneForDomain(customDomain, domainToCheck);
 			if (!zoneId) {
 				return { zoneName: null, zoneId: null, success: false };
 			}
