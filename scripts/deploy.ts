@@ -2033,6 +2033,30 @@ class CloudflareDeploymentManager {
             this.cleanWranglerCache();
 			console.log('\n📋 Step 1: Updating configuration files...');
 			
+			// IMPORTANT: Update CUSTOM_DOMAIN in wrangler.jsonc vars from environment FIRST
+			// This ensures it's available for route configuration and won't be removed as a conflict
+			if (process.env.CUSTOM_DOMAIN && process.env.CUSTOM_DOMAIN.trim() !== '') {
+				console.log(`   🔧 Setting CUSTOM_DOMAIN in wrangler.jsonc vars: ${process.env.CUSTOM_DOMAIN}`);
+				const { content } = this.readWranglerConfig();
+				const currentVars = this.config.vars || {};
+				const updatedVars = {
+					...currentVars,
+					CUSTOM_DOMAIN: process.env.CUSTOM_DOMAIN
+				};
+				if (process.env.CUSTOM_PREVIEW_DOMAIN && process.env.CUSTOM_PREVIEW_DOMAIN.trim() !== '') {
+					updatedVars.CUSTOM_PREVIEW_DOMAIN = process.env.CUSTOM_PREVIEW_DOMAIN;
+					console.log(`   🔧 Setting CUSTOM_PREVIEW_DOMAIN in wrangler.jsonc vars: ${process.env.CUSTOM_PREVIEW_DOMAIN}`);
+				}
+				const varsEdits = modify(content, ['vars'], updatedVars, CloudflareDeploymentManager.JSONC_FORMAT_OPTIONS);
+				const updatedContent = applyEdits(content, varsEdits);
+				this.writeWranglerConfig(updatedContent);
+				// Re-parse config to get updated values
+				this.config = this.parseWranglerConfig();
+				console.log('   ✅ CUSTOM_DOMAIN set in wrangler.jsonc vars');
+			} else {
+				console.log('   ⚠️  CUSTOM_DOMAIN not set in environment - worker will show domain error');
+			}
+			
 			console.log('   🔧 Cleaning ARM64 development flags from Dockerfile');
 			originalDockerfileContent = this.cleanDockerfileForDeployment();
 
