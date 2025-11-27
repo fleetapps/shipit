@@ -34,6 +34,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Create D1 database if it doesn't exist
+        run: |
+          # Check if database exists, create if not
+          if ! npx wrangler d1 list | grep -q "vibesdk-db"; then
+            echo "Creating D1 database: vibesdk-db"
+            npx wrangler d1 create vibesdk-db || echo "Database may already exist or creation failed"
+          else
+            echo "Database vibesdk-db already exists"
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
       - name: Create .prod.vars file
         run: |
           cat > .prod.vars << EOF
