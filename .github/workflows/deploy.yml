@@ -36,31 +36,35 @@ jobs:
 
       - name: Create D1 database if it doesn't exist
         run: |
-          # Install wrangler globally for database creation
-          pnpm add -g wrangler@latest
-          
-          # Check if database exists, create if not
           echo "Checking for D1 database: vibesdk-db"
-          DB_EXISTS=$(wrangler d1 list 2>&1 | grep -c "vibesdk-db" || echo "0")
+          # List databases and check if vibesdk-db exists
+          DB_LIST=$(npx wrangler d1 list 2>&1 || echo "")
+          echo "Database list output:"
+          echo "$DB_LIST"
           
-          if [ "$DB_EXISTS" = "0" ]; then
-            echo "Creating D1 database: vibesdk-db"
-            DB_OUTPUT=$(wrangler d1 create vibesdk-db 2>&1)
-            echo "$DB_OUTPUT"
-            
-            # Extract database ID from output
-            DB_ID=$(echo "$DB_OUTPUT" | grep -oP 'database_id = "\K[^"]+' || echo "")
+          if echo "$DB_LIST" | grep -q "vibesdk-db"; then
+            echo "✅ Database vibesdk-db already exists"
+            # Extract database ID from list
+            DB_ID=$(echo "$DB_LIST" | grep "vibesdk-db" | head -1 | awk '{print $2}' || echo "")
             if [ -n "$DB_ID" ]; then
-              echo "Database created with ID: $DB_ID"
-              echo "DATABASE_ID=$DB_ID" >> $GITHUB_ENV
+              echo "Database ID: $DB_ID"
             fi
           else
-            echo "Database vibesdk-db already exists"
-            # Get existing database ID
-            DB_ID=$(wrangler d1 list | grep "vibesdk-db" | awk '{print $2}' || echo "")
-            if [ -n "$DB_ID" ]; then
-              echo "Existing database ID: $DB_ID"
-              echo "DATABASE_ID=$DB_ID" >> $GITHUB_ENV
+            echo "Creating D1 database: vibesdk-db"
+            DB_OUTPUT=$(npx wrangler d1 create vibesdk-db 2>&1)
+            echo "$DB_OUTPUT"
+            
+            if [ $? -eq 0 ]; then
+              echo "✅ Database created successfully"
+              # Extract database ID from output (format: database_id = "xxx")
+              DB_ID=$(echo "$DB_OUTPUT" | grep -o 'database_id = "[^"]*"' | sed 's/database_id = "\(.*\)"/\1/' || echo "")
+              if [ -n "$DB_ID" ]; then
+                echo "Database ID: $DB_ID"
+                echo "⚠️  Note: Update database_id in wrangler.jsonc if it doesn't match: $DB_ID"
+              fi
+            else
+              echo "❌ Failed to create database"
+              exit 1
             fi
           fi
         env:
