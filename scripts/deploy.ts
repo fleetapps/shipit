@@ -1551,7 +1551,37 @@ class CloudflareDeploymentManager {
 	}
 
 	/**
+	 * Comments out containers in wrangler.jsonc (for fallback deployment)
+	 */
+	private commentOutContainers(): void {
+		const wranglerPath = join(PROJECT_ROOT, 'wrangler.jsonc');
+		let content = readFileSync(wranglerPath, 'utf-8');
+
+		// Check if containers are already commented out
+		if (content.includes('// "containers"')) {
+			console.log('ℹ️  Containers already commented out');
+			return;
+		}
+
+		// Comment out the containers section
+		content = content.replace(
+			/("containers":\s*\[[\s\S]*?\])/,
+			(match) => {
+				// Add // before each line
+				return match
+					.split('\n')
+					.map((line) => (line.trim() ? '\t// ' + line.trim() : line))
+					.join('\n');
+			},
+		);
+
+		writeFileSync(wranglerPath, content, 'utf-8');
+		console.log('✅ Successfully commented out containers in wrangler.jsonc');
+	}
+
+	/**
 	 * Deploys the project using Wrangler
+	 * If container push fails, will retry without containers
 	 */
 	private async wranglerDeploy(): Promise<void> {
 		console.log('🚀 Deploying to Cloudflare Workers...');
@@ -1564,10 +1594,51 @@ class CloudflareDeploymentManager {
 
 			console.log('✅ Wrangler deployment completed');
 		} catch (error) {
-			throw new DeploymentError(
-				'Failed to deploy with Wrangler',
-				error instanceof Error ? error : new Error(String(error)),
-			);
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			const errorOutput = error instanceof Error ? error.toString() : String(error);
+
+			// Check if it's a container-related authorization error
+			if (
+				errorMessage.includes('Unauthorized') ||
+				errorOutput.includes('Unauthorized') ||
+				errorMessage.includes('container') ||
+				errorOutput.includes('container')
+			) {
+				console.log('\n⚠️  Container deployment failed (likely authentication issue)');
+				console.log('🔄 Attempting deployment without containers...');
+				console.log('📝 Note: Sandbox feature will be disabled without containers');
+				console.log('   - AI code generation will still work');
+				console.log('   - Preview/running generated apps will not work');
+				console.log('   - You can enable containers later by fixing API token permissions\n');
+
+				// Comment out containers and retry
+				this.commentOutContainers();
+
+				try {
+					execSync('wrangler deploy', {
+						stdio: 'inherit',
+						cwd: PROJECT_ROOT,
+					});
+
+					console.log('✅ Wrangler deployment completed (without containers)');
+					console.log('\n⚠️  IMPORTANT: Containers are disabled');
+					console.log('   To enable containers later:');
+					console.log('   1. Ensure API token has "Account → Containers → Edit" permission');
+					console.log('   2. Uncomment containers section in wrangler.jsonc');
+					console.log('   3. Redeploy\n');
+				} catch (retryError) {
+					throw new DeploymentError(
+						'Failed to deploy with Wrangler (even without containers)',
+						retryError instanceof Error ? retryError : new Error(String(retryError)),
+					);
+				}
+			} else {
+				// Not a container error, throw as normal
+				throw new DeploymentError(
+					'Failed to deploy with Wrangler',
+					error instanceof Error ? error : new Error(String(error)),
+				);
+			}
 		}
 	}
 
