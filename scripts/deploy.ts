@@ -1702,13 +1702,17 @@ class CloudflareDeploymentManager {
 			});
 
 			// Check which vars in wrangler.jsonc conflict with secrets
+			// EXCEPTION: CUSTOM_DOMAIN and CUSTOM_PREVIEW_DOMAIN should stay as vars (not sensitive)
+			const varsThatShouldStayAsVars = new Set(['CUSTOM_DOMAIN', 'CUSTOM_PREVIEW_DOMAIN']);
 			const conflictingVars: Record<string, string> = {};
 			const originalVars = { ...(this.config.vars || {}) };
 
 			Object.keys(originalVars).forEach(varName => {
-				if (secretVarNames.has(varName)) {
+				if (secretVarNames.has(varName) && !varsThatShouldStayAsVars.has(varName)) {
 					conflictingVars[varName] = originalVars[varName] || '';
 					console.log(`🔄 Found conflict: ${varName} (will be moved from var to secret)`);
+				} else if (secretVarNames.has(varName) && varsThatShouldStayAsVars.has(varName)) {
+					console.log(`ℹ️  ${varName} is in .prod.vars but will remain as var (not sensitive)`);
 				}
 			});
 
