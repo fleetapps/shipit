@@ -136,13 +136,21 @@ const worker = {
 		}
 
 		// --- Domain-based Routing ---
+		
+		// Normalize hostname (remove trailing dots, convert to lowercase)
+		const normalizedHostname = hostname.toLowerCase().replace(/\.$/, '');
+		const normalizedCustomDomain = env.CUSTOM_DOMAIN?.toLowerCase().replace(/\.$/, '') || '';
+		const normalizedPreviewDomain = previewDomain.toLowerCase().replace(/\.$/, '');
+
+		// Debug logging for domain matching
+		logger.info(`Domain matching: hostname="${normalizedHostname}", CUSTOM_DOMAIN="${normalizedCustomDomain}", previewDomain="${normalizedPreviewDomain}"`);
 
 		// Normalize hostnames for both local development (localhost) and production.
 		const isMainDomainRequest =
-			hostname === env.CUSTOM_DOMAIN || hostname === 'localhost';
+			normalizedHostname === normalizedCustomDomain || normalizedHostname === 'localhost';
 		const isSubdomainRequest =
-			hostname.endsWith(`.${previewDomain}`) ||
-			(hostname.endsWith('.localhost') && hostname !== 'localhost');
+			normalizedHostname.endsWith(`.${normalizedPreviewDomain}`) ||
+			(normalizedHostname.endsWith('.localhost') && normalizedHostname !== 'localhost');
 
 		// Route 1: Main Platform Request (e.g., build.cloudflare.dev or localhost)
 		if (isMainDomainRequest) {
@@ -181,6 +189,16 @@ const worker = {
 		if (isSubdomainRequest) {
 			return handleUserAppRequest(request, env);
 		}
+
+		// Debug: Log why request didn't match
+		logger.warn(`Request did not match any route pattern`, {
+			hostname: normalizedHostname,
+			customDomain: normalizedCustomDomain,
+			previewDomain: normalizedPreviewDomain,
+			isMainDomainRequest,
+			isSubdomainRequest,
+			pathname
+		});
 
 		return new Response('Not Found', { status: 404 });
 	},
