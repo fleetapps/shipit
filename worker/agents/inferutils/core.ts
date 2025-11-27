@@ -618,7 +618,18 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 throw new AbortError('**User cancelled inference**', toolCallContext);
             }
             
-            console.error(`Failed to get inference response from OpenAI: ${error}`);
+            // Enhanced error logging for debugging
+            console.error(`Failed to get inference response from ${modelName}:`, error);
+            if (error instanceof Error) {
+                console.error(`Error name: ${error.name}, message: ${error.message}`);
+                if ('status' in error) {
+                    console.error(`HTTP status: ${(error as any).status}`);
+                }
+                if ('response' in error) {
+                    console.error(`Error response: ${JSON.stringify((error as any).response)}`);
+                }
+            }
+            
             if ((error instanceof Error && error.message.includes('429')) || (typeof error === 'string' && error.includes('429'))) {
                 throw new RateLimitExceededError('Rate limit exceeded in LLM calls, Please try again later', RateLimitType.LLM_CALLS);
             }
