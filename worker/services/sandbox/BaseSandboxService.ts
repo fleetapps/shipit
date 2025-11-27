@@ -84,6 +84,11 @@ export abstract class BaseSandboxService {
      */
     static async listTemplates(): Promise<TemplateListResponse> {
         try {
+            // Check if R2 bucket is configured
+            if (!env.TEMPLATES_BUCKET) {
+                throw new Error(`TEMPLATES_BUCKET R2 binding is not configured. Please enable R2 in wrangler.jsonc or use GitHub repository for templates.`);
+            }
+            
             const response = await env.TEMPLATES_BUCKET.get('template_catalog.json');
             if (response === null) {
                 throw new Error(`Failed to fetch template catalog: Template catalog not found`);
