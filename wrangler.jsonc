@@ -101,13 +101,14 @@
             }
 		]
 	},
-    "r2_buckets": [
-      {
-        "binding": "TEMPLATES_BUCKET",
-        "bucket_name": "vibesdk-templates",
-        "remote": true
-      }
-    ],
+    // R2 bucket binding commented out - enable R2 in Cloudflare Dashboard first
+    // "r2_buckets": [
+    //   {
+    //     "binding": "TEMPLATES_BUCKET",
+    //     "bucket_name": "vibesdk-templates",
+    //     "remote": true
+    //   }
+    // ],
     "kv_namespaces": [
         {
             "binding": "VibecoderStore",
