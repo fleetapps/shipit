@@ -329,7 +329,7 @@ function fixImportStatement(
 ): t.File {
     
     traverseAST(ast, {
-        ImportDeclaration(path) {
+        ImportDeclaration(path: any) {
             if (t.isStringLiteral(path.node.source) && path.node.source.value === importInfo.moduleSpecifier) {
                 
                 switch (mismatchAnalysis.type) {
@@ -337,7 +337,7 @@ function fixImportStatement(
                         // Convert named import to default import
                         if (mismatchAnalysis.targetName) {
                             // Find the original specifier to preserve local alias if any
-                            const orig = path.node.specifiers.find(s => 
+                            const orig = path.node.specifiers.find((s: any) => 
                                 t.isImportSpecifier(s) && 
                                 t.isIdentifier(s.imported) && 
                                 s.imported.name === mismatchAnalysis.targetName
@@ -372,7 +372,7 @@ function fixImportStatement(
                             const defaultConversions = mismatchAnalysis.additionalData.defaultConversions || [];
                             if (defaultConversions.length > 0) {
                                 const firstDefault = defaultConversions[0];
-                                const defaultSpec = specifiers.find(s => 
+                                const defaultSpec = specifiers.find((s: any) => 
                                     t.isImportSpecifier(s) && 
                                     t.isIdentifier(s.imported) && 
                                     s.imported.name === firstDefault
@@ -384,7 +384,7 @@ function fixImportStatement(
                             // Keep valid named imports
                             if (mismatchAnalysis.sourceNames) {
                                 for (const validName of mismatchAnalysis.sourceNames) {
-                                    const orig = specifiers.find(s => 
+                                    const orig = specifiers.find((s: any) => 
                                         t.isImportSpecifier(s) && 
                                         t.isIdentifier(s.imported) && 
                                         s.imported.name === validName
@@ -400,7 +400,7 @@ function fixImportStatement(
                             const typoCorrections = mismatchAnalysis.additionalData.typoCorrections || [];
                             for (const correction of typoCorrections) {
                                 if (correction) {
-                                    const orig = specifiers.find(s => 
+                                    const orig = specifiers.find((s: any) => 
                                         t.isImportSpecifier(s) && 
                                         t.isIdentifier(s.imported) && 
                                         s.imported.name === correction.invalid
@@ -419,7 +419,7 @@ function fixImportStatement(
                             const specifiers = path.node.specifiers;
 
                             // Add default import for the converted name
-                            const invalidSpec = specifiers.find(s => 
+                            const invalidSpec = specifiers.find((s: any) => 
                                 t.isImportSpecifier(s) && 
                                 t.isIdentifier(s.imported) && 
                                 s.imported.name === mismatchAnalysis.targetName
@@ -429,7 +429,7 @@ function fixImportStatement(
 
                             // Keep valid named imports
                             for (const validName of mismatchAnalysis.sourceNames) {
-                                const orig = specifiers.find(s => 
+                                const orig = specifiers.find((s: any) => 
                                     t.isImportSpecifier(s) && 
                                     t.isIdentifier(s.imported) && 
                                     s.imported.name === validName

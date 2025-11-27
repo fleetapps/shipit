@@ -226,9 +226,9 @@ function fixNamespaceImportMismatch(
     const changes: string[] = [];
     
     traverseAST(ast, {
-        ImportDeclaration(path) {
+        ImportDeclaration(path: any) {
             if (t.isStringLiteral(path.node.source) && path.node.source.value === namespaceImport.moduleSpecifier) {
-                const hasNamespace = path.node.specifiers.some(s => t.isImportNamespaceSpecifier(s));
+                const hasNamespace = path.node.specifiers.some((s: any) => t.isImportNamespaceSpecifier(s));
                 
                 if (hasNamespace) {
                     // Determine what to convert to

@@ -55,7 +55,7 @@ export function findImportAtLocation(ast: t.File, line: number): ImportInfo | nu
     // If no static import found, check for dynamic imports
     if (!foundImport) {
         traverseAST(ast, {
-            CallExpression(path) {
+            CallExpression(path: any) {
                 // Check for dynamic import() calls
                 if (t.isImport(path.node.callee)) {
                     const arg = path.node.arguments[0];
