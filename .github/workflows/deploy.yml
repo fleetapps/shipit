@@ -64,15 +64,49 @@ jobs:
           fi
           
           echo ""
-          echo "📋 Required API Token Permissions for Containers:"
-          echo "   ✅ Account → Containers → Edit (CRITICAL)"
-          echo "   ✅ Account → Account Settings → Read (REQUIRED for registry)"
+          echo "🔍 Testing container registry API access (the endpoint that's failing)..."
+          CONTAINER_TEST=$(curl -s -X GET "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/containers/me" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json")
+          
+          echo "Container API response:"
+          echo "$CONTAINER_TEST" | jq '.' || echo "$CONTAINER_TEST"
+          
+          if echo "$CONTAINER_TEST" | grep -q '"success":true'; then
+            echo "✅ Container registry API access verified - deployment should work!"
+          elif echo "$CONTAINER_TEST" | grep -q '"code":10000'; then
+            echo ""
+            echo "❌ Container registry API returned authentication error (401 Unauthorized)"
+            echo "This is the EXACT error causing deployment to fail."
+            echo ""
+            echo "🔧 SOLUTION: Your API token is missing required permissions."
+            echo ""
+            echo "📋 REQUIRED Permissions (check in Cloudflare Dashboard):"
+            echo "   1. Account → Containers → Edit (MUST HAVE)"
+            echo "   2. Account → Account Settings → Read (MUST HAVE - for registry auth)"
+            echo ""
+            echo "📝 Steps to fix:"
+            echo "   1. Go to: https://dash.cloudflare.com/profile/api-tokens"
+            echo "   2. Find your API token"
+            echo "   3. Click 'Edit' and ensure BOTH permissions above are checked"
+            echo "   4. Save the token"
+            echo "   5. Wait 1-2 minutes for permissions to propagate"
+            echo "   6. Update CLOUDFLARE_API_TOKEN in GitHub Secrets with the SAME token"
+            echo "   7. Re-run this workflow"
+            echo ""
+            echo "⚠️  Note: Just adding permissions isn't enough - you must update the GitHub Secret"
+            echo "   with the token that has the new permissions."
+            exit 1
+          else
+            echo "⚠️  Unexpected response from container API (may be OK if containers aren't needed)"
+          fi
+          
+          echo ""
+          echo "📋 All Required API Token Permissions:"
           echo "   ✅ Account → Workers Scripts → Edit"
           echo "   ✅ Account → D1 → Edit"
-          echo ""
-          echo "⚠️  If you're getting 'Unauthorized' errors, ensure your token has:"
-          echo "   - Account Settings: Read permission (needed for container registry)"
-          echo "   - Containers: Edit permission"
+          echo "   ✅ Account → Containers → Edit (for containers)"
+          echo "   ✅ Account → Account Settings → Read (for container registry)"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
