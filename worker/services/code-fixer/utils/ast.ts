@@ -78,7 +78,7 @@ export function parseCode(code: string, options?: ParseOptions): t.File {
         logger.warn(`TypeScript parsing failed, falling back to JavaScript parsing: ${error instanceof Error ? error.message : 'Unknown error'}`);
         // Fallback to JavaScript parsing - match old implementation behavior
         const jsOptions = { ...parseOptions };
-        jsOptions.plugins = jsOptions.plugins?.filter(p => p !== 'typescript');
+        jsOptions.plugins = jsOptions.plugins?.filter((p: string) => p !== 'typescript');
         // Don't wrap in try-catch - let it throw the original Babel error if it fails
         // This matches the old implementation's behavior
         const ast = parse(code, jsOptions);

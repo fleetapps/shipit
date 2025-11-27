@@ -9,7 +9,9 @@
 		"rootDir": ".",
 		"noEmit": false,
 		"emitDeclarationOnly": false,
-		"allowImportingTsExtensions": false
+		"allowImportingTsExtensions": false,
+		"skipLibCheck": true,
+		"noImplicitAny": false
 	},
 	"include": ["./worker-configuration.d.ts", "./shared", "./worker", "./worker/types"]
 }

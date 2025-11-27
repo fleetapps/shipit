@@ -35,6 +35,10 @@
 	},
 	"dependencies": {
 		"@ashishkumar472/cf-git": "1.0.5",
+		"@babel/generator": "^7.28.5",
+		"@babel/parser": "^7.28.5",
+		"@babel/traverse": "^7.28.5",
+		"@babel/types": "^7.28.5",
 		"@cloudflare/containers": "^0.0.28",
 		"@cloudflare/sandbox": "0.4.14",
 		"@modelcontextprotocol/sdk": "^1.23.0",

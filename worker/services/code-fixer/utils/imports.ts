@@ -28,10 +28,10 @@ export function findImportAtLocation(ast: t.File, line: number): ImportInfo | nu
     for (const node of body) {
         if (t.isImportDeclaration(node)) {
             const moduleSpecifier = t.isStringLiteral(node.source) ? node.source.value : '';
-            const defaultImport = node.specifiers.find(s => t.isImportDefaultSpecifier(s))?.local.name;
+            const defaultImport = node.specifiers.find((s: t.ImportSpecifier | t.ImportDefaultSpecifier | t.ImportNamespaceSpecifier) => t.isImportDefaultSpecifier(s))?.local.name;
             const namedImports = node.specifiers
-                .filter(s => t.isImportSpecifier(s))
-                .map(s => (t.isImportSpecifier(s) && t.isIdentifier(s.imported)) ? s.imported.name : '')
+                .filter((s: t.ImportSpecifier | t.ImportDefaultSpecifier | t.ImportNamespaceSpecifier) => t.isImportSpecifier(s))
+                .map((s: t.ImportSpecifier | t.ImportDefaultSpecifier | t.ImportNamespaceSpecifier) => (t.isImportSpecifier(s) && t.isIdentifier(s.imported)) ? s.imported.name : '')
                 .filter(Boolean);
 
             const startLine = node.loc?.start.line ?? 0;
@@ -79,7 +79,7 @@ export function findImportAtLocation(ast: t.File, line: number): ImportInfo | nu
             },
             
             // Handle await import() patterns
-            AwaitExpression(path) {
+            AwaitExpression(path: any) {
                 if (t.isCallExpression(path.node.argument) && t.isImport(path.node.argument.callee)) {
                     const arg = path.node.argument.arguments[0];
                     if (t.isStringLiteral(arg)) {
@@ -101,7 +101,7 @@ export function findImportAtLocation(ast: t.File, line: number): ImportInfo | nu
             },
             
             // Handle const module = await import() patterns
-            VariableDeclarator(path) {
+            VariableDeclarator(path: any) {
                 if (t.isAwaitExpression(path.node.init) && 
                     t.isCallExpression(path.node.init.argument) && 
                     t.isImport(path.node.init.argument.callee)) {
@@ -143,12 +143,12 @@ export function getAllImports(ast: t.File): ImportInfo[] {
     const imports: ImportInfo[] = [];
     
     traverseAST(ast, {
-        ImportDeclaration(path) {
+        ImportDeclaration(path: any) {
             const moduleSpecifier = t.isStringLiteral(path.node.source) ? path.node.source.value : '';
-            const defaultImport = path.node.specifiers.find(s => t.isImportDefaultSpecifier(s))?.local.name;
+            const defaultImport = path.node.specifiers.find((s: t.ImportSpecifier | t.ImportDefaultSpecifier | t.ImportNamespaceSpecifier) => t.isImportDefaultSpecifier(s))?.local.name;
             const namedImports = path.node.specifiers
-                .filter(s => t.isImportSpecifier(s))
-                .map(s => t.isImportSpecifier(s) && t.isIdentifier(s.imported) ? s.imported.name : '')
+                .filter((s: t.ImportSpecifier | t.ImportDefaultSpecifier | t.ImportNamespaceSpecifier) => t.isImportSpecifier(s))
+                .map((s: t.ImportSpecifier | t.ImportDefaultSpecifier | t.ImportNamespaceSpecifier) => t.isImportSpecifier(s) && t.isIdentifier(s.imported) ? s.imported.name : '')
                 .filter(Boolean);
             
             imports.push({
@@ -179,7 +179,7 @@ export function getFileExports(ast: t.File): ExportInfo {
     const reExports: string[] = [];
 
     traverseAST(ast, {
-        ExportNamedDeclaration(path) {
+        ExportNamedDeclaration(path: any) {
             // Handle re-exports (export * from './module' or export { x } from './module')
             if (path.node.source) {
                 // This is a re-export
@@ -223,7 +223,7 @@ export function getFileExports(ast: t.File): ExportInfo {
             }
         },
         
-        ExportDefaultDeclaration(path) {
+        ExportDefaultDeclaration(path: any) {
             // Handle default exports
             if (t.isIdentifier(path.node.declaration)) {
                 defaultExport = path.node.declaration.name;
@@ -289,18 +289,18 @@ export function analyzeNameUsage(ast: t.File, name: string): ImportUsage | null 
 
     traverseAST(ast, {
         // Check for JSX component usage: <Name prop="value" />
-        JSXElement: (path) => {
+        JSXElement: (path: any) => {
             if (t.isJSXIdentifier(path.node.openingElement.name) && 
                 path.node.openingElement.name.name === name) {
                 
                 // Extract prop names from JSX attributes
                 const propNames = path.node.openingElement.attributes
-                    .filter(attr => t.isJSXAttribute(attr) && t.isJSXIdentifier(attr.name))
-                    .map(attr => {
+                    .filter((attr: any) => t.isJSXAttribute(attr) && t.isJSXIdentifier(attr.name))
+                    .map((attr: any) => {
                         const jsxAttr = attr as t.JSXAttribute;
                         return t.isJSXIdentifier(jsxAttr.name) ? jsxAttr.name.name : '';
                     })
-                    .filter(name => name !== '');
+                    .filter((name: string) => name !== '');
                 
                 properties.push(...propNames);
                 usage = {
@@ -312,10 +312,10 @@ export function analyzeNameUsage(ast: t.File, name: string): ImportUsage | null 
         },
 
         // Check for function call usage: Name(arg1, arg2)
-        CallExpression: (path) => {
+        CallExpression: (path: any) => {
             if (t.isIdentifier(path.node.callee) && path.node.callee.name === name) {
                 // Analyze parameters
-                const argTypes = path.node.arguments.map(arg => {
+                const argTypes = path.node.arguments.map((arg: any) => {
                     if (t.isStringLiteral(arg)) return 'string';
                     if (t.isNumericLiteral(arg)) return 'number';
                     if (t.isBooleanLiteral(arg)) return 'boolean';
@@ -333,7 +333,7 @@ export function analyzeNameUsage(ast: t.File, name: string): ImportUsage | null 
         },
 
         // Check for object property access: Name.property
-        MemberExpression: (path) => {
+        MemberExpression: (path: any) => {
             if (t.isIdentifier(path.node.object) && path.node.object.name === name) {
                 if (t.isIdentifier(path.node.property)) {
                     properties.push(path.node.property.name);
@@ -348,7 +348,7 @@ export function analyzeNameUsage(ast: t.File, name: string): ImportUsage | null 
         },
 
         // Check for simple variable reference: const x = Name;
-        Identifier: (path) => {
+        Identifier: (path: any) => {
             if (path.node.name === name && 
                 !path.isBindingIdentifier() && 
                 !usage) { // Only set as fallback if no specific usage found
@@ -460,11 +460,11 @@ export function fixImportExportMismatch(
     const changes: string[] = [];
 
     traverseAST(ast, {
-        ImportDeclaration(path) {
+        ImportDeclaration(path: any) {
             if (t.isStringLiteral(path.node.source) && path.node.source.value === moduleSpecifier) {
-                const defaultImport = path.node.specifiers.find(s => t.isImportDefaultSpecifier(s));
-                const namedImports = path.node.specifiers.filter(s => t.isImportSpecifier(s));
-                const namespaceImport = path.node.specifiers.find(s => t.isImportNamespaceSpecifier(s));
+                const defaultImport = path.node.specifiers.find((s: t.ImportSpecifier | t.ImportDefaultSpecifier | t.ImportNamespaceSpecifier) => t.isImportDefaultSpecifier(s));
+                const namedImports = path.node.specifiers.filter((s: t.ImportSpecifier | t.ImportDefaultSpecifier | t.ImportNamespaceSpecifier) => t.isImportSpecifier(s));
+                const namespaceImport = path.node.specifiers.find((s: t.ImportSpecifier | t.ImportDefaultSpecifier | t.ImportNamespaceSpecifier) => t.isImportNamespaceSpecifier(s));
                 
                 // Build new specifiers list to preserve valid imports
                 const newSpecifiers: Array<t.ImportSpecifier | t.ImportDefaultSpecifier | t.ImportNamespaceSpecifier> = [];
