@@ -34,8 +34,12 @@ export class AuthController extends BaseController {
      * Check if OAuth providers are configured
      */
     static hasOAuthProviders(env: Env): boolean {
-        return (!!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET) || 
-               (!!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET);
+        // Only consider OAuth as configured if credentials are non-empty
+        const hasGoogle = !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_ID.trim() !== '' && 
+                             env.GOOGLE_CLIENT_SECRET && env.GOOGLE_CLIENT_SECRET.trim() !== '');
+        const hasGitHub = !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_ID.trim() !== '' && 
+                            env.GITHUB_CLIENT_SECRET && env.GITHUB_CLIENT_SECRET.trim() !== '');
+        return hasGoogle || hasGitHub;
     }
     
     /**
@@ -644,9 +648,12 @@ export class AuthController extends BaseController {
         _context: RouteContext
     ): Promise<Response> {
         try {
+            // Only consider OAuth providers as configured if they have non-empty values
             const providers = {
-                google: !!env.GOOGLE_CLIENT_ID && !!env.GOOGLE_CLIENT_SECRET,
-                github: !!env.GITHUB_CLIENT_ID && !!env.GITHUB_CLIENT_SECRET,
+                google: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_ID.trim() !== '' && 
+                          env.GOOGLE_CLIENT_SECRET && env.GOOGLE_CLIENT_SECRET.trim() !== ''),
+                github: !!(env.GITHUB_CLIENT_ID && env.GITHUB_CLIENT_ID.trim() !== '' && 
+                          env.GITHUB_CLIENT_SECRET && env.GITHUB_CLIENT_SECRET.trim() !== ''),
                 email: true
             };
             

@@ -167,13 +167,15 @@ jobs:
           OPENROUTER_API_KEY="${{ secrets.OPENROUTER_API_KEY }}"
           GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}"
           
-          # OAuth (optional)
-          GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID }}"
-          GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET }}"
-          GITHUB_CLIENT_ID="${{ secrets.GITHUB_CLIENT_ID }}"
-          GITHUB_CLIENT_SECRET="${{ secrets.GITHUB_CLIENT_SECRET }}"
-          GITHUB_EXPORTER_CLIENT_ID="${{ secrets.GITHUB_EXPORTER_CLIENT_ID }}"
-          GITHUB_EXPORTER_CLIENT_SECRET="${{ secrets.GITHUB_EXPORTER_CLIENT_SECRET }}"
+          # OAuth (optional - only set if actually configured)
+          # Note: If OAuth is configured, email/password registration will be disabled
+          # Leave these empty/not set in GitHub Secrets to enable email/password auth
+          GOOGLE_CLIENT_ID="${{ secrets.GOOGLE_CLIENT_ID || '' }}"
+          GOOGLE_CLIENT_SECRET="${{ secrets.GOOGLE_CLIENT_SECRET || '' }}"
+          GITHUB_CLIENT_ID="${{ secrets.GITHUB_CLIENT_ID || '' }}"
+          GITHUB_CLIENT_SECRET="${{ secrets.GITHUB_CLIENT_SECRET || '' }}"
+          GITHUB_EXPORTER_CLIENT_ID="${{ secrets.GITHUB_EXPORTER_CLIENT_ID || '' }}"
+          GITHUB_EXPORTER_CLIENT_SECRET="${{ secrets.GITHUB_EXPORTER_CLIENT_SECRET || '' }}"
           
           # Security
           JWT_SECRET="${{ secrets.JWT_SECRET }}"
