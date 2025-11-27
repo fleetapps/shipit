@@ -179,13 +179,23 @@ jobs:
           JWT_SECRET="${{ secrets.JWT_SECRET }}"
           WEBHOOK_SECRET="${{ secrets.WEBHOOK_SECRET }}"
           
-          # Custom Domain (optional)
+          # Custom Domain (REQUIRED - set this to your domain)
           CUSTOM_DOMAIN="${{ secrets.CUSTOM_DOMAIN }}"
+          CUSTOM_PREVIEW_DOMAIN="${{ secrets.CUSTOM_PREVIEW_DOMAIN }}"
           
           # Sandbox Configuration
           MAX_SANDBOX_INSTANCES="${{ secrets.MAX_SANDBOX_INSTANCES }}"
           SANDBOX_INSTANCE_TYPE="${{ secrets.SANDBOX_INSTANCE_TYPE }}"
           EOF
+          
+          # Verify CUSTOM_DOMAIN is set
+          if [ -z "${{ secrets.CUSTOM_DOMAIN }}" ]; then
+            echo "⚠️  WARNING: CUSTOM_DOMAIN is not set in GitHub Secrets"
+            echo "   The app will show 'Application domain is not set' error"
+            echo "   Add CUSTOM_DOMAIN secret with your domain (e.g., anything.fleet.ke)"
+          else
+            echo "✅ CUSTOM_DOMAIN is set: ${{ secrets.CUSTOM_DOMAIN }}"
+          fi
 
       - name: Authenticate Docker to Cloudflare Registry
         run: |
