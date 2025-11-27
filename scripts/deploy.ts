@@ -1105,8 +1105,10 @@ class CloudflareDeploymentManager {
                 }
 			}
 
+			// For custom_domain: true, pattern should be just the domain
+			// For regular routes, pattern should include path wildcard
 			expectedRoutes = [
-				{ pattern: customDomain, custom_domain: true },
+				{ pattern: `${customDomain}/*`, custom_domain: true },
 				wildcardRoute,
 			];
 
