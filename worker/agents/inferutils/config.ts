@@ -69,9 +69,9 @@ OR
 
 export const AGENT_CONFIG: AgentConfig = {
     templateSelection: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.CLAUDE_3_5_SONNET_LATEST, // Default: Anthropic Claude
         max_tokens: 2000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: 'groq/llama-3.1-70b-versatile', // Fallback to Groq if Claude fails
         temperature: 0.6,
     },
     blueprint: {
