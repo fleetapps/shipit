@@ -106,6 +106,13 @@ export async function getGlobalConfigurableSettings(env: Env): Promise<GlobalCon
     };
     
     try {
+        // Check if KV namespace is available
+        if (!env.VibecoderStore) {
+            logger.info('KV namespace VibecoderStore not configured, using defaults');
+            cachedConfig = defaultConfig;
+            return defaultConfig;
+        }
+        
         // Try to fetch override config from KV
         const storedConfigJson = await env.VibecoderStore.get(CONFIG_KEY);
         
@@ -143,6 +150,12 @@ export async function getUserConfigurableSettings(env: Env, userId: string): Pro
         return conf;
     }
     try {
+        // Check if KV namespace is available
+        if (!env.VibecoderStore) {
+            logger.info(`KV namespace VibecoderStore not configured for user ${userId}, using global defaults`);
+            return globalConfig;
+        }
+        
         // Try to fetch override config from KV
         const storedConfigJson = await env.VibecoderStore.get(`user_config:${userId}`);
         
