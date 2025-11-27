@@ -106,7 +106,7 @@
     "r2_buckets": [
       {
         "binding": "TEMPLATES_BUCKET",
-        "bucket_name": "vibesdk-templates",
+        "bucket_name": "shipit",
         "remote": true
       }
     ],
