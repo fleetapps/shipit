@@ -1590,21 +1590,41 @@ class CloudflareDeploymentManager {
 		const hasContainers = this.config.containers && this.config.containers.length > 0;
 
 		try {
-			execSync('wrangler deploy', {
-				stdio: 'inherit',
-				cwd: PROJECT_ROOT,
-			});
+			// Capture stderr to detect container push errors
+			let stderr = '';
+			try {
+				execSync('wrangler deploy', {
+					stdio: ['inherit', 'inherit', 'pipe'],
+					cwd: PROJECT_ROOT,
+				});
+			} catch (execError: any) {
+				stderr = execError.stderr?.toString() || '';
+				throw execError;
+			}
 
 			console.log('✅ Wrangler deployment completed');
 		} catch (error: any) {
-			// If containers are configured and deployment fails, try fallback
-			if (hasContainers) {
-				console.log('\n⚠️  Deployment failed with containers configured');
-				console.log('🔄 Attempting deployment without containers as fallback...');
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			const stderr = error.stderr?.toString() || '';
+			const combinedError = `${errorMessage} ${stderr}`.toLowerCase();
+
+			// Check if it's a container-related authorization error
+			const isContainerUnauthorized = 
+				hasContainers && 
+				(combinedError.includes('unauthorized') || 
+				 combinedError.includes('401') ||
+				 (combinedError.includes('✘') && combinedError.includes('error') && combinedError.includes('unauthorized')));
+
+			if (isContainerUnauthorized) {
+				console.log('\n⚠️  Container image push failed with "Unauthorized" error');
+				console.log('🔍 This typically means:');
+				console.log('   1. Missing "Account Settings: Read" permission (REQUIRED for registry)');
+				console.log('   2. Token not updated in GitHub Secrets');
+				console.log('   3. Token permissions not yet propagated (wait 2-3 minutes)');
+				console.log('\n🔄 Attempting deployment without containers as fallback...');
 				console.log('📝 Note: Sandbox feature will be disabled without containers');
 				console.log('   - AI code generation will still work');
-				console.log('   - Preview/running generated apps will not work');
-				console.log('   - You can enable containers later by fixing API token permissions\n');
+				console.log('   - Preview/running generated apps will not work\n');
 
 				// Comment out containers and retry
 				this.commentOutContainers();
@@ -1618,17 +1638,34 @@ class CloudflareDeploymentManager {
 					console.log('✅ Wrangler deployment completed (without containers)');
 					console.log('\n⚠️  IMPORTANT: Containers are disabled');
 					console.log('   To enable containers later:');
-					console.log('   1. Ensure API token has "Account → Containers → Edit" permission');
-					console.log('   2. Uncomment containers section in wrangler.jsonc');
-					console.log('   3. Redeploy\n');
-				} catch (retryError) {
+					console.log('   1. Add "Account → Account Settings → Read" permission to API token');
+					console.log('   2. Ensure "Account → Containers → Edit" permission is present');
+					console.log('   3. Update CLOUDFLARE_API_TOKEN in GitHub Secrets');
+					console.log('   4. Uncomment containers section in wrangler.jsonc');
+					console.log('   5. Redeploy\n');
+				} catch (retryError: any) {
+					const retryStderr = retryError.stderr?.toString() || '';
+					const retryMessage = retryError instanceof Error ? retryError.message : String(retryError);
+					
+					console.error('\n❌ Deployment failed even without containers');
+					console.error('Error details:', retryMessage);
+					if (retryStderr) {
+						console.error('Stderr:', retryStderr);
+					}
+					
 					throw new DeploymentError(
-						'Failed to deploy with Wrangler (even without containers)',
+						'Failed to deploy with Wrangler (even without containers). Check logs above for details.',
 						retryError instanceof Error ? retryError : new Error(String(retryError)),
 					);
 				}
 			} else {
-				// No containers configured, throw as normal
+				// Not a container error, show full error details
+				console.error('\n❌ Deployment failed');
+				console.error('Error:', errorMessage);
+				if (stderr) {
+					console.error('Stderr:', stderr);
+				}
+				
 				throw new DeploymentError(
 					'Failed to deploy with Wrangler',
 					error instanceof Error ? error : new Error(String(error)),
