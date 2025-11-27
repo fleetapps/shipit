@@ -245,8 +245,12 @@ async function getApiKey(provider: string, env: Env, _userId: string): Promise<s
     const envKey = `${providerKeyString}_API_KEY` as keyof Env;
     let apiKey: string = env[envKey] as string;
     
+    // Debug logging to help diagnose API key issues
+    console.log(`API key lookup: provider="${provider}", envKey="${envKey}", keyExists=${!!apiKey}, keyLength=${apiKey?.length || 0}, keyPrefix=${apiKey?.substring(0, 5) || 'N/A'}`);
+    
     // Check if apiKey is empty or undefined and is valid
     if (!isValidApiKey(apiKey)) {
+        console.warn(`API key for ${provider} is invalid or empty, falling back to CLOUDFLARE_AI_GATEWAY_TOKEN`);
         apiKey = env.CLOUDFLARE_AI_GATEWAY_TOKEN;
     }
     return apiKey;
