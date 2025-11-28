@@ -82,7 +82,11 @@ Reasoning: "Social template provides user interactions, content sharing, and com
 - ALWAYS select a template (never return null)
 - Ignore misleading template names - analyze actual features
 - Focus on functionality over naming conventions
-- Provide clear, specific reasoning for selection`
+- Provide clear, specific reasoning for selection
+
+## CRITICAL: OUTPUT FORMAT
+You MUST return your response as valid JSON only. Do NOT use markdown formatting, bullet points, or any text outside of JSON.
+The response must be a single JSON object matching the required schema. Even though the examples above use markdown for clarity, your actual response must be pure JSON.`
 
         const userPrompt = `**User Request:** "${query}"
 

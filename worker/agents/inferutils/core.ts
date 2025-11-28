@@ -457,6 +457,75 @@ export function infer<OutputSchema extends z.AnyZodObject>(
 ): Promise<InferResponseObject<OutputSchema>>;
 
 /**
+ * Parse markdown-formatted response to JSON object
+ * Handles patterns like:
+ * - **Field:** value
+ * - ## Field\nvalue
+ * - Field: value
+ */
+function parseMarkdownResponseToJson(content: string): any | null {
+    const result: any = {};
+    
+    // Remove leading/trailing whitespace
+    content = content.trim();
+    
+    // Pattern 1: **Field:** value (bold markdown)
+    const boldPattern = /\*\*([^*]+):\*\*\s*(.+?)(?=\n\*\*|$)/gs;
+    let match;
+    while ((match = boldPattern.exec(content)) !== null) {
+        const field = match[1].trim();
+        let value = match[2].trim();
+        
+        // Clean up value (remove trailing markdown formatting)
+        value = value.replace(/\*\*/g, '').replace(/\*/g, '').trim();
+        
+        // Handle special field name mappings for TemplateSelectionSchema
+        if (field.toLowerCase().includes('template') || field.toLowerCase().includes('selected')) {
+            result.selectedTemplateName = value;
+        } else if (field.toLowerCase().includes('complexity')) {
+            result.complexity = value.toLowerCase();
+        } else if (field.toLowerCase().includes('reasoning')) {
+            result.reasoning = value;
+        } else if (field.toLowerCase().includes('use case') || field.toLowerCase().includes('usecase')) {
+            result.useCase = value;
+        } else if (field.toLowerCase().includes('style')) {
+            result.styleSelection = value;
+        } else if (field.toLowerCase().includes('project') && field.toLowerCase().includes('name')) {
+            result.projectName = value;
+        }
+    }
+    
+    // Pattern 2: ## Field\nvalue (heading markdown)
+    if (Object.keys(result).length === 0) {
+        const headingPattern = /##+\s*([^\n]+)\n+([^\n#]+)/g;
+        while ((match = headingPattern.exec(content)) !== null) {
+            const field = match[1].trim();
+            let value = match[2].trim();
+            
+            // Clean up value
+            value = value.replace(/```/g, '').trim();
+            
+            if (field.toLowerCase().includes('template') || field.toLowerCase().includes('selected')) {
+                result.selectedTemplateName = value;
+            } else if (field.toLowerCase().includes('complexity')) {
+                result.complexity = value.toLowerCase();
+            } else if (field.toLowerCase().includes('reasoning')) {
+                result.reasoning = value;
+            } else if (field.toLowerCase().includes('use case') || field.toLowerCase().includes('usecase')) {
+                result.useCase = value;
+            } else if (field.toLowerCase().includes('style')) {
+                result.styleSelection = value;
+            } else if (field.toLowerCase().includes('project') && field.toLowerCase().includes('name')) {
+                result.projectName = value;
+            }
+        }
+    }
+    
+    // If we found any fields, return the result
+    return Object.keys(result).length > 0 ? result : null;
+}
+
+/**
  * Perform an inference using OpenAI's structured output with JSON schema
  * This uses the response_format.schema parameter to ensure the model returns
  * a response that matches the provided schema.
@@ -591,6 +660,9 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         }
 
         console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, baseURL: ${baseURL}`);
+        if (schemaObj && schemaObj.response_format) {
+            console.log(`Using response_format for structured output, schemaName: ${schemaName}`);
+        }
 
         const toolsOpts = tools ? { tools, tool_choice: 'auto' as const } : {};
         // For Claude models, reasoning_effort should only be in extra_body.thinking, not as a top-level parameter
@@ -892,8 +964,21 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                             throw jsonError; // Re-throw original JSON parse error
                         }
                     } else {
-                        console.error('No JSON found in response, raw content:', content.substring(0, 500));
-                        throw jsonError; // Re-throw original JSON parse error
+                        // Last resort: try to parse markdown-formatted response and convert to JSON
+                        // This handles cases where the model returns markdown despite structured output being requested
+                        try {
+                            const markdownJson = parseMarkdownResponseToJson(content);
+                            if (markdownJson) {
+                                parsedContent = markdownJson;
+                            } else {
+                                throw new Error('Could not parse markdown response');
+                            }
+                            console.log('Successfully parsed markdown response to JSON');
+                        } catch (markdownError) {
+                            console.error('Failed to parse markdown response:', markdownError);
+                            console.error('No JSON found in response, raw content:', content.substring(0, 500));
+                            throw jsonError; // Re-throw original JSON parse error
+                        }
                     }
                 }
             }
