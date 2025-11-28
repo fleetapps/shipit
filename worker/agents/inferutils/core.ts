@@ -1072,19 +1072,28 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                     }
                 }
                 
-                // Set default values for nullable fields that are missing
-                // Zod requires nullable fields to be present (can be null, but not undefined)
+                // Replace null/undefined values with sensible defaults - we want NO null fields
+                // This ensures the output always has values even if the model returns null
+                
+                // Replace null useCase with "General" (safe default)
+                if (parsedContent.useCase === undefined || parsedContent.useCase === null) {
+                    parsedContent.useCase = 'General';
+                }
+                
+                // Replace null complexity with "simple" (safe default)
+                if (parsedContent.complexity === undefined || parsedContent.complexity === null) {
+                    parsedContent.complexity = 'simple';
+                }
+                
+                // Replace null styleSelection with "Minimalist Design" (safe default)
+                if (parsedContent.styleSelection === undefined || parsedContent.styleSelection === null) {
+                    parsedContent.styleSelection = 'Minimalist Design';
+                }
+                
+                // selectedTemplateName can be null per schema, but we prefer non-null
+                // If it's undefined, set to null (schema allows it)
                 if (parsedContent.selectedTemplateName === undefined) {
                     parsedContent.selectedTemplateName = null;
-                }
-                if (parsedContent.useCase === undefined) {
-                    parsedContent.useCase = null;
-                }
-                if (parsedContent.complexity === undefined) {
-                    parsedContent.complexity = null;
-                }
-                if (parsedContent.styleSelection === undefined) {
-                    parsedContent.styleSelection = null;
                 }
                 
                 // Set defaults for required fields if missing (with fallback values)

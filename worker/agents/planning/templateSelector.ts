@@ -79,14 +79,26 @@ Reasoning: "Social template provides user interactions, content sharing, and com
 - **Custom**: Design that doesn't fit any of the above categories
 
 ## RULES:
-- ALWAYS select a template (never return null)
+- ALWAYS select a template (never return null for selectedTemplateName)
 - Ignore misleading template names - analyze actual features
 - Focus on functionality over naming conventions
 - Provide clear, specific reasoning for selection
+- ALWAYS provide values for ALL fields - never use null
+- If unsure about useCase, choose "General"
+- If unsure about complexity, choose "simple"
+- If unsure about styleSelection, choose "Minimalist Design"
 
 ## CRITICAL: OUTPUT FORMAT
 You MUST return your response as valid JSON only. Do NOT use markdown formatting, bullet points, or any text outside of JSON.
-The response must be a single JSON object matching the required schema. Even though the examples above use markdown for clarity, your actual response must be pure JSON.`
+The response must be a single JSON object matching the required schema. Even though the examples above use markdown for clarity, your actual response must be pure JSON.
+
+## REQUIRED FIELDS (ALL must have non-null values):
+- selectedTemplateName: string (exact template name from list, NEVER null)
+- reasoning: string (explanation)
+- useCase: string (one of the enum values, NEVER null - use "General" if unsure)
+- complexity: string (one of: "simple", "moderate", "complex", NEVER null - use "simple" if unsure)
+- styleSelection: string (one of the enum values, NEVER null - use "Minimalist Design" if unsure)
+- projectName: string (descriptive name)`
 
         const userPrompt = `**User Request:** "${query}"
 
@@ -94,14 +106,14 @@ The response must be a single JSON object matching the required schema. Even tho
 ${templateDescriptions}
 
 **Task:** Select the most suitable template and provide ALL of the following fields in your JSON response:
-1. **selectedTemplateName** (string or null): Template name (exact match from list above)
-2. **reasoning** (string): Clear reasoning for why it fits the user's needs
-3. **useCase** (string or null): One of: "SaaS Product Website", "Dashboard", "Blog", "Portfolio", "E-Commerce", "General", "Other" - or null if not applicable
-4. **complexity** (string or null): One of: "simple", "moderate", "complex" - or null if not applicable
-5. **styleSelection** (string or null): One of: "Minimalist Design", "Brutalism", "Retro", "Illustrative", "Kid_Playful", "Custom" - or null if not applicable
-6. **projectName** (string): Descriptive project name based on the user query
+1. **selectedTemplateName** (string): Template name (exact match from list above) - REQUIRED, never null
+2. **reasoning** (string): Clear reasoning for why it fits the user's needs - REQUIRED
+3. **useCase** (string): One of: "SaaS Product Website", "Dashboard", "Blog", "Portfolio", "E-Commerce", "General", "Other" - REQUIRED, use "General" if unsure, never null
+4. **complexity** (string): One of: "simple", "moderate", "complex" - REQUIRED, use "simple" if unsure, never null
+5. **styleSelection** (string): One of: "Minimalist Design", "Brutalism", "Retro", "Illustrative", "Kid_Playful", "Custom" - REQUIRED, use "Minimalist Design" if unsure, never null
+6. **projectName** (string): Descriptive project name based on the user query - REQUIRED
 
-**IMPORTANT:** You MUST include ALL fields in your JSON response. For nullable fields (useCase, complexity, styleSelection), you can set them to null if not applicable, but they must be present in the JSON object.
+**CRITICAL:** You MUST provide actual values for ALL fields. NEVER use null. If you're unsure about a field, use the default value specified above.
 
 Analyze each template's features, frameworks, and architecture to make the best match.
 ${images && images.length > 0 ? `\n**Note:** User provided ${images.length} image(s) - consider visual requirements and UI style from the images.` : ''}
