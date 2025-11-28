@@ -983,6 +983,36 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 }
             }
 
+            // Map common field name variations to expected schema field names
+            // This handles cases where the model returns slightly different field names
+            if (parsedContent && typeof parsedContent === 'object' && !Array.isArray(parsedContent)) {
+                // Map template selection field names
+                if (parsedContent.template && !parsedContent.selectedTemplateName) {
+                    parsedContent.selectedTemplateName = parsedContent.template;
+                }
+                if (parsedContent.style && !parsedContent.styleSelection) {
+                    parsedContent.styleSelection = parsedContent.style;
+                }
+                // Normalize enum values
+                if (parsedContent.styleSelection) {
+                    const style = String(parsedContent.styleSelection);
+                    // Map common variations to enum values
+                    if (style.toLowerCase().includes('minimalist')) {
+                        parsedContent.styleSelection = 'Minimalist Design';
+                    } else if (style.toLowerCase().includes('brutal')) {
+                        parsedContent.styleSelection = 'Brutalism';
+                    } else if (style.toLowerCase().includes('retro')) {
+                        parsedContent.styleSelection = 'Retro';
+                    } else if (style.toLowerCase().includes('illustrat')) {
+                        parsedContent.styleSelection = 'Illustrative';
+                    } else if (style.toLowerCase().includes('playful') || style.toLowerCase().includes('kid')) {
+                        parsedContent.styleSelection = 'Kid_Playful';
+                    } else if (style.toLowerCase().includes('custom')) {
+                        parsedContent.styleSelection = 'Custom';
+                    }
+                }
+            }
+
             // Use Zod's safeParse for proper error handling
             const result = schema.safeParse(parsedContent);
 
