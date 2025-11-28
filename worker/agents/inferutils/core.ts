@@ -1011,6 +1011,18 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         parsedContent.styleSelection = 'Custom';
                     }
                 }
+                
+                // Set default values for nullable fields that are missing
+                // Zod requires nullable fields to be present (can be null, but not undefined)
+                if (parsedContent.useCase === undefined) {
+                    parsedContent.useCase = null;
+                }
+                if (parsedContent.complexity === undefined) {
+                    parsedContent.complexity = null;
+                }
+                if (parsedContent.styleSelection === undefined) {
+                    parsedContent.styleSelection = null;
+                }
             }
 
             // Use Zod's safeParse for proper error handling

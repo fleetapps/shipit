@@ -93,11 +93,15 @@ The response must be a single JSON object matching the required schema. Even tho
 **Available Templates:**
 ${templateDescriptions}
 
-**Task:** Select the most suitable template and provide:
-1. Template name (exact match from list)
-2. Clear reasoning for why it fits the user's needs
-3. Appropriate style for the project type. Try to come up with unique styles that might look nice and unique. Be creative about your choices. But don't pick brutalist all the time.
-4. Descriptive project name
+**Task:** Select the most suitable template and provide ALL of the following fields in your JSON response:
+1. **selectedTemplateName** (string or null): Template name (exact match from list above)
+2. **reasoning** (string): Clear reasoning for why it fits the user's needs
+3. **useCase** (string or null): One of: "SaaS Product Website", "Dashboard", "Blog", "Portfolio", "E-Commerce", "General", "Other" - or null if not applicable
+4. **complexity** (string or null): One of: "simple", "moderate", "complex" - or null if not applicable
+5. **styleSelection** (string or null): One of: "Minimalist Design", "Brutalism", "Retro", "Illustrative", "Kid_Playful", "Custom" - or null if not applicable
+6. **projectName** (string): Descriptive project name based on the user query
+
+**IMPORTANT:** You MUST include ALL fields in your JSON response. For nullable fields (useCase, complexity, styleSelection), you can set them to null if not applicable, but they must be present in the JSON object.
 
 Analyze each template's features, frameworks, and architecture to make the best match.
 ${images && images.length > 0 ? `\n**Note:** User provided ${images.length} image(s) - consider visual requirements and UI style from the images.` : ''}
