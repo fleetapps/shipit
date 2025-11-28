@@ -888,6 +888,21 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             // Clear abort controller after generation completes
             this.clearAbortController();
             
+            // Ensure preview is deployed if we have files but no preview URL
+            if (this.state.generatedFilesMap && Object.keys(this.state.generatedFilesMap).length > 0) {
+                if (!this.previewUrlCache && !this.state.sandboxInstanceId) {
+                    this.logger().info('Code generation completed but no preview exists, deploying preview...');
+                    try {
+                        const previewResult = await this.deployToSandbox([], false, 'Initial preview deployment', true);
+                        if (previewResult?.previewURL) {
+                            this.previewUrlCache = previewResult.previewURL;
+                        }
+                    } catch (error) {
+                        this.logger().error('Failed to deploy preview after generation:', error);
+                    }
+                }
+            }
+            
             const appService = new AppService(this.env);
             await appService.updateApp(
                 this.getAgentId(),
@@ -899,6 +914,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
                 message: "Code generation and review process completed.",
                 instanceId: this.state.sandboxInstanceId,
+                previewURL: this.previewUrlCache || undefined,
             });
         }
     }
@@ -1809,6 +1825,10 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                     this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, data);
                 },
                 onCompleted: (data) => {
+                    // Store preview URL in cache when deployment completes
+                    if (data.previewURL) {
+                        this.previewUrlCache = data.previewURL;
+                    }
                     this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, data);
                 },
                 onError: (data) => {
@@ -1820,6 +1840,11 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 }
             }
         );
+
+        // Store preview URL in cache if deployment succeeded
+        if (result?.previewURL) {
+            this.previewUrlCache = result.previewURL;
+        }
 
         return result;
     }
