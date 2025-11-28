@@ -993,27 +993,90 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 if (parsedContent.style && !parsedContent.styleSelection) {
                     parsedContent.styleSelection = parsedContent.style;
                 }
-                // Normalize enum values
-                if (parsedContent.styleSelection) {
+                
+                // Normalize and validate enum values
+                // styleSelection enum: ['Minimalist Design', 'Brutalism', 'Retro', 'Illustrative', 'Kid_Playful', 'Custom']
+                if (parsedContent.styleSelection !== null && parsedContent.styleSelection !== undefined) {
                     const style = String(parsedContent.styleSelection);
-                    // Map common variations to enum values
-                    if (style.toLowerCase().includes('minimalist')) {
-                        parsedContent.styleSelection = 'Minimalist Design';
-                    } else if (style.toLowerCase().includes('brutal')) {
-                        parsedContent.styleSelection = 'Brutalism';
-                    } else if (style.toLowerCase().includes('retro')) {
-                        parsedContent.styleSelection = 'Retro';
-                    } else if (style.toLowerCase().includes('illustrat')) {
-                        parsedContent.styleSelection = 'Illustrative';
-                    } else if (style.toLowerCase().includes('playful') || style.toLowerCase().includes('kid')) {
-                        parsedContent.styleSelection = 'Kid_Playful';
-                    } else if (style.toLowerCase().includes('custom')) {
-                        parsedContent.styleSelection = 'Custom';
+                    const validStyles = ['Minimalist Design', 'Brutalism', 'Retro', 'Illustrative', 'Kid_Playful', 'Custom'];
+                    const styleLower = style.toLowerCase();
+                    
+                    // Check if it's already a valid enum value
+                    if (!validStyles.includes(style)) {
+                        // Map common variations to enum values
+                        if (styleLower.includes('minimalist')) {
+                            parsedContent.styleSelection = 'Minimalist Design';
+                        } else if (styleLower.includes('brutal')) {
+                            parsedContent.styleSelection = 'Brutalism';
+                        } else if (styleLower.includes('retro')) {
+                            parsedContent.styleSelection = 'Retro';
+                        } else if (styleLower.includes('illustrat')) {
+                            parsedContent.styleSelection = 'Illustrative';
+                        } else if (styleLower.includes('playful') || styleLower.includes('kid')) {
+                            parsedContent.styleSelection = 'Kid_Playful';
+                        } else if (styleLower.includes('custom')) {
+                            parsedContent.styleSelection = 'Custom';
+                        } else {
+                            // Invalid enum value, set to null
+                            parsedContent.styleSelection = null;
+                        }
+                    }
+                }
+                
+                // useCase enum: ['SaaS Product Website', 'Dashboard', 'Blog', 'Portfolio', 'E-Commerce', 'General', 'Other']
+                if (parsedContent.useCase !== null && parsedContent.useCase !== undefined) {
+                    const useCase = String(parsedContent.useCase);
+                    const validUseCases = ['SaaS Product Website', 'Dashboard', 'Blog', 'Portfolio', 'E-Commerce', 'General', 'Other'];
+                    const useCaseLower = useCase.toLowerCase();
+                    
+                    if (!validUseCases.includes(useCase)) {
+                        // Map common variations
+                        if (useCaseLower.includes('saas') || useCaseLower.includes('product')) {
+                            parsedContent.useCase = 'SaaS Product Website';
+                        } else if (useCaseLower.includes('dashboard')) {
+                            parsedContent.useCase = 'Dashboard';
+                        } else if (useCaseLower.includes('blog')) {
+                            parsedContent.useCase = 'Blog';
+                        } else if (useCaseLower.includes('portfolio')) {
+                            parsedContent.useCase = 'Portfolio';
+                        } else if (useCaseLower.includes('ecommerce') || useCaseLower.includes('e-commerce') || useCaseLower.includes('shop')) {
+                            parsedContent.useCase = 'E-Commerce';
+                        } else if (useCaseLower.includes('general')) {
+                            parsedContent.useCase = 'General';
+                        } else {
+                            // Invalid enum value, set to null
+                            parsedContent.useCase = null;
+                        }
+                    }
+                }
+                
+                // complexity enum: ['simple', 'moderate', 'complex']
+                if (parsedContent.complexity !== null && parsedContent.complexity !== undefined) {
+                    const complexity = String(parsedContent.complexity).toLowerCase();
+                    const validComplexities = ['simple', 'moderate', 'complex'];
+                    
+                    if (!validComplexities.includes(complexity)) {
+                        // Map common variations
+                        if (complexity.includes('simple') || complexity.includes('easy') || complexity.includes('basic')) {
+                            parsedContent.complexity = 'simple';
+                        } else if (complexity.includes('moderate') || complexity.includes('medium') || complexity.includes('intermediate')) {
+                            parsedContent.complexity = 'moderate';
+                        } else if (complexity.includes('complex') || complexity.includes('hard') || complexity.includes('advanced')) {
+                            parsedContent.complexity = 'complex';
+                        } else {
+                            // Invalid enum value, set to null
+                            parsedContent.complexity = null;
+                        }
+                    } else {
+                        parsedContent.complexity = complexity;
                     }
                 }
                 
                 // Set default values for nullable fields that are missing
                 // Zod requires nullable fields to be present (can be null, but not undefined)
+                if (parsedContent.selectedTemplateName === undefined) {
+                    parsedContent.selectedTemplateName = null;
+                }
                 if (parsedContent.useCase === undefined) {
                     parsedContent.useCase = null;
                 }
@@ -1022,6 +1085,15 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 }
                 if (parsedContent.styleSelection === undefined) {
                     parsedContent.styleSelection = null;
+                }
+                
+                // Set defaults for required fields if missing (with fallback values)
+                // These are required, not nullable, so we need to provide defaults
+                if (!parsedContent.reasoning || typeof parsedContent.reasoning !== 'string') {
+                    parsedContent.reasoning = parsedContent.reasoning || 'Template selected based on user requirements.';
+                }
+                if (!parsedContent.projectName || typeof parsedContent.projectName !== 'string') {
+                    parsedContent.projectName = parsedContent.projectName || 'Untitled Project';
                 }
             }
 
