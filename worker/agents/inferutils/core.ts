@@ -611,6 +611,8 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             }, {
                 signal: abortSignal,
                 headers: {
+                    // Merge defaultHeaders (cf-aig-authorization) with request-specific headers
+                    ...defaultHeaders,
                     "cf-aig-metadata": JSON.stringify({
                         chatId: metadata.agentId,
                         userId: metadata.userId,
@@ -621,6 +623,21 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             });
             console.log(`Inference response received`);
         } catch (error) {
+            // Enhanced error logging for authentication issues
+            if (error instanceof Error) {
+                const errorMessage = error.message || '';
+                const isAuthError = errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('2009');
+                if (isAuthError) {
+                    console.error(`[AUTH_ERROR] Authentication failed for model ${modelName}:`, {
+                        baseURL,
+                        apiKeyPrefix: apiKey?.substring(0, 15) || 'N/A',
+                        hasDefaultHeaders: !!defaultHeaders,
+                        defaultHeadersKeys: defaultHeaders ? Object.keys(defaultHeaders).join(',') : 'none',
+                        errorMessage: errorMessage,
+                        provider: modelName.split('/')[0]
+                    });
+                }
+            }
             // Check if error is due to abort
             if (error instanceof Error && (error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('abort'))) {
                 console.log('Inference cancelled by user');
