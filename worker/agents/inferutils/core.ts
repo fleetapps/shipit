@@ -842,15 +842,67 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         try {
             // Parse the response
-            const parsedContent = format
-                ? parseContentForSchema(content, format, schema, formatOptions)
-                : JSON.parse(content);
+            let parsedContent: any;
+            
+            if (format) {
+                parsedContent = parseContentForSchema(content, format, schema, formatOptions);
+            } else {
+                // Try to parse as JSON directly
+                try {
+                    parsedContent = JSON.parse(content);
+                } catch (jsonError) {
+                    // If JSON parsing fails, try to extract JSON from markdown
+                    // Look for JSON code blocks first (most common case)
+                    let jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+                    
+                    // If no code block, try to find JSON object in the content
+                    if (!jsonMatch) {
+                        // Try to find a JSON object (starting with { and ending with })
+                        const jsonObjectMatch = content.match(/(\{[\s\S]*\})/);
+                        if (jsonObjectMatch) {
+                            // Try to find the matching closing brace
+                            let braceCount = 0;
+                            let jsonStart = -1;
+                            let jsonEnd = -1;
+                            for (let i = 0; i < content.length; i++) {
+                                if (content[i] === '{') {
+                                    if (braceCount === 0) jsonStart = i;
+                                    braceCount++;
+                                } else if (content[i] === '}') {
+                                    braceCount--;
+                                    if (braceCount === 0) {
+                                        jsonEnd = i;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (jsonStart !== -1 && jsonEnd !== -1) {
+                                jsonMatch = [content.substring(jsonStart, jsonEnd + 1), content.substring(jsonStart, jsonEnd + 1)];
+                            }
+                        }
+                    }
+                    
+                    if (jsonMatch && jsonMatch[1]) {
+                        try {
+                            parsedContent = JSON.parse(jsonMatch[1]);
+                            console.log('Successfully extracted JSON from markdown response');
+                        } catch (extractError) {
+                            console.error('Failed to extract JSON from markdown:', extractError);
+                            console.log('Raw content:', content.substring(0, 500));
+                            throw jsonError; // Re-throw original JSON parse error
+                        }
+                    } else {
+                        console.error('No JSON found in response, raw content:', content.substring(0, 500));
+                        throw jsonError; // Re-throw original JSON parse error
+                    }
+                }
+            }
 
             // Use Zod's safeParse for proper error handling
             const result = schema.safeParse(parsedContent);
 
             if (!result.success) {
-                console.log('Raw content:', content);
+                console.log('Raw content:', content.substring(0, 500));
                 console.log('Parsed data:', parsedContent);
                 console.error('Schema validation errors:', result.error.format());
                 throw new Error(`Failed to validate AI response against schema: ${result.error.message}`);

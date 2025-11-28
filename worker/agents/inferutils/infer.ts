@@ -60,7 +60,7 @@ export async function executeInference<T extends z.AnyZodObject>(   {
     messages,
     temperature,
     maxTokens,
-    retryLimit = 5, // Increased retry limit for better reliability
+    retryLimit = 1, // Reduced retry limit to save tokens
     stream,
     tools,
     reasoning_effort,
