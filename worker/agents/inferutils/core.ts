@@ -296,8 +296,10 @@ export async function getConfigurationForModel(
     // Try to find API key of type <PROVIDER>_API_KEY else default to CLOUDFLARE_AI_GATEWAY_TOKEN
     // `env` is an interface of type `Env`
     const apiKey = await getApiKey(provider, env, userId);
-    // AI Gateway Wholesaling checks
-    const defaultHeaders = env.CLOUDFLARE_AI_GATEWAY_TOKEN && apiKey !== env.CLOUDFLARE_AI_GATEWAY_TOKEN ? {
+    // AI Gateway authentication: Always include cf-aig-authorization header when using AI Gateway
+    // The Authorization header should contain the provider's API key (for the actual API call)
+    // The cf-aig-authorization header should contain the AI Gateway token (for gateway authentication)
+    const defaultHeaders = env.CLOUDFLARE_AI_GATEWAY_TOKEN ? {
         'cf-aig-authorization': `Bearer ${env.CLOUDFLARE_AI_GATEWAY_TOKEN}`,
     } : undefined;
     return {
@@ -505,7 +507,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         await RateLimitService.enforceLLMCallsRateLimit(env, userConfig.security.rateLimit, metadata.userId, modelName)
 
         const { apiKey, baseURL, defaultHeaders } = await getConfigurationForModel(modelName, env, metadata.userId);
-        console.log(`baseUrl: ${baseURL}, modelName: ${modelName}`);
+        console.log(`baseUrl: ${baseURL}, modelName: ${modelName}, apiKeyPrefix: ${apiKey?.substring(0, 10) || 'N/A'}, hasDefaultHeaders: ${!!defaultHeaders}, defaultHeadersKeys: ${defaultHeaders ? Object.keys(defaultHeaders).join(',') : 'none'}`);
 
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
