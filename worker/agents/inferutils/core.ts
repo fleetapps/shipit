@@ -510,21 +510,17 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
         
-        // Strip provider prefix (e.g., "anthropic/claude-3-5-sonnet-latest" -> "claude-3-5-sonnet-latest")
-        // AI Gateway expects just the model name, not the provider prefix
-        if (modelName.includes('/')) {
-            const parts = modelName.split('/');
-            if (parts.length > 1) {
-                modelName = parts.slice(1).join('/');
-            }
-        }
+        // For /compat endpoint, AI Gateway REQUIRES the {provider}/{model} format
+        // Do NOT strip the provider prefix when using /compat endpoint
+        // The model name should remain as "anthropic/claude-sonnet-4-20250514" for example
+        const isClaudeModel = modelName.includes('claude') || modelName.includes('anthropic/claude');
 
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
         const schemaObj =
             schema && schemaName && !format
                 ? { response_format: zodResponseFormat(schema, schemaName) }
                 : {};
-        const extraBody = modelName.includes('claude')? {
+        const extraBody = isClaudeModel ? {
                     extra_body: {
                         thinking: {
                             type: 'enabled',
@@ -596,7 +592,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         const toolsOpts = tools ? { tools, tool_choice: 'auto' as const } : {};
         // For Claude models, reasoning_effort should only be in extra_body.thinking, not as a top-level parameter
-        const reasoningEffortParam = modelName.includes('claude') ? {} : { reasoning_effort };
+        const reasoningEffortParam = isClaudeModel ? {} : { reasoning_effort };
         let response: OpenAI.ChatCompletion | OpenAI.ChatCompletionChunk | Stream<OpenAI.ChatCompletionChunk>;
         try {
             // Call OpenAI API with proper structured output format
