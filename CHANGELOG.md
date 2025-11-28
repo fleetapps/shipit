@@ -1,5 +1,61 @@
 # Changelog
 
+## 1.0.0 (2025-11-28)
+
+
+### Features
+
+* add API key verification step and manual upload guide ([97dc104](https://github.com/fleetapps/shipit/commit/97dc1040535eb71bc3de1657be23b9641156b821))
+* add container registry API endpoint test to diagnose 401 errors ([532c011](https://github.com/fleetapps/shipit/commit/532c0112aaa7224f57741ada1cb81a284952add3))
+* add D1 database creation step to deployment workflow ([72d510c](https://github.com/fleetapps/shipit/commit/72d510cc512fce955239bed08efcafa0798ac585))
+* add Docker registry authentication step before deployment ([1bbec8f](https://github.com/fleetapps/shipit/commit/1bbec8f17ac7489d7e11938e71ae7b0a67e4570c))
+* add fallback deployment without containers on auth failure ([64685d5](https://github.com/fleetapps/shipit/commit/64685d5012b55e77263dc67df853182c758b47cc))
+* change default LLM to Anthropic Claude with Groq fallback ([1a300d4](https://github.com/fleetapps/shipit/commit/1a300d4ba92a27996254f0d9ce8c8fb4ed25bcf2))
+
+
+### Bug Fixes
+
+* add API token verification and document Account Settings Read requirement ([2c28ddc](https://github.com/fleetapps/shipit/commit/2c28ddc0e6e790205de392eedc2667d024f27c5d))
+* add Babel type definitions and fix TypeScript errors ([a2fdce5](https://github.com/fleetapps/shipit/commit/a2fdce5ad6f2550a413aafd4c517a20a8856d581))
+* add better error message for missing R2 templates bucket and document how to fix it ([72e2751](https://github.com/fleetapps/shipit/commit/72e2751054590b86cd7d441fcba26f0601c788bb))
+* add CUSTOM_PREVIEW_DOMAIN and verify CUSTOM_DOMAIN in deployment ([c437ed6](https://github.com/fleetapps/shipit/commit/c437ed665eb720d6aa27a96d574f3a4c6fdfe456))
+* add debug logging for API key lookup to diagnose 401 errors ([a0fc58e](https://github.com/fleetapps/shipit/commit/a0fc58e4c539a219568d978d7852de2fd4e0d35d))
+* add enhanced error logging for API call failures ([6743bc1](https://github.com/fleetapps/shipit/commit/6743bc1e487178b1a923567615b8c5ce6627d8cc))
+* add hostname normalization and debug logging for domain routing ([ebe4c77](https://github.com/fleetapps/shipit/commit/ebe4c77a25e8ca2565b7c501d6b909e7ae1eb246))
+* add path wildcard to custom domain route pattern and improve hostname matching ([93cbd4f](https://github.com/fleetapps/shipit/commit/93cbd4fa52f0cf73b009864046356cbac820dca1))
+* always include cf-aig-authorization header for ai gateway ([30485db](https://github.com/fleetapps/shipit/commit/30485db8efc5ef386f7af1888372207b03541d82))
+* automatically retry without containers if deployment fails with containers configured ([a577fdf](https://github.com/fleetapps/shipit/commit/a577fdf13418d4dbe5ee846fb7c2c58c1ee1a7f4))
+* comment out KV namespace binding to allow deployment ([9e16482](https://github.com/fleetapps/shipit/commit/9e16482437d1f247bd8453f1388ba0623dc0ec03))
+* comment out R2 bucket binding to allow deployment without R2 ([e4a9d80](https://github.com/fleetapps/shipit/commit/e4a9d804d6cd59947622d11bceb891b967ad7ff2))
+* comprehensive enum validation and default values for template selection ([4c0eb9c](https://github.com/fleetapps/shipit/commit/4c0eb9cd76c0d9be512b6e71f9648a18c3283415))
+* correct custom domain route pattern (no /* when custom_domain: true) ([f74b270](https://github.com/fleetapps/shipit/commit/f74b27061a963f20c927efc126c89a6f2d9a4815))
+* enable R2 templates bucket binding (required for code generation) ([77f2790](https://github.com/fleetapps/shipit/commit/77f27907765a0c78da15a0b4381ad883574653d8))
+* ensure CUSTOM_DOMAIN is set in wrangler.jsonc vars and exclude from secret migration ([4206745](https://github.com/fleetapps/shipit/commit/42067458fa527c647da6ec2d4cd0012e133c9bfb))
+* ensure no null fields in template selection output ([846228f](https://github.com/fleetapps/shipit/commit/846228fe955b5f78628cc8ca6f295add47926096))
+* ensure preview is deployed and URL is available after code generation ([cb5edad](https://github.com/fleetapps/shipit/commit/cb5edad981be1916d83c2083d9b94ac7520281d2))
+* explicitly merge defaultHeaders with request headers for ai gateway ([08b7cc2](https://github.com/fleetapps/shipit/commit/08b7cc2c105e6d1203497355c38377dc4349b9d9))
+* handle markdown responses and reduce retry limit ([f09d29d](https://github.com/fleetapps/shipit/commit/f09d29d47f0ffae8c61e9e463e261d3d8d1babb2))
+* handle missing KV namespace gracefully instead of throwing errors ([6cf2652](https://github.com/fleetapps/shipit/commit/6cf265281554c9c73181c5cb56cd8c48cce8b066))
+* improve container error detection to catch Unauthorized errors ([45e3564](https://github.com/fleetapps/shipit/commit/45e35645447791f8744576918a817efe9919698c))
+* improve D1 database creation step in workflow ([a3cd56d](https://github.com/fleetapps/shipit/commit/a3cd56d27cb2e4d4354884ab82eebfde891bc6b8))
+* improve D1 database creation to extract and display database ID ([486af8f](https://github.com/fleetapps/shipit/commit/486af8f77c4b0b2df6a111df40208389a5adfafa))
+* improve D1 database creation with better error handling ([13c9f13](https://github.com/fleetapps/shipit/commit/13c9f131ef22b8fca365bc8ea1c78fb0989cc2ce))
+* improve error detection and logging for container deployment failures ([05fd7da](https://github.com/fleetapps/shipit/commit/05fd7da12caa4e70a10e9cbd4f2257219f0db967))
+* improve preview deployment logic to handle existing sandbox instances ([2b5d815](https://github.com/fleetapps/shipit/commit/2b5d81560ff28a05dc026b594e26594e01ac655e))
+* improve zone detection to work on first deployment and add better error messages ([4e83995](https://github.com/fleetapps/shipit/commit/4e83995940d494c5dc677d2098e97423326d1694))
+* keep provider prefix in model name for ai gateway /compat endpoint ([70c4ac2](https://github.com/fleetapps/shipit/commit/70c4ac29cf4822fd8bddc3f0d121a4a71c7c666f))
+* make Docker login non-blocking and improve error messages ([a0cc1ed](https://github.com/fleetapps/shipit/commit/a0cc1ed8732bf6f24c65e228a32bc02d5e7d2664))
+* make zone detection non-blocking for custom domain routes ([edc3c1a](https://github.com/fleetapps/shipit/commit/edc3c1a51036d615d85fbd07da77e4f5c8eeae67))
+* map field names from model response to schema expectations ([c5f9897](https://github.com/fleetapps/shipit/commit/c5f98971e1b467b678354f70c991b43f85cad113))
+* only disable email/password auth when OAuth credentials are actually set (not empty) ([1d30e1d](https://github.com/fleetapps/shipit/commit/1d30e1d6d8021c0821b468fe6d77b38e02226e6e))
+* parse markdown responses when model ignores structured output ([ff85df2](https://github.com/fleetapps/shipit/commit/ff85df2d012beaa2cfab9d4a0d943ef0745ef1aa))
+* remove reasoning_effort top-level param for claude models ([ee742dc](https://github.com/fleetapps/shipit/commit/ee742dce86a62bce7dad46a4492f239108da8977))
+* set CUSTOM_DOMAIN in wrangler.jsonc vars before route configuration ([0125e9a](https://github.com/fleetapps/shipit/commit/0125e9a30ea4d3abf8b2bf5ef46ff12ac14bbe73))
+* set default null values for missing nullable schema fields ([34c71b8](https://github.com/fleetapps/shipit/commit/34c71b8c7b9c4c850c18e57a8979ad9746470994))
+* simplify container error detection for Unauthorized errors ([85ef272](https://github.com/fleetapps/shipit/commit/85ef272bebcbd2cdc6b941ebb1e7a4f5c812467c))
+* typescript errors and ai gateway model name handling ([c905e67](https://github.com/fleetapps/shipit/commit/c905e6782cbfb60ad692926a75bfbd858f7e2b23))
+* update R2 bucket name to match created bucket 'shipit' ([3968ac5](https://github.com/fleetapps/shipit/commit/3968ac59fd452a2c5a41403c71ce9fdea47818c9))
+
 ## [1.1.0](https://github.com/cloudflare/vibesdk/compare/v1.0.0...v1.1.0) (2025-11-04)
 
 
