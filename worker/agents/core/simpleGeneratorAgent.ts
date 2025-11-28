@@ -890,10 +890,16 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             
             // Ensure preview is deployed if we have files but no preview URL
             if (this.state.generatedFilesMap && Object.keys(this.state.generatedFilesMap).length > 0) {
-                if (!this.previewUrlCache && !this.state.sandboxInstanceId) {
-                    this.logger().info('Code generation completed but no preview exists, deploying preview...');
+                if (!this.previewUrlCache) {
+                    if (this.state.sandboxInstanceId) {
+                        // Sandbox exists but no preview URL cached - redeploy to get preview URL
+                        this.logger().info('Code generation completed, sandbox exists but no preview URL cached, redeploying to get preview URL...');
+                    } else {
+                        // No sandbox instance - deploy initial preview
+                        this.logger().info('Code generation completed but no preview exists, deploying preview...');
+                    }
                     try {
-                        const previewResult = await this.deployToSandbox([], false, 'Initial preview deployment', true);
+                        const previewResult = await this.deployToSandbox([], false, 'Final preview deployment', true);
                         if (previewResult?.previewURL) {
                             this.previewUrlCache = previewResult.previewURL;
                         }
