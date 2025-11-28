@@ -595,6 +595,8 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, baseURL: ${baseURL}`);
 
         const toolsOpts = tools ? { tools, tool_choice: 'auto' as const } : {};
+        // For Claude models, reasoning_effort should only be in extra_body.thinking, not as a top-level parameter
+        const reasoningEffortParam = modelName.includes('claude') ? {} : { reasoning_effort };
         let response: OpenAI.ChatCompletion | OpenAI.ChatCompletionChunk | Stream<OpenAI.ChatCompletionChunk>;
         try {
             // Call OpenAI API with proper structured output format
@@ -602,11 +604,11 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 ...schemaObj,
                 ...extraBody,
                 ...toolsOpts,
+                ...reasoningEffortParam,
                 model: modelName,
                 messages: messagesToPass as OpenAI.ChatCompletionMessageParam[],
                 max_completion_tokens: maxTokens || 150000,
                 stream: stream ? true : false,
-                reasoning_effort,
                 temperature,
             }, {
                 signal: abortSignal,
