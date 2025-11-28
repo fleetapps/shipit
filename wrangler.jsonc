@@ -51,19 +51,13 @@
 		"binding": "AI",
         "remote": true
 	},
-    // "dispatch_namespaces": [
-
-    //     {
-
-    //         "binding": "DISPATCHER",
-
-    //         "namespace": "orange-build-default-namespace",
-
-    //         "experimental_remote": true
-
-    //     }
-
-    // ],
+    // // "dispatch_namespaces": [
+ //     {
+ //         "binding": "DISPATCHER",
+ //         "namespace": "orange-build-default-namespace",
+ //         "experimental_remote": true
+ //     }
+ // ],
 	"containers": [
 		{
 			"class_name": "UserAppSandboxService",

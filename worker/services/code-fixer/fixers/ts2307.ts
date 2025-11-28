@@ -4,7 +4,7 @@
  */
 
 import { CodeIssue } from '../../sandbox/sandboxTypes';
-import { FixerContext, FixResult, FixedIssue, ImportInfo } from '../types';
+import { FixerContext, FixResult, FixedIssue, UnfixableIssue, FileObject, ImportInfo } from '../types';
 import * as t from '@babel/types';
 import { generateCode } from '../utils/ast';
 import { findImportAtLocation, getFileAST } from '../utils/imports';
@@ -27,9 +27,9 @@ export function fixModuleNotFound(
     logger.info(`Starting TS2307 fixer with ${issues.length} issues`);
     
     const fixedIssues: FixedIssue[] = [];
-    const unfixableIssues = [];
-    const modifiedFiles = [];
-    const newFiles = [];
+    const unfixableIssues: UnfixableIssue[] = [];
+    const modifiedFiles: FileObject[] = [];
+    const newFiles: FileObject[] = [];
 
     for (const issue of issues) {
         logger.info(`Processing TS2307 issue: ${issue.message} at ${issue.filePath}:${issue.line}`);
@@ -101,7 +101,6 @@ export function fixModuleNotFound(
                 modifiedFiles.push({
                     filePath: issue.filePath,
                     fileContents: generatedCode.code,
-                    filePurpose: `Fixed import path in ${issue.filePath}`,
                 });
                 
                 fixedIssues.push({
@@ -130,7 +129,6 @@ export function fixModuleNotFound(
                 newFiles.push({
                     filePath: targetFilePath,
                     fileContents: stubContent,
-                    filePurpose: `Generated stub file for ${moduleSpecifier}`,
                 });
                 
                 fixedIssues.push({

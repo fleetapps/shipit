@@ -1277,7 +1277,7 @@ export class SandboxSdkClient extends BaseSandboxService {
         try {
             const session = await this.getInstanceSession(instanceId);
 
-            const results = [];
+            const results: Array<{ file: string; success: boolean; error?: string }> = [];
 
             // Filter out donttouch files
             const metadata = await this.getInstanceMetadata(instanceId);
@@ -1374,8 +1374,8 @@ export class SandboxSdkClient extends BaseSandboxService {
                 }
             }
 
-            const files = [];
-            const errors = [];
+            const files: Array<{ filePath: string; fileContents: string }> = [];
+            const errors: Array<{ file: string; error: string }> = [];
 
             const readPromises = filePaths.map(async (filePath: string) => {
                 try {

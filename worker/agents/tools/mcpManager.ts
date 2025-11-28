@@ -72,7 +72,14 @@ export class MCPManager {
 
 	async getToolDefinitions() {
 		await this.initialize();
-		const allTools = [];
+		const allTools: Array<{
+			type: 'function';
+			function: {
+				name: string;
+				description: string;
+				parameters: Record<string, unknown>;
+			};
+		}> = [];
 
 		for (const [serverName, client] of this.clients.entries()) {
 			try {

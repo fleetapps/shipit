@@ -75,7 +75,7 @@ export class AiGatewayAnalyticsService {
 
     // Validate required configuration
     if (!config.accountId || !config.gateway || !config.apiToken) {
-      const missing = [];
+      const missing: string[] = [];
       if (!config.accountId) missing.push('Account ID');
       if (!config.gateway) missing.push('Gateway name');
       if (!config.apiToken) missing.push('API token');

@@ -509,6 +509,15 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
+        
+        // Strip provider prefix (e.g., "anthropic/claude-3-5-sonnet-latest" -> "claude-3-5-sonnet-latest")
+        // AI Gateway expects just the model name, not the provider prefix
+        if (modelName.includes('/')) {
+            const parts = modelName.split('/');
+            if (parts.length > 1) {
+                modelName = parts.slice(1).join('/');
+            }
+        }
 
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
         const schemaObj =

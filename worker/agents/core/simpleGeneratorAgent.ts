@@ -2077,7 +2077,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         commands = Array.from(new Set(commands));
 
         // Execute in chunks
-        const commandChunks = [];
+        const commandChunks: string[][] = [];
         for (let i = 0; i < commands.length; i += chunkSize) {
             commandChunks.push(commands.slice(i, i + chunkSize));
         }
@@ -2160,11 +2160,11 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                             currentChunk = newCommands.commands.filter(looksLikeCommand);
                         } else {
                             this.logger().warn('AI could not generate alternative commands');
-                            currentChunk = [];
+                            currentChunk = [] as string[];
                         }
                     } else {
                         // No retry needed for non-install commands
-                        currentChunk = [];
+                        currentChunk = [] as string[];
                     }
                 } catch (error) {
                     this.logger().error('Error executing commands:', error);

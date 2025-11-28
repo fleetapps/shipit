@@ -3,6 +3,7 @@ import { StructuredLogger } from '../../logger';
 import { TemplateDetails } from 'worker/services/sandbox/sandboxTypes';
 import { generateNanoId } from '../../utils/idGenerator';
 import { generateProjectName } from '../utils/templateCustomizer';
+import { ConversationMessage } from '../inferutils/common';
 
 export class StateMigration {
     static migrateIfNeeded(state: CodeGenState, logger: StructuredLogger): CodeGenState | null {
@@ -48,7 +49,7 @@ export class StateMigration {
             const originalCount = migratedConversationMessages.length;
             
             const seen = new Set<string>();
-            const uniqueMessages = [];
+            const uniqueMessages: ConversationMessage[] = [];
             
             for (const message of migratedConversationMessages) {
                 let key = message.conversationId;
@@ -79,8 +80,8 @@ export class StateMigration {
             });
             
             if (uniqueMessages.length > MIN_MESSAGES_FOR_CLEANUP) {
-                const realConversations = [];
-                const internalMemos = [];
+                const realConversations: ConversationMessage[] = [];
+                const internalMemos: ConversationMessage[] = [];
                 
                 for (const message of uniqueMessages) {
                     const content = typeof message.content === 'string' ? message.content : JSON.stringify(message.content || '');

@@ -13,15 +13,19 @@ const projectRoot = path.resolve(__dirname, '..');
 console.log('🔨 Building worker with path resolution...');
 
 try {
-  // Clean output directory
+  // Clean output directory and build info
   const outDir = path.join(projectRoot, 'worker-dist');
   if (fs.existsSync(outDir)) {
     fs.rmSync(outDir, { recursive: true, force: true });
   }
+  const buildInfoFile = path.join(projectRoot, 'node_modules', '.tmp', 'tsconfig.worker.tsbuildinfo');
+  if (fs.existsSync(buildInfoFile)) {
+    fs.rmSync(buildInfoFile, { force: true });
+  }
 
-  // First, compile TypeScript
+  // First, compile TypeScript (use --build --force for composite projects to ensure fresh build)
   console.log('📝 Compiling TypeScript...');
-  execSync('pnpm tsc -p tsconfig.worker.json', {
+  execSync('pnpm tsc --build --force tsconfig.worker.json', {
     cwd: projectRoot,
     stdio: 'inherit'
   });

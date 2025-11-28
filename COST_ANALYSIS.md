@@ -343,3 +343,4 @@ Yes, VibeSDK has **heavy reliance on Cloudflare infrastructure**. Here's the com
 *Based on Cloudflare pricing as of 2025*
 
 
+
