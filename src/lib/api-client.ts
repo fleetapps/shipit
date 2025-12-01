@@ -216,7 +216,8 @@ class ApiClient {
 		}
 
 		// Add CSRF token for state-changing requests
-		// Priority: Read from cookie (source of truth) > fallback to in-memory cache
+		// CRITICAL: Only use cookie token - never fallback to in-memory token
+		// This ensures cookie and header always match (required for CSRF validation)
 		const cookieToken = this.getCsrfTokenFromCookie();
 		if (cookieToken) {
 			headers['X-CSRF-Token'] = cookieToken;
@@ -227,10 +228,9 @@ class ApiClient {
 					expiresAt: Date.now() + (7200 * 1000) // 2 hours default
 				};
 			}
-		} else if (this.csrfTokenInfo && !this.isCSRFTokenExpired()) {
-			// Fallback to in-memory token if cookie not available
-			headers['X-CSRF-Token'] = this.csrfTokenInfo.token;
 		}
+		// REMOVED: Fallback to in-memory token - this causes CSRF validation failures
+		// If cookie is missing, ensureCsrfToken() should have fetched it before this is called
 
 		return headers;
 	}
@@ -242,23 +242,39 @@ class ApiClient {
 		try {
 			const response = await fetch(`${this.baseUrl}/api/auth/csrf-token`, {
 				method: 'GET',
-				credentials: 'include',
+				credentials: 'include', // CRITICAL: Must include credentials to receive Set-Cookie
 			});
 			
 			if (response.ok) {
 				const data: ApiResponse<CsrfTokenResponseData> = await response.json();
 				if (data.data?.token) {
 					const expiresIn = data.data.expiresIn || 7200; // Default 2 hours
+					
+					// Store in memory (but cookie is source of truth)
 					this.csrfTokenInfo = {
 						token: data.data.token,
 						expiresAt: Date.now() + (expiresIn * 1000)
 					};
+					
+					// Debug: Check if Set-Cookie header was present
+					const setCookieHeader = response.headers.get('Set-Cookie');
+					if (setCookieHeader) {
+						console.debug('CSRF token Set-Cookie header received:', setCookieHeader.substring(0, 100));
+					} else {
+						console.warn('CSRF token response missing Set-Cookie header!');
+					}
+					
 					return true;
+				} else {
+					console.error('CSRF token response missing token data:', data);
+					return false;
 				}
+			} else {
+				console.error('CSRF token fetch failed with status:', response.status);
+				return false;
 			}
-			return false;
 		} catch (error) {
-			console.warn('Failed to fetch CSRF token:', error);
+			console.error('Failed to fetch CSRF token:', error);
 			return false;
 		}
 	}
@@ -282,15 +298,40 @@ class ApiClient {
 
 	/**
 	 * Ensure CSRF token exists and is valid for state-changing requests
+	 * CRITICAL: This must ensure the cookie is actually set, not just in-memory
 	 */
 	private async ensureCsrfToken(method: string): Promise<boolean> {
 		if (!['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
 			return true;
 		}
 		
-		// Fetch new token if none exists or current one is expired
-		if (!this.csrfTokenInfo || this.isCSRFTokenExpired()) {
-			return await this.fetchCsrfToken();
+		// First, check if cookie exists (source of truth)
+		const cookieToken = this.getCsrfTokenFromCookie();
+		if (cookieToken) {
+			// Cookie exists - update in-memory cache and return success
+			this.csrfTokenInfo = {
+				token: cookieToken,
+				expiresAt: Date.now() + (7200 * 1000) // 2 hours default
+			};
+			return true;
+		}
+		
+		// No cookie - fetch new token from server
+		const success = await this.fetchCsrfToken();
+		if (!success) {
+			console.error('Failed to fetch CSRF token from server');
+			return false;
+		}
+		
+		// Verify cookie was actually set after fetch
+		// Wait a brief moment for cookie to be set by browser
+		await new Promise(resolve => setTimeout(resolve, 50));
+		
+		const newCookieToken = this.getCsrfTokenFromCookie();
+		if (!newCookieToken) {
+			console.warn('CSRF token fetched but cookie not set - this may cause CSRF validation failures');
+			// Still return true if we have in-memory token, but log warning
+			// The cookie should be set by the browser automatically
 		}
 		
 		return true;

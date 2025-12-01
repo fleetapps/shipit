@@ -88,15 +88,26 @@ export class CsrfService {
             }
         }
         
+        // Ensure token is not empty
+        if (!token || token.trim().length === 0) {
+            logger.error('Attempted to set CSRF cookie with empty token!');
+            throw new Error('CSRF token cannot be empty');
+        }
+        
+        const cookieValue = JSON.stringify(tokenData);
         const cookie = createSecureCookie({
             name: this.COOKIE_NAME,
-            value: JSON.stringify(tokenData),
-            sameSite: 'Strict',
+            value: cookieValue,
+            sameSite: 'Lax', // Changed from 'Strict' to 'Lax' to allow cross-origin requests
             maxAge,
             domain: cookieDomain // Set domain for cross-subdomain access (e.g., .fleet.ke)
         });
         response.headers.append('Set-Cookie', cookie);
-        logger.debug(`✅ Set CSRF token cookie with domain: ${cookieDomain || 'default (no domain set)'}`);
+        logger.debug(`✅ Set CSRF token cookie with domain: ${cookieDomain || 'default (no domain set)'}`, {
+            tokenLength: token.length,
+            cookieValueLength: cookieValue.length,
+            hasDomain: !!cookieDomain
+        });
     }
     
     /**

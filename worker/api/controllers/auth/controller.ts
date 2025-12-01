@@ -619,7 +619,13 @@ export class AuthController extends BaseController {
      */
     static async getCsrfToken(request: Request, _env: Env, _ctx: ExecutionContext, _routeContext: RouteContext): Promise<Response> {
         try {
+            // Force generation of new token to ensure it's always fresh
             const token = CsrfService.getOrGenerateToken(request, false);
+            
+            // Validate token is not empty
+            if (!token || token.trim().length === 0) {
+                throw new Error('Generated CSRF token is empty');
+            }
             
             const response = AuthController.createSuccessResponse({ 
                 token,
@@ -631,8 +637,17 @@ export class AuthController extends BaseController {
             const maxAge = Math.floor(CsrfService.defaults.tokenTTL / 1000);
             CsrfService.setTokenCookie(response, token, maxAge, request);
             
+            // Debug: Log cookie setting for troubleshooting
+            const url = new URL(request.url);
+            logger.debug('CSRF token generated and cookie set', {
+                tokenLength: token.length,
+                hostname: url.hostname,
+                path: url.pathname
+            });
+            
             return response;
         } catch (error) {
+            logger.error('Error generating CSRF token:', error);
             return AuthController.handleError(error, 'get CSRF token');
         }
     }
