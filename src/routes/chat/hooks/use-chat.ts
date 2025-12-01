@@ -483,8 +483,6 @@ export function useChat({
 						return;
 					}
 
-					const parser = createRepairingJSONParser();
-
 					const result: {
 						websocketUrl: string;
 						agentId: string;
@@ -501,6 +499,7 @@ export function useChat({
 
 					let startedBlueprintStream = false;
 					let blueprintChunkCount = 0;
+					let blueprintBuffer = '';
 					sendMessage(createAIMessage('main', "Sure, let's get started. Bootstrapping the project first...", true));
 
 					if (!response) {
@@ -515,7 +514,9 @@ export function useChat({
                         logger.info(`📦 Received NDJSON object #${streamObjectCount} from server:`, obj);
 						if (obj.chunk) {
 							blueprintChunkCount++;
-							logger.info(`📄 Blueprint chunk ${blueprintChunkCount} received, length: ${obj.chunk.length}, preview: ${obj.chunk.substring(0, 100)}...`);
+							const chunk = String(obj.chunk);
+							logger.info(`📄 Blueprint chunk ${blueprintChunkCount} received, length: ${chunk.length}, preview: ${chunk.substring(0, 100)}...`);
+							
 							if (!startedBlueprintStream) {
 								sendMessage(createAIMessage('main', 'Blueprint is being generated...', true));
 								logger.info('Blueprint stream has started');
@@ -525,18 +526,19 @@ export function useChat({
 								updateStage('bootstrap', { status: 'completed' });
 								updateStage('blueprint', { status: 'active' });
 							}
-							parser.feed(obj.chunk);
-							try {
-								const partial = parser.finalize();
-								if (partial && Object.keys(partial).length > 0) {
-									logger.debug('✅ Blueprint parsed successfully:', partial);
-									setBlueprint(partial);
-								} else {
-									logger.warn('⚠️ Blueprint parsed but appears empty:', partial);
-								}
-							} catch (e) {
-								logger.error('❌ Error parsing blueprint JSON:', e, 'Chunk:', obj.chunk);
-								// Don't set fallback - let it remain undefined to show loading state
+							
+							// Accumulate chunks as markdown/PRD text
+							blueprintBuffer += chunk;
+							
+							// Check if it looks like JSON (starts with { or [)
+							const trimmed = blueprintBuffer.trimStart();
+							if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+								// Try to parse as JSON only at the end of stream
+								// For now, just accumulate
+								logger.debug('📝 Blueprint buffer looks like JSON, will parse at end of stream');
+							} else {
+								// It's markdown/PRD text - this is expected
+								logger.debug('📝 Blueprint buffer is markdown/PRD text (not JSON)');
 							}
 						} 
 						if (obj.agentId) {
@@ -560,8 +562,34 @@ export function useChat({
 						blueprintChunks: blueprintChunkCount,
 						hasAgentId: !!result.agentId,
 						hasWebSocketUrl: !!result.websocketUrl,
-						hasTemplate: !!result.template
+						hasTemplate: !!result.template,
+						blueprintBufferLength: blueprintBuffer.length
 					});
+					
+					// Try to parse blueprint as JSON only if it looks like JSON
+					if (blueprintBuffer.trim().length > 0) {
+						const trimmed = blueprintBuffer.trimStart();
+						if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+							// Try to parse as JSON
+							try {
+								const parser = createRepairingJSONParser();
+								parser.feed(blueprintBuffer);
+								const parsed = parser.finalize();
+								if (parsed && Object.keys(parsed).length > 0) {
+									logger.info('✅ Blueprint parsed as JSON successfully');
+									setBlueprint(parsed);
+								} else {
+									logger.warn('⚠️ Blueprint parsed but appears empty');
+								}
+							} catch (e) {
+								logger.warn('⚠️ Blueprint buffer looks like JSON but failed to parse, treating as markdown:', e);
+								// Blueprint will remain undefined - it will come via WebSocket later
+							}
+						} else {
+							// It's markdown/PRD text - this is expected, blueprint will come via WebSocket
+							logger.info('📝 Blueprint is markdown/PRD text (not JSON), will receive structured blueprint via WebSocket');
+						}
+					}
 					
 					updateStage('blueprint', { status: 'completed' });
 					setIsGeneratingBlueprint(false);
@@ -573,8 +601,13 @@ export function useChat({
 							hasDescription: !!blueprint.description,
 							chunkCount: blueprintChunkCount 
 						});
+					} else if (blueprintChunkCount > 0) {
+						logger.info('📝 Blueprint chunks received as markdown text, structured blueprint will come via WebSocket', { 
+							chunkCount: blueprintChunkCount,
+							bufferLength: blueprintBuffer.length
+						});
 					} else {
-						logger.error('❌ Blueprint stream completed but blueprint is empty or undefined', { 
+						logger.warn('⚠️ No blueprint chunks received', { 
 							chunkCount: blueprintChunkCount,
 							totalStreamObjects: streamObjectCount,
 							receivedObjects: {
