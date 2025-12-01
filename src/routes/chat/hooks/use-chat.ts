@@ -460,11 +460,21 @@ export function useChat({
 					}
 
 					// Start new code generation using API client
-					const response = await apiClient.createAgentSession({
-						query: userQuery,
-						agentMode,
-						images: userImages, // Pass images from URL params for multi-modal blueprint
-					});
+					logger.info('🚀 Starting new agent session creation...', { query: userQuery, agentMode, imagesCount: userImages?.length || 0 });
+					let response: Response;
+					try {
+						response = await apiClient.createAgentSession({
+							query: userQuery,
+							agentMode,
+							images: userImages, // Pass images from URL params for multi-modal blueprint
+						});
+						logger.info('✅ Agent session created, starting to read stream...');
+					} catch (error) {
+						logger.error('❌ Failed to create agent session:', error);
+						const errorMsg = error instanceof Error ? error.message : 'Failed to start code generation';
+						toast.error(errorMsg);
+						return;
+					}
 
 					const parser = createRepairingJSONParser();
 
@@ -486,8 +496,11 @@ export function useChat({
 					let blueprintChunkCount = 0;
 					sendMessage(createAIMessage('main', "Sure, let's get started. Bootstrapping the project first...", true));
 
+					logger.info('📡 Starting to read NDJSON stream from response...');
+					let streamObjectCount = 0;
 					for await (const obj of ndjsonStream(response.stream)) {
-                        logger.debug('📦 Received NDJSON object from server:', obj);
+						streamObjectCount++;
+                        logger.info(`📦 Received NDJSON object #${streamObjectCount} from server:`, obj);
 						if (obj.chunk) {
 							blueprintChunkCount++;
 							logger.info(`📄 Blueprint chunk ${blueprintChunkCount} received, length: ${obj.chunk.length}, preview: ${obj.chunk.substring(0, 100)}...`);
@@ -530,6 +543,14 @@ export function useChat({
 						}
 					}
 
+					logger.info('🏁 NDJSON stream completed', { 
+						totalObjects: streamObjectCount,
+						blueprintChunks: blueprintChunkCount,
+						hasAgentId: !!result.agentId,
+						hasWebSocketUrl: !!result.websocketUrl,
+						hasTemplate: !!result.template
+					});
+					
 					updateStage('blueprint', { status: 'completed' });
 					setIsGeneratingBlueprint(false);
 					
@@ -541,7 +562,16 @@ export function useChat({
 							chunkCount: blueprintChunkCount 
 						});
 					} else {
-						logger.warn('⚠️ Blueprint stream completed but blueprint is empty or undefined', { chunkCount: blueprintChunkCount });
+						logger.error('❌ Blueprint stream completed but blueprint is empty or undefined', { 
+							chunkCount: blueprintChunkCount,
+							totalStreamObjects: streamObjectCount,
+							receivedObjects: {
+								agentId: !!result.agentId,
+								websocketUrl: !!result.websocketUrl,
+								template: !!result.template,
+								chunks: blueprintChunkCount
+							}
+						});
 					}
 					
 					sendMessage(createAIMessage('main', 'Blueprint generation complete. Now starting the code generation...', true));
