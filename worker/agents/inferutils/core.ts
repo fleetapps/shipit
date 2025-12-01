@@ -805,13 +805,23 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 // Do not drop tool calls without id; we used a synthetic id and will update if a real id arrives in later deltas
             } else {
                 // Handle the case where stream was requested but a non-stream response was received
-                console.error('Expected a stream response but received a ChatCompletion object.');
+                console.warn('Expected a stream response but received a ChatCompletion object. This can happen with structured output.');
                 // Properly extract both content and tool calls from non-stream response
                 const completion = response as OpenAI.ChatCompletion;
                 const message = completion.choices[0]?.message;
                 if (message) {
                     content = message.content || '';
                     toolCalls = (message.tool_calls as ChatCompletionMessageFunctionToolCall[]) || [];
+                    
+                    // If streaming was requested, manually send the content as chunks
+                    if (stream && content) {
+                        // Send content in chunks matching chunk_size
+                        const chunkSize = stream.chunk_size;
+                        for (let i = 0; i < content.length; i += chunkSize) {
+                            const chunk = content.slice(i, i + chunkSize);
+                            stream.onChunk(chunk);
+                        }
+                    }
                 }
             }
         } else {
