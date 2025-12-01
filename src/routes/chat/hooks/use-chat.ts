@@ -461,13 +461,14 @@ export function useChat({
 
 					// Start new code generation using API client
 					logger.info('🚀 Starting new agent session creation...', { query: userQuery, agentMode, imagesCount: userImages?.length || 0 });
-					let response: Response;
+					let response: ReadableStream<Uint8Array>;
 					try {
-						response = await apiClient.createAgentSession({
+						const streamingResponse = await apiClient.createAgentSession({
 							query: userQuery,
 							agentMode,
 							images: userImages, // Pass images from URL params for multi-modal blueprint
 						});
+						response = streamingResponse.stream;
 						logger.info('✅ Agent session created, starting to read stream...');
 					} catch (error) {
 						logger.error('❌ Failed to create agent session:', error);
