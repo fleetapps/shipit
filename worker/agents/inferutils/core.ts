@@ -747,57 +747,73 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             if (isStream) {
                 let streamIndex = 0;
                 let chunkCount = 0;
+                let hasReceivedContent = false;
                 // Accumulators for tool calls: by index (preferred) and by id (fallback when index is missing)
                 const byIndex = new Map<number, ToolAccumulatorEntry>();
                 const byId = new Map<string, ToolAccumulatorEntry>();
                 const orderCounterRef = { value: 0 };
                 
-                console.log(`[STREAM_DEBUG] Starting to iterate over stream for ${actionKey}`);
+                console.log(`[STREAM_DEBUG] Starting to iterate over stream for ${actionKey}, model: ${modelName}`);
                 
-                for await (const event of response as Stream<OpenAI.ChatCompletionChunk>) {
-                    chunkCount++;
-                    const delta = (event as ChatCompletionChunk).choices[0]?.delta;
-                    
-                    // Provider-specific logging
-                    const provider = modelName.split('/')[0];
-                    if (delta?.tool_calls && (provider === 'google-ai-studio' || provider === 'gemini')) {
-                        console.log(`[PROVIDER_DEBUG] ${provider} tool_calls delta:`, JSON.stringify(delta.tool_calls, null, 2));
-                    }
-                    
-                    if (delta?.tool_calls) {
-                        try {
-                            for (const deltaToolCall of delta.tool_calls as ToolCallsArray) {
-                                accumulateToolCallDelta(byIndex, byId, deltaToolCall, orderCounterRef);
+                try {
+                    for await (const event of response as Stream<OpenAI.ChatCompletionChunk>) {
+                        chunkCount++;
+                        const delta = (event as ChatCompletionChunk).choices[0]?.delta;
+                        const finishReason = (event as ChatCompletionChunk).choices[0]?.finish_reason;
+                        
+                        // Provider-specific logging
+                        const provider = modelName.split('/')[0];
+                        if (delta?.tool_calls && (provider === 'google-ai-studio' || provider === 'gemini')) {
+                            console.log(`[PROVIDER_DEBUG] ${provider} tool_calls delta:`, JSON.stringify(delta.tool_calls, null, 2));
+                        }
+                        
+                        if (delta?.tool_calls) {
+                            try {
+                                for (const deltaToolCall of delta.tool_calls as ToolCallsArray) {
+                                    accumulateToolCallDelta(byIndex, byId, deltaToolCall, orderCounterRef);
+                                }
+                            } catch (error) {
+                                console.error('Error processing tool calls in streaming:', error);
                             }
-                        } catch (error) {
-                            console.error('Error processing tool calls in streaming:', error);
+                        }
+                        
+                        // Process content - log every chunk for debugging
+                        const deltaContent = delta?.content || '';
+                        if (deltaContent) {
+                            hasReceivedContent = true;
+                            console.log(`[STREAM_DEBUG] Received delta content chunk #${chunkCount}, length: ${deltaContent.length}, preview: ${deltaContent.substring(0, 50)}...`);
+                        }
+                        content += deltaContent;
+                        const slice = content.slice(streamIndex);
+                        
+                        // Always send chunks when we have content, even if smaller than chunk_size
+                        // Also send on finishReason to ensure final chunk is sent
+                        if (slice.length > 0 && (slice.length >= stream.chunk_size || finishReason != null)) {
+                            console.log(`[STREAM_DEBUG] Sending chunk via onChunk, length: ${slice.length}, finishReason: ${finishReason}`);
+                            stream.onChunk(slice);
+                            streamIndex += slice.length;
                         }
                     }
                     
-                    // Process content - log every chunk for debugging
-                    const deltaContent = delta?.content || '';
-                    if (deltaContent) {
-                        console.log(`[STREAM_DEBUG] Received delta content chunk #${chunkCount}, length: ${deltaContent.length}, preview: ${deltaContent.substring(0, 50)}...`);
-                    }
-                    content += deltaContent;
-                    const slice = content.slice(streamIndex);
-                    const finishReason = (event as ChatCompletionChunk).choices[0]?.finish_reason;
+                    console.log(`[STREAM_DEBUG] Stream iteration completed. Total events: ${chunkCount}, hasReceivedContent: ${hasReceivedContent}, final content length: ${content.length}`);
                     
-                    // Always send chunks when we have content, even if smaller than chunk_size
-                    if (slice.length > 0 && (slice.length >= stream.chunk_size || finishReason != null)) {
-                        console.log(`[STREAM_DEBUG] Sending chunk via onChunk, length: ${slice.length}, finishReason: ${finishReason}`);
-                        stream.onChunk(slice);
-                        streamIndex += slice.length;
+                    // Send any remaining content that wasn't sent
+                    const remaining = content.slice(streamIndex);
+                    if (remaining.length > 0) {
+                        console.log(`[STREAM_DEBUG] Sending remaining content, length: ${remaining.length}`);
+                        stream.onChunk(remaining);
+                    } else if (!hasReceivedContent && chunkCount === 0) {
+                        // If stream was empty (no events), this might be a structured output issue
+                        // Try to extract content from the response object itself
+                        console.warn(`[STREAM_DEBUG] Stream was empty (no events received). This might indicate structured output returned non-stream response.`);
+                        // Fall through to non-stream handling below
+                        throw new Error('Stream was empty - treating as non-stream response');
                     }
-                }
-                
-                console.log(`[STREAM_DEBUG] Stream iteration completed. Total chunks: ${chunkCount}, final content length: ${content.length}`);
-                
-                // Send any remaining content that wasn't sent
-                const remaining = content.slice(streamIndex);
-                if (remaining.length > 0) {
-                    console.log(`[STREAM_DEBUG] Sending remaining content, length: ${remaining.length}`);
-                    stream.onChunk(remaining);
+                } catch (streamError) {
+                    // If stream iteration failed or was empty, treat as non-stream response
+                    console.warn(`[STREAM_DEBUG] Stream iteration failed or was empty:`, streamError);
+                    // Fall through to non-stream handling
+                    isStream = false;
                 }
                 
                 // Assemble toolCalls with preference for index ordering, else first-seen order
