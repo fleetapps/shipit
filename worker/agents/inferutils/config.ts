@@ -75,10 +75,10 @@ export const AGENT_CONFIG: AgentConfig = {
         temperature: 0.6,
     },
     blueprint: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.CLAUDE_4_SONNET, // Updated to Claude 4 Sonnet for better structured output handling
         reasoning_effort: 'medium',
         max_tokens: 64000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH, // Keep Gemini as fallback
         temperature: 0.7,
     },
     projectSetup: {
