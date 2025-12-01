@@ -10,7 +10,7 @@ import { ArrowRight, Image as ImageIcon } from 'react-feather';
 import { useParams, useSearchParams, useNavigate } from 'react-router';
 import { MonacoEditor } from '../../components/monaco-editor/monaco-editor';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Expand, Github, GitBranch, LoaderCircle, RefreshCw, MoreHorizontal, RotateCcw, X } from 'lucide-react';
+import { Expand, Github, GitBranch, LoaderCircle, RefreshCw, MoreHorizontal, RotateCcw, X, Play } from 'lucide-react';
 import clsx from 'clsx';
 import { Blueprint } from './components/blueprint';
 import { FileExplorer } from './components/file-explorer';
@@ -41,6 +41,9 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { sendWebSocketMessage } from './utils/websocket-helpers';
+import { apiClient } from '@/lib/api-client';
+import { getPreviewUrl } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export default function Chat() {
 	const { chatId: urlChatId } = useParams();
@@ -116,6 +119,7 @@ export default function Chat() {
 		sendAiMessage,
 		blueprint,
 		previewUrl,
+		setPreviewUrl,
 		clearEdit,
 		projectStages,
 		phaseTimeline,
@@ -145,6 +149,7 @@ export default function Chat() {
 		images: userImages,
 		agentMode: agentMode as 'deterministic' | 'smart',
 		onDebugMessage: addDebugMessage,
+		refetchApp,
 	});
 
 	// GitHub export functionality - use urlChatId directly from URL params
@@ -152,6 +157,7 @@ export default function Chat() {
 	const { user } = useAuth();
 
 	const navigate = useNavigate();
+	const [isDeployingPreview, setIsDeployingPreview] = useState(false);
 
 	const [activeFilePath, setActiveFilePath] = useState<string>();
 	const [view, setView] = useState<'editor' | 'preview' | 'blueprint' | 'terminal'>(
@@ -255,6 +261,42 @@ export default function Chat() {
 	const handleViewModeChange = useCallback((mode: 'preview' | 'editor' | 'blueprint') => {
 		setView(mode);
 	}, []);
+
+	// Preview deployment handler - must be after handleViewModeChange is defined
+	const handleDeployPreview = useCallback(async () => {
+		if (!urlChatId || urlChatId === 'new' || isDeployingPreview) return;
+
+		try {
+			setIsDeployingPreview(true);
+			logger.debug('🚀 Deploying preview via HTTP API...');
+			const response = await apiClient.deployPreview(urlChatId);
+			
+			if (response.success && response.data) {
+				const data = response.data;
+				if (data.previewURL || data.tunnelURL) {
+					const newUrl = getPreviewUrl(data.previewURL, data.tunnelURL);
+					setPreviewUrl(newUrl);
+					logger.debug('✅ Preview deployed successfully:', newUrl);
+					toast.success('Preview deployed successfully!');
+					// Switch to preview view if not already there
+					if (view !== 'preview') {
+						handleViewModeChange('preview');
+					}
+				} else {
+					logger.warn('⚠️ Preview deployment succeeded but no URL returned');
+					toast.error('Preview deployed but URL not available');
+				}
+			} else {
+				logger.error('❌ Preview deployment failed:', response);
+				toast.error('Failed to deploy preview');
+			}
+		} catch (error) {
+			logger.error('❌ Error deploying preview:', error);
+			toast.error(`Failed to deploy preview: ${error instanceof Error ? error.message : 'Unknown error'}`);
+		} finally {
+			setIsDeployingPreview(false);
+		}
+	}, [urlChatId, isDeployingPreview, setPreviewUrl, view, handleViewModeChange]);
 
 	const handleResetConversation = useCallback(() => {
 		if (!websocket) return;
@@ -1109,6 +1151,22 @@ export default function Chat() {
 											</div>
 
 											<div className="flex items-center justify-end gap-1.5">
+												{/* Deploy Preview button - shows when preview URL is missing but files exist */}
+												{!previewUrl && files.length > 0 && urlChatId && urlChatId !== 'new' && (
+													<button
+														className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-xs font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+														onClick={handleDeployPreview}
+														disabled={isDeployingPreview || isPreviewDeploying}
+														title={isDeployingPreview || isPreviewDeploying ? "Deploying preview..." : "Deploy Preview"}
+													>
+														{isDeployingPreview || isPreviewDeploying ? (
+															<LoaderCircle className="size-3 animate-spin" />
+														) : (
+															<Play className="size-3" />
+														)}
+														{isDeployingPreview || isPreviewDeploying ? 'Deploying...' : 'Preview'}
+													</button>
+												)}
 												{/* <button
 													className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-xs font-medium shadow-sm"
 													onClick={() => handleDeployToCloudflare(chatId!)}

@@ -55,6 +55,7 @@ export function useChat({
 	agentMode = 'deterministic',
 	onDebugMessage,
 	onTerminalMessage,
+	refetchApp,
 }: {
 	chatId?: string;
 	query: string | null;
@@ -62,6 +63,7 @@ export function useChat({
 	agentMode?: 'deterministic' | 'smart';
 	onDebugMessage?: (type: 'error' | 'warning' | 'info' | 'websocket', message: string, details?: string, source?: string, messageType?: string, rawMessage?: unknown) => void;
 	onTerminalMessage?: (log: { id: string; content: string; type: 'command' | 'stdout' | 'stderr' | 'info' | 'error' | 'warn' | 'debug'; timestamp: number; source?: string }) => void;
+	refetchApp?: () => Promise<void>;
 }) {
 	const connectionStatus = useRef<'idle' | 'connecting' | 'connected' | 'failed' | 'retrying'>('idle');
 	const retryCount = useRef(0);
@@ -205,6 +207,7 @@ export function useChat({
 			updateStage,
 			sendMessage,
 			loadBootstrapFiles,
+			refetchApp,
 			onDebugMessage,
 			onTerminalMessage,
 		} as HandleMessageDeps),
@@ -626,6 +629,7 @@ export function useChat({
 		files,
 		blueprint,
 		previewUrl,
+		setPreviewUrl,
 		isGeneratingBlueprint,
 		isBootstrapping,
 		totalFiles,

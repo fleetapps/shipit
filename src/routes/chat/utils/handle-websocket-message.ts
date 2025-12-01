@@ -64,6 +64,7 @@ export interface HandleMessageDeps {
     updateStage: (stageId: string, updates: any) => void;
     sendMessage: (message: ConversationMessage) => void;
     loadBootstrapFiles: (files: FileType[]) => void;
+    refetchApp?: () => Promise<void>;
     onDebugMessage?: (
         type: 'error' | 'warning' | 'info' | 'websocket',
         message: string,
@@ -93,6 +94,61 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
         }
         return '';
     };
+
+    // HTTP polling fallback for preview URL when WebSocket fails
+    let previewPollingInterval: NodeJS.Timeout | null = null;
+    let previewPollingAttempts = 0;
+    const MAX_POLLING_ATTEMPTS = 10;
+    const POLLING_INTERVAL_MS = 3000; // 3 seconds
+
+    const startPreviewUrlPolling = async (appId: string) => {
+        // Clear any existing polling
+        if (previewPollingInterval) {
+            clearInterval(previewPollingInterval);
+            previewPollingInterval = null;
+        }
+
+        previewPollingAttempts = 0;
+        logger.debug('🔄 Starting HTTP polling for preview URL (WebSocket fallback)');
+
+        previewPollingInterval = setInterval(async () => {
+            previewPollingAttempts++;
+            
+            if (previewPollingAttempts > MAX_POLLING_ATTEMPTS) {
+                logger.warn('⚠️ HTTP polling for preview URL exceeded max attempts, stopping');
+                if (previewPollingInterval) {
+                    clearInterval(previewPollingInterval);
+                    previewPollingInterval = null;
+                }
+                return;
+            }
+
+            try {
+                // Use refetchApp if available, otherwise fetch directly
+                if (deps.refetchApp) {
+                    await deps.refetchApp();
+                    // The app state will be updated via useApp hook, which will update previewUrl
+                    // But we also check here in case we need to set it directly
+                } else {
+                    // Fallback: fetch app details directly
+                    const { apiClient } = await import('@/lib/api-client');
+                    const response = await apiClient.getAppDetails(appId);
+                    if (response.data?.previewUrl) {
+                        const finalPreviewURL = getPreviewUrl(response.data.previewUrl, undefined);
+                        deps.setPreviewUrl(finalPreviewURL);
+                        logger.debug('✅ Preview URL retrieved via HTTP polling fallback');
+                        if (previewPollingInterval) {
+                            clearInterval(previewPollingInterval);
+                            previewPollingInterval = null;
+                        }
+                    }
+                }
+            } catch (error) {
+                logger.error('❌ Error polling for preview URL:', error);
+            }
+        }, POLLING_INTERVAL_MS);
+    };
+
     return (websocket: WebSocket, message: WebSocketMessage) => {
         const {
             setFiles,
@@ -477,6 +533,16 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 setProjectStages((prev) => completeStages(prev, ['code']));
 
                 sendMessage(createAIMessage('generation-complete', 'Code generation has been completed.'));
+                
+                // Extract preview URL from message if available
+                if (message.previewURL) {
+                    const finalPreviewURL = getPreviewUrl(message.previewURL, message.tunnelURL);
+                    setPreviewUrl(finalPreviewURL);
+                } else if (urlChatId && urlChatId !== 'new') {
+                    // If no preview URL in message, start polling HTTP endpoint as fallback
+                    logger.debug('🚀 Generation complete but no preview URL in message, starting HTTP polling fallback');
+                    startPreviewUrlPolling(urlChatId);
+                }
                 
                 // Reset all phase indicators
                 setIsPhaseProgressActive(false);
