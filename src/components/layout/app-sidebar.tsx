@@ -572,6 +572,24 @@ export function AppSidebar() {
 						<SidebarMenu>
 							<SidebarMenuItem>
 								<SidebarMenuButton
+									id="test-link"
+									onClick={() => {
+										// Test button action
+										console.log('Test button clicked');
+									}}
+									tooltip="Test"
+									className="group hover:opacity-80 hover:cursor-pointer hover:bg-bg-1/50 transition-all duration-200"
+								>
+									<Compass className="h-6 w-6 text-text-primary/60 group-hover:text-primary/80 transition-colors" />
+									{!isCollapsed && (
+										<span className="text-text-primary/80 font-medium group-hover:text-primary transition-colors">
+											Test
+										</span>
+									)}
+								</SidebarMenuButton>
+							</SidebarMenuItem>
+							<SidebarMenuItem>
+								<SidebarMenuButton
 									id="discover-link"
 									onClick={() => navigate('/discover')}
 									tooltip="Discover"

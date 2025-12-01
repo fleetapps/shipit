@@ -230,6 +230,31 @@ export function useChat({
 		]
 	);
 
+	// Helper function to extract auth token from cookies (matching server-side authUtils logic)
+	const getAuthToken = useCallback((): string | null => {
+		// Priority 1: Check Authorization header (not applicable for WebSocket)
+		// Priority 2: Check cookies (matching server-side authUtils.ts extractToken logic)
+		const cookieHeader = document.cookie;
+		if (cookieHeader) {
+			const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+				const [key, value] = cookie.trim().split('=');
+				if (key && value) {
+					acc[key] = decodeURIComponent(value);
+				}
+				return acc;
+			}, {} as Record<string, string>);
+
+			// Check common cookie names in order of preference (matching server-side)
+			const cookieNames = ['accessToken', 'auth_token', 'jwt'];
+			for (const cookieName of cookieNames) {
+				if (cookies[cookieName]) {
+					return cookies[cookieName];
+				}
+			}
+		}
+		return null;
+	}, []);
+
 	// WebSocket connection with retry logic
 	const connectWithRetry = useCallback(
 		(
@@ -245,9 +270,22 @@ export function useChat({
 
 			connectionStatus.current = isRetry ? 'retrying' : 'connecting';
 
+			// Extract auth token and append to WebSocket URL as query parameter
+			// This matches the server-side authUtils.ts extractToken logic (Priority 3: Query parameter)
+			const authToken = getAuthToken();
+			let finalWsUrl = wsUrl;
+			if (authToken) {
+				const url = new URL(wsUrl);
+				url.searchParams.set('token', authToken);
+				finalWsUrl = url.toString();
+				logger.debug('🔐 Added authentication token to WebSocket URL');
+			} else {
+				logger.warn('⚠️ No authentication token found in cookies, WebSocket may fail authentication');
+			}
+
 			try {
-				logger.debug('🔗 Attempting WebSocket connection to:', wsUrl);
-				const ws = new WebSocket(wsUrl);
+				logger.debug('🔗 Attempting WebSocket connection to:', finalWsUrl);
+				const ws = new WebSocket(finalWsUrl);
 				setWebsocket(ws);
 
 				// Mark this attempt id
@@ -260,9 +298,9 @@ export function useChat({
 					if (ws.readyState === WebSocket.CONNECTING) {
 						logger.warn('⏰ WebSocket connection timeout');
 						ws.close();
-						handleConnectionFailure(wsUrl, disableGenerate, 'Connection timeout');
-					}
-				}, 30000);
+			handleConnectionFailure(finalWsUrl, disableGenerate, 'Connection timeout');
+				}
+			}, 30000);
 
 				ws.addEventListener('open', () => {
 					// Ignore stale open events
@@ -316,7 +354,7 @@ export function useChat({
 					if (myAttemptId !== connectAttemptIdRef.current) return;
 					if (!shouldReconnectRef.current) return;
 					logger.error('❌ WebSocket error:', error);
-					handleConnectionFailure(wsUrl, disableGenerate, 'WebSocket error');
+					handleConnectionFailure(finalWsUrl, disableGenerate, 'WebSocket error');
 				});
 
 				ws.addEventListener('close', (event) => {
@@ -329,7 +367,7 @@ export function useChat({
 					if (myAttemptId !== connectAttemptIdRef.current) return;
 					if (!shouldReconnectRef.current) return;
 					// Retry on any close while mounted (including 1000) to improve resilience
-					handleConnectionFailure(wsUrl, disableGenerate, `Connection closed (code: ${event.code})`);
+					handleConnectionFailure(finalWsUrl, disableGenerate, `Connection closed (code: ${event.code})`);
 				});
 
 				return function disconnect() {
@@ -338,10 +376,10 @@ export function useChat({
 				};
 			} catch (error) {
 				logger.error('❌ Error establishing WebSocket connection:', error);
-				handleConnectionFailure(wsUrl, disableGenerate, 'Connection setup failed');
+				handleConnectionFailure(finalWsUrl, disableGenerate, 'Connection setup failed');
 			}
 		},
-		[retryCount, maxRetries, retryTimeouts],
+		[retryCount, maxRetries, retryTimeouts, getAuthToken],
 	);
 
 	// Handle connection failures with exponential backoff retry
