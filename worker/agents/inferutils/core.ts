@@ -693,7 +693,33 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                     })
                 }
             });
-            console.log(`Inference response received`);
+            console.log(`[RESPONSE_DEBUG] Inference response received for ${actionKey}`);
+            console.log(`[RESPONSE_DEBUG] Response type: ${response?.constructor?.name || typeof response}`);
+            console.log(`[RESPONSE_DEBUG] Response has Symbol.asyncIterator: ${response && typeof (response as any)[Symbol.asyncIterator] === 'function'}`);
+            if (!(response && typeof (response as any)[Symbol.asyncIterator] === 'function')) {
+                // It's a ChatCompletion object, log its structure
+                const completion = response as OpenAI.ChatCompletion;
+                console.log(`[RESPONSE_DEBUG] ChatCompletion structure:`, {
+                    id: completion.id,
+                    object: completion.object,
+                    created: completion.created,
+                    model: completion.model,
+                    choicesCount: completion.choices?.length || 0,
+                    hasMessage: !!completion.choices?.[0]?.message,
+                    messageRole: completion.choices?.[0]?.message?.role,
+                    messageContentType: typeof completion.choices?.[0]?.message?.content,
+                    messageContentLength: completion.choices?.[0]?.message?.content?.length || 0,
+                    messageContentPreview: completion.choices?.[0]?.message?.content?.substring(0, 200) || 'N/A',
+                    hasToolCalls: !!completion.choices?.[0]?.message?.tool_calls,
+                    toolCallsCount: completion.choices?.[0]?.message?.tool_calls?.length || 0,
+                    usage: completion.usage,
+                });
+                // Log the full message object structure
+                if (completion.choices?.[0]?.message) {
+                    console.log(`[RESPONSE_DEBUG] Full message object keys:`, Object.keys(completion.choices[0].message));
+                    console.log(`[RESPONSE_DEBUG] Full message object:`, JSON.stringify(completion.choices[0].message, null, 2).substring(0, 1000));
+                }
+            }
         } catch (error) {
             // Enhanced error logging for authentication issues
             if (error instanceof Error) {
@@ -813,7 +839,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                     // If stream iteration failed or was empty, treat as non-stream response
                     console.warn(`[STREAM_DEBUG] Stream iteration failed or was empty:`, streamError);
                     // Fall through to non-stream handling
-                    isStream = false;
+                    isStreamResponse = false;
                 }
                 
                 // Assemble toolCalls with preference for index ordering, else first-seen order
@@ -851,14 +877,36 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 // Properly extract both content and tool calls from non-stream response
                 const completion = response as OpenAI.ChatCompletion;
                 const message = completion.choices[0]?.message;
-                console.log(`[STREAM_DEBUG] Non-stream response - message exists: ${!!message}, has content: ${!!message?.content}, content length: ${message?.content?.length || 0}`);
+                
+                console.log(`[STREAM_DEBUG] ========== DETAILED NON-STREAM RESPONSE ANALYSIS ==========`);
+                console.log(`[STREAM_DEBUG] Message exists: ${!!message}`);
+                console.log(`[STREAM_DEBUG] Message type: ${typeof message}`);
+                if (message) {
+                    console.log(`[STREAM_DEBUG] Message keys:`, Object.keys(message));
+                    console.log(`[STREAM_DEBUG] message.content type: ${typeof message.content}`);
+                    console.log(`[STREAM_DEBUG] message.content value:`, message.content);
+                    console.log(`[STREAM_DEBUG] message.content length: ${message.content?.length || 0}`);
+                    console.log(`[STREAM_DEBUG] message.tool_calls:`, message.tool_calls);
+                    console.log(`[STREAM_DEBUG] Full message object:`, JSON.stringify(message, null, 2));
+                } else {
+                    console.log(`[STREAM_DEBUG] No message in choices[0]`);
+                    console.log(`[STREAM_DEBUG] Choices array:`, JSON.stringify(completion.choices, null, 2));
+                }
+                console.log(`[STREAM_DEBUG] Full completion object structure:`, {
+                    id: completion.id,
+                    object: completion.object,
+                    model: completion.model,
+                    choicesLength: completion.choices?.length,
+                    usage: completion.usage,
+                });
+                console.log(`[STREAM_DEBUG] ==========================================================`);
                 
                 if (message) {
                     // For structured output, content might be a JSON string
                     content = message.content || '';
                     toolCalls = (message.tool_calls as ChatCompletionMessageFunctionToolCall[]) || [];
                     
-                    console.log(`[STREAM_DEBUG] Extracted content from non-stream response. Length: ${content.length}, preview: ${content.substring(0, 100)}...`);
+                    console.log(`[STREAM_DEBUG] Extracted content from non-stream response. Length: ${content.length}, preview: ${content.substring(0, 200)}...`);
                     
                     // If streaming was requested, manually send the content as chunks
                     if (stream && content) {
@@ -869,15 +917,18 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         for (let i = 0; i < content.length; i += chunkSize) {
                             chunkIndex++;
                             const chunk = content.slice(i, i + chunkSize);
-                            console.log(`[STREAM_DEBUG] Sending manual chunk #${chunkIndex}, length: ${chunk.length}`);
+                            console.log(`[STREAM_DEBUG] Sending manual chunk #${chunkIndex}, length: ${chunk.length}, preview: ${chunk.substring(0, 50)}...`);
                             stream.onChunk(chunk);
                         }
                         console.log(`[STREAM_DEBUG] Finished sending ${chunkIndex} manual chunks`);
                     } else if (stream && !content) {
-                        console.error(`[STREAM_DEBUG] ERROR: Streaming was requested but content is empty! Message:`, JSON.stringify(message, null, 2));
+                        console.error(`[STREAM_DEBUG] ERROR: Streaming was requested but content is empty!`);
+                        console.error(`[STREAM_DEBUG] Message object:`, JSON.stringify(message, null, 2));
+                        console.error(`[STREAM_DEBUG] Full completion:`, JSON.stringify(completion, null, 2).substring(0, 2000));
                     }
                 } else {
-                    console.error(`[STREAM_DEBUG] ERROR: No message in non-stream response! Response:`, JSON.stringify(completion, null, 2));
+                    console.error(`[STREAM_DEBUG] ERROR: No message in non-stream response!`);
+                    console.error(`[STREAM_DEBUG] Full completion:`, JSON.stringify(completion, null, 2).substring(0, 2000));
                 }
             }
         } else {
