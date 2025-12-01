@@ -461,20 +461,20 @@ export function useChat({
 
 					// Start new code generation using API client
 					logger.info('🚀 Starting new agent session creation...', { query: userQuery, agentMode, imagesCount: userImages?.length || 0 });
-					let response: ReadableStream<Uint8Array> | null = null;
+					let response: Response | null = null;
 					try {
 						const streamingResponse = await apiClient.createAgentSession({
 							query: userQuery,
 							agentMode,
 							images: userImages, // Pass images from URL params for multi-modal blueprint
 						});
-						// streamingResponse.stream is a Response object, we need response.body to get the ReadableStream
+						// streamingResponse.stream is a Response object, which ndjsonStream expects
 						if (!streamingResponse.stream || !streamingResponse.stream.body) {
 							logger.error('❌ No stream body in response');
 							toast.error('Failed to get stream from server');
 							return;
 						}
-						response = streamingResponse.stream.body;
+						response = streamingResponse.stream;
 						logger.info('✅ Agent session created, starting to read stream...');
 					} catch (error) {
 						logger.error('❌ Failed to create agent session:', error);
