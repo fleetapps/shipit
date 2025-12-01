@@ -230,10 +230,9 @@ export function useChat({
 		]
 	);
 
-	// Helper function to extract auth token from cookies (matching server-side authUtils logic)
+	// Helper function to extract auth token from multiple sources (matching server-side authUtils logic)
 	const getAuthToken = useCallback((): string | null => {
-		// Priority 1: Check Authorization header (not applicable for WebSocket)
-		// Priority 2: Check cookies (matching server-side authUtils.ts extractToken logic)
+		// Priority 1: Check cookies (matching server-side authUtils.ts extractToken logic)
 		const cookieHeader = document.cookie;
 		if (cookieHeader) {
 			const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
@@ -245,13 +244,26 @@ export function useChat({
 			}, {} as Record<string, string>);
 
 			// Check common cookie names in order of preference (matching server-side)
-			const cookieNames = ['accessToken', 'auth_token', 'jwt'];
+			const cookieNames = ['accessToken', 'auth_token', 'jwt', 'token'];
 			for (const cookieName of cookieNames) {
 				if (cookies[cookieName]) {
+					logger.debug('🔐 Found auth token in cookie:', cookieName);
 					return cookies[cookieName];
 				}
 			}
 		}
+		
+		// Priority 2: Check localStorage as fallback
+		const localStorageToken = localStorage.getItem('accessToken') || 
+		                          localStorage.getItem('auth_token') || 
+		                          localStorage.getItem('jwt') ||
+		                          localStorage.getItem('token');
+		if (localStorageToken) {
+			logger.debug('🔐 Found auth token in localStorage');
+			return localStorageToken;
+		}
+		
+		logger.warn('⚠️ No authentication token found in cookies or localStorage');
 		return null;
 	}, []);
 
@@ -466,11 +478,14 @@ export function useChat({
 					};
 
 					let startedBlueprintStream = false;
+					let blueprintChunkCount = 0;
 					sendMessage(createAIMessage('main', "Sure, let's get started. Bootstrapping the project first...", true));
 
 					for await (const obj of ndjsonStream(response.stream)) {
                         logger.debug('Received chunk from server:', obj);
 						if (obj.chunk) {
+							blueprintChunkCount++;
+							logger.debug(`📄 Blueprint chunk ${blueprintChunkCount} received, length: ${obj.chunk.length}`);
 							if (!startedBlueprintStream) {
 								sendMessage(createAIMessage('main', 'Blueprint is being generated...', true));
 								logger.info('Blueprint stream has started');
@@ -483,9 +498,15 @@ export function useChat({
 							parser.feed(obj.chunk);
 							try {
 								const partial = parser.finalize();
-								setBlueprint(partial);
+								if (partial && Object.keys(partial).length > 0) {
+									logger.debug('✅ Blueprint parsed successfully:', partial);
+									setBlueprint(partial);
+								} else {
+									logger.warn('⚠️ Blueprint parsed but appears empty:', partial);
+								}
 							} catch (e) {
-								logger.error('Error parsing JSON:', e, obj.chunk);
+								logger.error('❌ Error parsing blueprint JSON:', e, 'Chunk:', obj.chunk);
+								// Don't set fallback - let it remain undefined to show loading state
 							}
 						} 
 						if (obj.agentId) {
@@ -506,12 +527,34 @@ export function useChat({
 
 					updateStage('blueprint', { status: 'completed' });
 					setIsGeneratingBlueprint(false);
+					
+					// Log blueprint status
+					if (blueprint) {
+						logger.info('✅ Blueprint received successfully:', { 
+							title: blueprint.title, 
+							hasDescription: !!blueprint.description,
+							chunkCount: blueprintChunkCount 
+						});
+					} else {
+						logger.warn('⚠️ Blueprint stream completed but blueprint is empty or undefined', { chunkCount: blueprintChunkCount });
+					}
+					
 					sendMessage(createAIMessage('main', 'Blueprint generation complete. Now starting the code generation...', true));
 
 					// Connect to WebSocket
-					logger.debug('connecting to ws with created id');
-					connectWithRetry(result.websocketUrl);
+					logger.debug('connecting to ws with created id:', result.websocketUrl);
+					if (!result.websocketUrl) {
+						logger.error('❌ No WebSocket URL received from server');
+						toast.error('Failed to get WebSocket URL. Please try again.');
+						return;
+					}
+					if (!result.agentId) {
+						logger.error('❌ No agent ID received from server');
+						toast.error('Failed to get agent ID. Please try again.');
+						return;
+					}
 					setChatId(result.agentId); // This comes from the server response
+					connectWithRetry(result.websocketUrl);
 					
 					// Emit app-created event for sidebar updates
 					appEvents.emitAppCreated(result.agentId, {

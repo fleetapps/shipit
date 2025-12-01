@@ -695,6 +695,30 @@ export default function Chat() {
 								isThinking={isThinking}
 							/>
 
+							{/* PROMINENT Preview Button - Always Visible */}
+							{urlChatId && urlChatId !== 'new' && (
+								<motion.div
+									initial={{ opacity: 0, y: 10 }}
+									animate={{ opacity: 1, y: 0 }}
+									transition={{ duration: 0.3 }}
+									className="px-4 mb-4 flex justify-center"
+								>
+									<button
+										className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-lg transition-all duration-200 text-base font-semibold shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105"
+										onClick={handleDeployPreview}
+										disabled={isDeployingPreview || isPreviewDeploying}
+										title={isDeployingPreview || isPreviewDeploying ? "Deploying preview..." : "Deploy Preview"}
+									>
+										{isDeployingPreview || isPreviewDeploying ? (
+											<LoaderCircle className="size-5 animate-spin" />
+										) : (
+											<Play className="size-5" />
+										)}
+										{isDeployingPreview || isPreviewDeploying ? 'Deploying Preview...' : '🚀 Deploy Preview'}
+									</button>
+								</motion.div>
+							)}
+
 							{/* Deployment and Generation Controls */}
 							{chatId && (
 								<motion.div
@@ -928,18 +952,18 @@ export default function Chat() {
 										</div>
 
 										<div className="flex items-center justify-end gap-1.5">
-											{/* Deploy Preview button - also show in preview view if URL is missing */}
-											{!previewUrl && files.length > 0 && urlChatId && urlChatId !== 'new' && (
+											{/* ALWAYS VISIBLE Preview button in preview view */}
+											{urlChatId && urlChatId !== 'new' && (
 												<button
-													className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-xs font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+													className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-sm font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
 													onClick={handleDeployPreview}
 													disabled={isDeployingPreview || isPreviewDeploying}
 													title={isDeployingPreview || isPreviewDeploying ? "Deploying preview..." : "Deploy Preview"}
 												>
 													{isDeployingPreview || isPreviewDeploying ? (
-														<LoaderCircle className="size-3 animate-spin" />
+														<LoaderCircle className="size-4 animate-spin" />
 													) : (
-														<Play className="size-3" />
+														<Play className="size-4" />
 													)}
 													{isDeployingPreview || isPreviewDeploying ? 'Deploying...' : 'Deploy Preview'}
 												</button>
@@ -1080,8 +1104,23 @@ export default function Chat() {
 											</div>
 										</div>
 
-										<div className="flex items-center justify-end">
-											{/* Right side - can add actions here if needed */}
+										<div className="flex items-center justify-end gap-1.5">
+											{/* ALWAYS VISIBLE Preview button in blueprint view */}
+											{urlChatId && urlChatId !== 'new' && (
+												<button
+													className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-sm font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+													onClick={handleDeployPreview}
+													disabled={isDeployingPreview || isPreviewDeploying}
+													title={isDeployingPreview || isPreviewDeploying ? "Deploying preview..." : "Deploy Preview"}
+												>
+													{isDeployingPreview || isPreviewDeploying ? (
+														<LoaderCircle className="size-4 animate-spin" />
+													) : (
+														<Play className="size-4" />
+													)}
+													{isDeployingPreview || isPreviewDeploying ? 'Deploying...' : 'Deploy Preview'}
+												</button>
+											)}
 										</div>
 									</div>
 									<div className="flex-1 overflow-y-auto bg-bg-3">
@@ -1200,20 +1239,20 @@ export default function Chat() {
 											</div>
 
 											<div className="flex items-center justify-end gap-1.5">
-												{/* Deploy Preview button - shows when preview URL is missing but files exist */}
-												{!previewUrl && files.length > 0 && urlChatId && urlChatId !== 'new' && (
+												{/* ALWAYS VISIBLE Preview button - removed conditions to make it always visible */}
+												{urlChatId && urlChatId !== 'new' && (
 													<button
-														className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-xs font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+														className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-sm font-medium shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
 														onClick={handleDeployPreview}
 														disabled={isDeployingPreview || isPreviewDeploying}
 														title={isDeployingPreview || isPreviewDeploying ? "Deploying preview..." : "Deploy Preview"}
 													>
 														{isDeployingPreview || isPreviewDeploying ? (
-															<LoaderCircle className="size-3 animate-spin" />
+															<LoaderCircle className="size-4 animate-spin" />
 														) : (
-															<Play className="size-3" />
+															<Play className="size-4" />
 														)}
-														{isDeployingPreview || isPreviewDeploying ? 'Deploying...' : 'Preview'}
+														{isDeployingPreview || isPreviewDeploying ? 'Deploying...' : 'Deploy Preview'}
 													</button>
 												)}
 												{/* <button
