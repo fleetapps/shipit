@@ -1,0 +1,30 @@
+export function createRenameProjectTool(agent, logger) {
+    return {
+        type: 'function',
+        function: {
+            name: 'rename_project',
+            description: 'Rename the project. Lowercase letters, numbers, hyphens, and underscores only. No spaces or dots. Call this alongside queue_request tool to update the codebase',
+            parameters: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                    newName: {
+                        type: 'string',
+                        minLength: 3,
+                        maxLength: 50,
+                        pattern: '^[a-z0-9-_]+$'
+                    },
+                },
+                required: ['newName'],
+            },
+        },
+        implementation: async (args) => {
+            logger.info('Renaming project', { newName: args.newName });
+            const ok = await agent.updateProjectName(args.newName);
+            if (!ok) {
+                throw new Error('Failed to rename project');
+            }
+            return { projectName: args.newName };
+        },
+    };
+}

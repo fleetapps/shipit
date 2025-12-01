@@ -539,9 +539,36 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     const finalPreviewURL = getPreviewUrl(message.previewURL, message.tunnelURL);
                     setPreviewUrl(finalPreviewURL);
                 } else if (urlChatId && urlChatId !== 'new') {
-                    // If no preview URL in message, start polling HTTP endpoint as fallback
-                    logger.debug('🚀 Generation complete but no preview URL in message, starting HTTP polling fallback');
-                    startPreviewUrlPolling(urlChatId);
+                    // If no preview URL in message, try to auto-deploy preview immediately
+                    logger.debug('🚀 Generation complete but no preview URL in message, attempting auto-deployment...');
+                    
+                    // Import apiClient dynamically to avoid circular dependencies
+                    import('@/lib/api-client').then(({ apiClient }) => {
+                        apiClient.deployPreview(urlChatId).then((response) => {
+                            if (response.success && response.data) {
+                                const data = response.data;
+                                if (data.previewURL || data.tunnelURL) {
+                                    const finalPreviewURL = getPreviewUrl(data.previewURL, data.tunnelURL);
+                                    setPreviewUrl(finalPreviewURL);
+                                    logger.debug('✅ Preview auto-deployed successfully:', finalPreviewURL);
+                                } else {
+                                    // Fallback to polling if auto-deploy didn't return URL
+                                    logger.debug('⚠️ Auto-deploy succeeded but no URL, starting HTTP polling fallback');
+                                    startPreviewUrlPolling(urlChatId);
+                                }
+                            } else {
+                                // Fallback to polling if auto-deploy failed
+                                logger.debug('⚠️ Auto-deploy failed, starting HTTP polling fallback');
+                                startPreviewUrlPolling(urlChatId);
+                            }
+                        }).catch((error) => {
+                            logger.error('❌ Auto-deploy error, starting HTTP polling fallback:', error);
+                            startPreviewUrlPolling(urlChatId);
+                        });
+                    }).catch((error) => {
+                        logger.error('❌ Failed to import apiClient, starting HTTP polling fallback:', error);
+                        startPreviewUrlPolling(urlChatId);
+                    });
                 }
                 
                 // Reset all phase indicators

@@ -1,0 +1,4 @@
+/**
+ * Base Controller Types
+ */
+export {};

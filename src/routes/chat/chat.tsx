@@ -892,8 +892,10 @@ export default function Chat() {
 						animate={{ opacity: 1, scale: 1 }}
 						transition={{ duration: 0.3, ease: 'easeInOut' }}
 					>
-							{view === 'preview' && previewUrl && (
+							{view === 'preview' && (
 								<div className="flex-1 flex flex-col bg-bg-3 rounded-xl shadow-md shadow-bg-2 overflow-hidden border border-border-primary">
+									{previewUrl ? (
+									<>
 									<div className="grid grid-cols-3 px-2 h-10 border-b bg-bg-2">
 										<div className="flex items-center">
 											<ViewModeSwitch
@@ -926,6 +928,22 @@ export default function Chat() {
 										</div>
 
 										<div className="flex items-center justify-end gap-1.5">
+											{/* Deploy Preview button - also show in preview view if URL is missing */}
+											{!previewUrl && files.length > 0 && urlChatId && urlChatId !== 'new' && (
+												<button
+													className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-xs font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+													onClick={handleDeployPreview}
+													disabled={isDeployingPreview || isPreviewDeploying}
+													title={isDeployingPreview || isPreviewDeploying ? "Deploying preview..." : "Deploy Preview"}
+												>
+													{isDeployingPreview || isPreviewDeploying ? (
+														<LoaderCircle className="size-3 animate-spin" />
+													) : (
+														<Play className="size-3" />
+													)}
+													{isDeployingPreview || isPreviewDeploying ? 'Deploying...' : 'Deploy Preview'}
+												</button>
+											)}
 											{/* <button
 												className="flex items-center gap-1.5 px-2 py-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-xs font-medium shadow-sm"
 												onClick={() => handleDeployToCloudflare(chatId!)}
@@ -1004,6 +1022,37 @@ export default function Chat() {
 										}
 										webSocket={websocket}
 									/>
+									</>
+									) : (
+										// Show deploy button when preview URL is missing
+										<div className="flex-1 flex flex-col items-center justify-center p-8 gap-4">
+											<div className="text-center space-y-4">
+												<h3 className="text-lg font-semibold text-text-primary">
+													Preview Not Available
+												</h3>
+												<p className="text-sm text-text-secondary max-w-md">
+													{files.length > 0 
+														? "Code generation is complete, but the preview hasn't been deployed yet. Click the button below to deploy and view your app."
+														: "No preview available. Complete code generation first."}
+												</p>
+												{files.length > 0 && urlChatId && urlChatId !== 'new' && (
+													<button
+														className="flex items-center gap-2 px-4 py-2 mx-auto bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-md transition-all duration-200 text-sm font-medium shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+														onClick={handleDeployPreview}
+														disabled={isDeployingPreview || isPreviewDeploying}
+														title={isDeployingPreview || isPreviewDeploying ? "Deploying preview..." : "Deploy Preview"}
+													>
+														{isDeployingPreview || isPreviewDeploying ? (
+															<LoaderCircle className="size-4 animate-spin" />
+														) : (
+															<Play className="size-4" />
+														)}
+														{isDeployingPreview || isPreviewDeploying ? 'Deploying Preview...' : 'Deploy Preview'}
+													</button>
+												)}
+											</div>
+										</div>
+									)}
 								</div>
 							)}
 
