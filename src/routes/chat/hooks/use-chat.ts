@@ -461,14 +461,20 @@ export function useChat({
 
 					// Start new code generation using API client
 					logger.info('🚀 Starting new agent session creation...', { query: userQuery, agentMode, imagesCount: userImages?.length || 0 });
-					let response: ReadableStream<Uint8Array>;
+					let response: ReadableStream<Uint8Array> | null = null;
 					try {
 						const streamingResponse = await apiClient.createAgentSession({
 							query: userQuery,
 							agentMode,
 							images: userImages, // Pass images from URL params for multi-modal blueprint
 						});
-						response = streamingResponse.stream;
+						// streamingResponse.stream is a Response object, we need response.body to get the ReadableStream
+						if (!streamingResponse.stream || !streamingResponse.stream.body) {
+							logger.error('❌ No stream body in response');
+							toast.error('Failed to get stream from server');
+							return;
+						}
+						response = streamingResponse.stream.body;
 						logger.info('✅ Agent session created, starting to read stream...');
 					} catch (error) {
 						logger.error('❌ Failed to create agent session:', error);
@@ -497,9 +503,14 @@ export function useChat({
 					let blueprintChunkCount = 0;
 					sendMessage(createAIMessage('main', "Sure, let's get started. Bootstrapping the project first...", true));
 
+					if (!response) {
+						logger.error('❌ No response stream available');
+						return;
+					}
+					
 					logger.info('📡 Starting to read NDJSON stream from response...');
 					let streamObjectCount = 0;
-					for await (const obj of ndjsonStream(response.stream)) {
+					for await (const obj of ndjsonStream(response)) {
 						streamObjectCount++;
                         logger.info(`📦 Received NDJSON object #${streamObjectCount} from server:`, obj);
 						if (obj.chunk) {
