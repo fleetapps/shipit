@@ -738,14 +738,24 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         let content = '';
         if (stream) {
             // If streaming is enabled, handle the stream response
-            if (response instanceof Stream) {
+            console.log(`[STREAM_DEBUG] Checking response type for streaming. Has stream param: ${!!stream}, response type: ${response?.constructor?.name || typeof response}`);
+            
+            // Check if response is actually a Stream by checking for async iterator
+            const isStream = response && typeof (response as any)[Symbol.asyncIterator] === 'function';
+            console.log(`[STREAM_DEBUG] Response is async iterable (Stream): ${isStream}`);
+            
+            if (isStream) {
                 let streamIndex = 0;
+                let chunkCount = 0;
                 // Accumulators for tool calls: by index (preferred) and by id (fallback when index is missing)
                 const byIndex = new Map<number, ToolAccumulatorEntry>();
                 const byId = new Map<string, ToolAccumulatorEntry>();
                 const orderCounterRef = { value: 0 };
                 
-                for await (const event of response) {
+                console.log(`[STREAM_DEBUG] Starting to iterate over stream for ${actionKey}`);
+                
+                for await (const event of response as Stream<OpenAI.ChatCompletionChunk>) {
+                    chunkCount++;
                     const delta = (event as ChatCompletionChunk).choices[0]?.delta;
                     
                     // Provider-specific logging
@@ -764,14 +774,30 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                         }
                     }
                     
-                    // Process content
-                    content += delta?.content || '';
+                    // Process content - log every chunk for debugging
+                    const deltaContent = delta?.content || '';
+                    if (deltaContent) {
+                        console.log(`[STREAM_DEBUG] Received delta content chunk #${chunkCount}, length: ${deltaContent.length}, preview: ${deltaContent.substring(0, 50)}...`);
+                    }
+                    content += deltaContent;
                     const slice = content.slice(streamIndex);
                     const finishReason = (event as ChatCompletionChunk).choices[0]?.finish_reason;
-                    if (slice.length >= stream.chunk_size || finishReason != null) {
+                    
+                    // Always send chunks when we have content, even if smaller than chunk_size
+                    if (slice.length > 0 && (slice.length >= stream.chunk_size || finishReason != null)) {
+                        console.log(`[STREAM_DEBUG] Sending chunk via onChunk, length: ${slice.length}, finishReason: ${finishReason}`);
                         stream.onChunk(slice);
                         streamIndex += slice.length;
                     }
+                }
+                
+                console.log(`[STREAM_DEBUG] Stream iteration completed. Total chunks: ${chunkCount}, final content length: ${content.length}`);
+                
+                // Send any remaining content that wasn't sent
+                const remaining = content.slice(streamIndex);
+                if (remaining.length > 0) {
+                    console.log(`[STREAM_DEBUG] Sending remaining content, length: ${remaining.length}`);
+                    stream.onChunk(remaining);
                 }
                 
                 // Assemble toolCalls with preference for index ordering, else first-seen order
@@ -805,23 +831,37 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 // Do not drop tool calls without id; we used a synthetic id and will update if a real id arrives in later deltas
             } else {
                 // Handle the case where stream was requested but a non-stream response was received
-                console.warn('Expected a stream response but received a ChatCompletion object. This can happen with structured output.');
+                console.warn(`[STREAM_DEBUG] Expected a stream response but received a ChatCompletion object. This can happen with structured output (response_format). Action: ${actionKey}, Model: ${modelName}`);
                 // Properly extract both content and tool calls from non-stream response
                 const completion = response as OpenAI.ChatCompletion;
                 const message = completion.choices[0]?.message;
+                console.log(`[STREAM_DEBUG] Non-stream response - message exists: ${!!message}, has content: ${!!message?.content}, content length: ${message?.content?.length || 0}`);
+                
                 if (message) {
+                    // For structured output, content might be a JSON string
                     content = message.content || '';
                     toolCalls = (message.tool_calls as ChatCompletionMessageFunctionToolCall[]) || [];
                     
+                    console.log(`[STREAM_DEBUG] Extracted content from non-stream response. Length: ${content.length}, preview: ${content.substring(0, 100)}...`);
+                    
                     // If streaming was requested, manually send the content as chunks
                     if (stream && content) {
+                        console.log(`[STREAM_DEBUG] Manually chunking non-stream content for streaming. Total length: ${content.length}, chunk_size: ${stream.chunk_size}`);
                         // Send content in chunks matching chunk_size
                         const chunkSize = stream.chunk_size;
+                        let chunkIndex = 0;
                         for (let i = 0; i < content.length; i += chunkSize) {
+                            chunkIndex++;
                             const chunk = content.slice(i, i + chunkSize);
+                            console.log(`[STREAM_DEBUG] Sending manual chunk #${chunkIndex}, length: ${chunk.length}`);
                             stream.onChunk(chunk);
                         }
+                        console.log(`[STREAM_DEBUG] Finished sending ${chunkIndex} manual chunks`);
+                    } else if (stream && !content) {
+                        console.error(`[STREAM_DEBUG] ERROR: Streaming was requested but content is empty! Message:`, JSON.stringify(message, null, 2));
                     }
+                } else {
+                    console.error(`[STREAM_DEBUG] ERROR: No message in non-stream response! Response:`, JSON.stringify(completion, null, 2));
                 }
             }
         } else {
