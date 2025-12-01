@@ -142,7 +142,15 @@ export class CodingAgentController extends BaseController {
                 inferenceContext,
                 images: uploadedImages,
                 onBlueprintChunk: (chunk: string) => {
-                    writer.write({chunk});
+                    console.log(`[CALLBACK_CHAIN] onBlueprintChunk() called in controller. Chunk length: ${chunk.length}, preview: ${chunk.substring(0, 100)}...`);
+                    console.log(`[CALLBACK_CHAIN] About to call writer.write({chunk})...`);
+                    try {
+                        writer.write({chunk});
+                        console.log(`[CALLBACK_CHAIN] ✅ writer.write({chunk}) completed successfully`);
+                    } catch (writeError) {
+                        console.error(`[CALLBACK_CHAIN] ❌ ERROR in writer.write({chunk}):`, writeError);
+                        throw writeError;
+                    }
                 },
                 templateInfo: { templateDetails, selection },
             }, body.agentMode || defaultCodeGenArgs.agentMode) as Promise<CodeGenState>;

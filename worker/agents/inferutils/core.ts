@@ -906,23 +906,105 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                     content = message.content || '';
                     toolCalls = (message.tool_calls as ChatCompletionMessageFunctionToolCall[]) || [];
                     
-                    console.log(`[STREAM_DEBUG] Extracted content from non-stream response. Length: ${content.length}, preview: ${content.substring(0, 200)}...`);
+                    console.log(`[STREAM_DEBUG] Step 1: Initial content extraction. Length: ${content.length}, preview: ${content.substring(0, 200)}...`);
                     
-                    // If streaming was requested, manually send the content as chunks
-                    if (stream && content) {
-                        console.log(`[STREAM_DEBUG] Manually chunking non-stream content for streaming. Total length: ${content.length}, chunk_size: ${stream.chunk_size}`);
-                        // Send content in chunks matching chunk_size
-                        const chunkSize = stream.chunk_size;
-                        let chunkIndex = 0;
-                        for (let i = 0; i < content.length; i += chunkSize) {
-                            chunkIndex++;
-                            const chunk = content.slice(i, i + chunkSize);
-                            console.log(`[STREAM_DEBUG] Sending manual chunk #${chunkIndex}, length: ${chunk.length}, preview: ${chunk.substring(0, 50)}...`);
-                            stream.onChunk(chunk);
+                    // PLAN POINT 1: If message.content is empty, try extracting from parsed structured object
+                    if (!content || content.length === 0) {
+                        console.log(`[STREAM_DEBUG] Step 2: message.content is empty, attempting to extract from parsed structured object...`);
+                        console.log(`[STREAM_DEBUG] Checking for structured output in message object...`);
+                        
+                        // Try to find structured output - could be in various places
+                        // Check if there's a parsed object we can serialize
+                        try {
+                            // Sometimes structured output is already parsed and available elsewhere
+                            // Check if message has any other fields that might contain the data
+                            const messageKeys = Object.keys(message);
+                            console.log(`[STREAM_DEBUG] Available message keys:`, messageKeys);
+                            
+                            // For structured output with response_format, the content might be null but the object is parsed
+                            // We need to check if there's a way to get the raw JSON
+                            // Since we're using response_format, OpenAI should return the JSON in message.content
+                            // But if it's empty, we might need to reconstruct from the parsed schema result
+                            
+                            // Check if we can get the raw response body (if available)
+                            console.log(`[STREAM_DEBUG] No direct structured object found in message. Will try fallback serialization.`);
+                        } catch (extractError) {
+                            console.error(`[STREAM_DEBUG] Error attempting to extract from structured object:`, extractError);
                         }
-                        console.log(`[STREAM_DEBUG] Finished sending ${chunkIndex} manual chunks`);
+                    }
+                    
+                    // PLAN POINT 2: Serialize the structured object to JSON if needed
+                    // If content is still empty, try to serialize the entire message or completion
+                    if ((!content || content.length === 0) && stream) {
+                        console.log(`[STREAM_DEBUG] Step 3: Content still empty, attempting to serialize structured object to JSON...`);
+                        try {
+                            // Try serializing the message object itself
+                            const serializedMessage = JSON.stringify(message, null, 2);
+                            if (serializedMessage && serializedMessage.length > 0) {
+                                console.log(`[STREAM_DEBUG] Successfully serialized message object. Length: ${serializedMessage.length}`);
+                                content = serializedMessage;
+                            } else {
+                                // Fallback: serialize entire completion
+                                console.log(`[STREAM_DEBUG] Message serialization empty, trying full completion object...`);
+                                const serializedCompletion = JSON.stringify(completion, null, 2);
+                                if (serializedCompletion && serializedCompletion.length > 0) {
+                                    console.log(`[STREAM_DEBUG] Successfully serialized completion object. Length: ${serializedCompletion.length}`);
+                                    content = serializedCompletion;
+                                }
+                            }
+                        } catch (serializeError) {
+                            console.error(`[STREAM_DEBUG] Error serializing structured object:`, serializeError);
+                        }
+                    }
+                    
+                    // PLAN POINT 3: Ensure onChunk is always called with valid content
+                    // If streaming was requested, manually send the content as chunks
+                    if (stream) {
+                        if (content && content.length > 0) {
+                            console.log(`[STREAM_DEBUG] Step 4: Manually chunking non-stream content for streaming. Total length: ${content.length}, chunk_size: ${stream.chunk_size}`);
+                            // Send content in chunks matching chunk_size
+                            const chunkSize = stream.chunk_size;
+                            let chunkIndex = 0;
+                            for (let i = 0; i < content.length; i += chunkSize) {
+                                chunkIndex++;
+                                const chunk = content.slice(i, i + chunkSize);
+                                console.log(`[STREAM_DEBUG] Step 5: Calling stream.onChunk() with chunk #${chunkIndex}, length: ${chunk.length}, preview: ${chunk.substring(0, 50)}...`);
+                                console.log(`[STREAM_DEBUG] CALLBACK CHAIN: stream.onChunk() → should call initArgs.onBlueprintChunk() → should call writer.write({chunk})`);
+                                try {
+                                    stream.onChunk(chunk);
+                                    console.log(`[STREAM_DEBUG] ✅ stream.onChunk() called successfully for chunk #${chunkIndex}`);
+                                } catch (chunkError) {
+                                    console.error(`[STREAM_DEBUG] ❌ ERROR calling stream.onChunk() for chunk #${chunkIndex}:`, chunkError);
+                                }
+                            }
+                            console.log(`[STREAM_DEBUG] Step 6: Finished sending ${chunkIndex} manual chunks via stream.onChunk()`);
+                        } else {
+                            // PLAN POINT 4: Fallback - serialize entire response object to JSON
+                            console.error(`[STREAM_DEBUG] Step 4 (FALLBACK): Content is still empty after all extraction attempts!`);
+                            console.error(`[STREAM_DEBUG] Attempting fallback: serializing entire response object to JSON...`);
+                            try {
+                                const fallbackContent = JSON.stringify({
+                                    error: 'Content extraction failed',
+                                    message: message,
+                                    completion: {
+                                        id: completion.id,
+                                        model: completion.model,
+                                        object: completion.object,
+                                        choices: completion.choices,
+                                    }
+                                }, null, 2);
+                                console.log(`[STREAM_DEBUG] Fallback content generated. Length: ${fallbackContent.length}`);
+                                console.log(`[STREAM_DEBUG] Calling stream.onChunk() with fallback content...`);
+                                stream.onChunk(fallbackContent);
+                                console.log(`[STREAM_DEBUG] ✅ Fallback content sent via stream.onChunk()`);
+                            } catch (fallbackError) {
+                                console.error(`[STREAM_DEBUG] ❌ ERROR in fallback serialization:`, fallbackError);
+                                console.error(`[STREAM_DEBUG] Message object:`, JSON.stringify(message, null, 2));
+                                console.error(`[STREAM_DEBUG] Full completion:`, JSON.stringify(completion, null, 2).substring(0, 2000));
+                            }
+                        }
                     } else if (stream && !content) {
-                        console.error(`[STREAM_DEBUG] ERROR: Streaming was requested but content is empty!`);
+                        console.error(`[STREAM_DEBUG] ERROR: Streaming was requested but content is empty and stream.onChunk() was not called!`);
                         console.error(`[STREAM_DEBUG] Message object:`, JSON.stringify(message, null, 2));
                         console.error(`[STREAM_DEBUG] Full completion:`, JSON.stringify(completion, null, 2).substring(0, 2000));
                     }

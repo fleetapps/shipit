@@ -70,27 +70,37 @@ export async function routeAuthChecks(
     params?: Record<string, string>
 ): Promise<{ success: boolean; response?: Response }> {
     try {
+        console.log(`[ROUTE_AUTH_CHECKS] ========== ROUTE AUTH CHECKS START ==========`);
+        console.log(`[ROUTE_AUTH_CHECKS] User present: ${!!user}, user ID: ${user?.id || 'N/A'}`);
+        console.log(`[ROUTE_AUTH_CHECKS] Requirement:`, requirement);
+        console.log(`[ROUTE_AUTH_CHECKS] Params:`, params);
+        
         // Public routes always pass
-        console.log('requirement', requirement, 'for user', user);
         if (requirement.level === 'public') {
+            console.log(`[ROUTE_AUTH_CHECKS] ✅ Public route - authentication not required`);
             return { success: true };
         }
 
         // For authenticated routes
         if (requirement.level === 'authenticated') {
+            console.log(`[ROUTE_AUTH_CHECKS] Checking authenticated route requirement...`);
             if (!user) {
+                console.log(`[ROUTE_AUTH_CHECKS] ❌ No user - authentication required`);
                 return {
                     success: false,
                     response: createAuthRequiredResponse()
                 };
             }
 
+            console.log(`[ROUTE_AUTH_CHECKS] ✅ User authenticated`);
             return { success: true };
         }
 
         // For owner-only routes
         if (requirement.level === 'owner-only') {
+            console.log(`[ROUTE_AUTH_CHECKS] Checking owner-only route requirement...`);
             if (!user) {
+                console.log(`[ROUTE_AUTH_CHECKS] ❌ No user - account required`);
                 return {
                     success: false,
                     response: createAuthRequiredResponse('Account required')
@@ -99,25 +109,32 @@ export async function routeAuthChecks(
 
             // Check resource ownership if function provided
             if (requirement.resourceOwnershipCheck) {
+                console.log(`[ROUTE_AUTH_CHECKS] Resource ownership check function provided`);
                 if (params) {
+                    console.log(`[ROUTE_AUTH_CHECKS] Calling resourceOwnershipCheck with params:`, params);
                     const isOwner = await requirement.resourceOwnershipCheck(user, params, env);
+                    console.log(`[ROUTE_AUTH_CHECKS] Resource ownership check result: ${isOwner}`);
                     return {
                         success: isOwner,
                         response: isOwner ? undefined : createForbiddenResponse('You can only access your own resources')
                     }
                 }
+                console.log(`[ROUTE_AUTH_CHECKS] ❌ No params provided for resource ownership check`);
                 return {
                     success: false,
                     response: createForbiddenResponse('Invalid resource ownership')
                 };
             }
 
+            console.log(`[ROUTE_AUTH_CHECKS] ✅ Owner-only route - user present, no ownership check required`);
             return { success: true };
         }
 
         // Default fallback
+        console.log(`[ROUTE_AUTH_CHECKS] ✅ Default fallback - allowing access`);
         return { success: true };
     } catch (error) {
+        console.error(`[ROUTE_AUTH_CHECKS] ❌ ERROR in route auth checks:`, error);
         logger.error('Error in route auth middleware', error);
         return {
             success: false,
@@ -136,20 +153,36 @@ export async function routeAuthChecks(
  * Enforce authentication requirement
  */
 export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Response | undefined> {
+    console.log(`[ROUTE_AUTH] ========== ENFORCE AUTH REQUIREMENT START ==========`);
+    console.log(`[ROUTE_AUTH] Request URL: ${c.req.url}`);
+    console.log(`[ROUTE_AUTH] Request method: ${c.req.method}`);
+    
     let user: AuthUser | null = c.get('user') || null;
+    console.log(`[ROUTE_AUTH] User from context: ${!!user}, user ID: ${user?.id || 'N/A'}`);
 
     const requirement = c.get('authLevel');
     if (!requirement) {
+        console.error(`[ROUTE_AUTH] ❌ No authentication level found in context`);
         logger.error('No authentication level found');
         return errorResponse('No authentication level found', 500);
     }
     
+    console.log(`[ROUTE_AUTH] Auth requirement:`, {
+        required: requirement.required,
+        level: requirement.level,
+        hasResourceOwnershipCheck: !!requirement.resourceOwnershipCheck
+    });
+    
     // Only perform auth if we need it or don't have user yet
     if (!user && (requirement.level === 'authenticated' || requirement.level === 'owner-only')) {
+        console.log(`[ROUTE_AUTH] No user in context and auth required. Calling authMiddleware...`);
         const userSession = await authMiddleware(c.req.raw, c.env);
+        console.log(`[ROUTE_AUTH] authMiddleware returned: ${!!userSession}, user ID: ${userSession?.user?.id || 'N/A'}`);
         if (!userSession) {
+            console.log(`[ROUTE_AUTH] ❌ authMiddleware returned null - authentication failed`);
             return errorResponse('Authentication required', 401);
         }
+        console.log(`[ROUTE_AUTH] ✅ User authenticated. Setting user in context...`);
         user = userSession.user;
         c.set('user', user);
 		c.set('sessionId', userSession.sessionId);
@@ -171,6 +204,7 @@ export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Respo
     
     const params = c.req.param();
     const env = c.env;
+    console.log(`[ROUTE_AUTH] Calling routeAuthChecks with user: ${!!user}, requirement: ${requirement.level}, params:`, params);
     const result = await routeAuthChecks(user, env, requirement, params);
     if (!result.success) {
         logger.warn('Authentication check failed', result.response, requirement, user);

@@ -220,8 +220,15 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             stream: {
                 chunk_size: 256,
                 onChunk: (chunk) => {
-                    // initArgs.writer.write({chunk});
-                    initArgs.onBlueprintChunk(chunk);
+                    console.log(`[CALLBACK_CHAIN] stream.onChunk() called in simpleGeneratorAgent. Chunk length: ${chunk.length}, preview: ${chunk.substring(0, 100)}...`);
+                    console.log(`[CALLBACK_CHAIN] About to call initArgs.onBlueprintChunk(chunk)...`);
+                    try {
+                        initArgs.onBlueprintChunk(chunk);
+                        console.log(`[CALLBACK_CHAIN] ✅ initArgs.onBlueprintChunk(chunk) completed successfully`);
+                    } catch (callbackError) {
+                        console.error(`[CALLBACK_CHAIN] ❌ ERROR in initArgs.onBlueprintChunk(chunk):`, callbackError);
+                        throw callbackError;
+                    }
                 }
             }
         })

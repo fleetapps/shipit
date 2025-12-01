@@ -53,47 +53,74 @@ export function extractToken(request: Request): string | null {
 export function extractTokenWithMetadata(
 	request: Request,
 ): TokenExtractionResult {
+	console.log(`[AUTH_DEBUG] ========== TOKEN EXTRACTION START ==========`);
+	console.log(`[AUTH_DEBUG] Request URL: ${request.url}`);
+	console.log(`[AUTH_DEBUG] Request method: ${request.method}`);
+	
 	// Priority 1: Authorization header (most secure)
 	const authHeader = request.headers.get('Authorization');
+	console.log(`[AUTH_DEBUG] Authorization header present: ${!!authHeader}`);
 	if (authHeader?.startsWith('Bearer ')) {
 		const token = authHeader.substring(7);
 		if (token && token.length > 0) {
+			console.log(`[AUTH_DEBUG] ✅ Token extracted from Authorization header. Length: ${token.length}, preview: ${token.substring(0, 20)}...`);
 			return {
 				token,
 				method: TokenExtractionMethod.AUTHORIZATION_HEADER,
 			};
+		} else {
+			console.log(`[AUTH_DEBUG] ⚠️ Authorization header present but token is empty`);
 		}
+	} else if (authHeader) {
+		console.log(`[AUTH_DEBUG] ⚠️ Authorization header present but doesn't start with 'Bearer '`);
 	}
 
 	// Priority 2: Cookies (secure for browser requests)
 	const cookieHeader = request.headers.get('Cookie');
+	console.log(`[AUTH_DEBUG] Cookie header present: ${!!cookieHeader}`);
 	if (cookieHeader) {
+		console.log(`[AUTH_DEBUG] Cookie header value (first 200 chars): ${cookieHeader.substring(0, 200)}...`);
 		const cookies = parseCookies(cookieHeader);
+		console.log(`[AUTH_DEBUG] Parsed cookies. Keys:`, Object.keys(cookies));
+		console.log(`[AUTH_DEBUG] All cookie names and values:`, Object.entries(cookies).map(([k, v]) => ({ name: k, valueLength: v.length, valuePreview: v.substring(0, 20) })));
 
 		// Check common cookie names in order of preference
-		const cookieNames = ['accessToken', 'auth_token', 'jwt'];
+		const cookieNames = ['accessToken', 'auth_token', 'jwt', 'session'];
 		for (const cookieName of cookieNames) {
 			if (cookies[cookieName]) {
+				console.log(`[AUTH_DEBUG] ✅ Token found in cookie: ${cookieName}. Length: ${cookies[cookieName].length}, preview: ${cookies[cookieName].substring(0, 20)}...`);
 				return {
 					token: cookies[cookieName],
 					method: TokenExtractionMethod.COOKIE,
 					cookieName,
 				};
+			} else {
+				console.log(`[AUTH_DEBUG] Cookie '${cookieName}' not found`);
 			}
 		}
+		console.log(`[AUTH_DEBUG] ⚠️ No token found in any of the checked cookie names: ${cookieNames.join(', ')}`);
+	} else {
+		console.log(`[AUTH_DEBUG] ⚠️ No Cookie header present in request`);
 	}
 
 	// Priority 3: Query parameter (for WebSocket connections and special cases)
 	const url = new URL(request.url);
 	const queryToken =
 		url.searchParams.get('token') || url.searchParams.get('access_token');
+	console.log(`[AUTH_DEBUG] Query parameter 'token' present: ${!!url.searchParams.get('token')}`);
+	console.log(`[AUTH_DEBUG] Query parameter 'access_token' present: ${!!url.searchParams.get('access_token')}`);
 	if (queryToken && queryToken.length > 0) {
+		console.log(`[AUTH_DEBUG] ✅ Token extracted from query parameter. Length: ${queryToken.length}, preview: ${queryToken.substring(0, 20)}...`);
 		return {
 			token: queryToken,
 			method: TokenExtractionMethod.QUERY_PARAMETER,
 		};
+	} else {
+		console.log(`[AUTH_DEBUG] ⚠️ No token found in query parameters`);
 	}
 
+	console.log(`[AUTH_DEBUG] ❌ No token found in any extraction method`);
+	console.log(`[AUTH_DEBUG] ========== TOKEN EXTRACTION END ==========`);
 	return { token: null };
 }
 
