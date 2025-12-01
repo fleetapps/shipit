@@ -163,6 +163,46 @@ class ApiClient {
 	}
 
 	/**
+	 * Extract CSRF token from cookie (double-submit cookie pattern)
+	 * The cookie contains JSON: {"token":"...","timestamp":...}
+	 */
+	private getCsrfTokenFromCookie(): string | null {
+		try {
+			const cookieHeader = document.cookie;
+			if (!cookieHeader) return null;
+
+			const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
+				const [key, value] = cookie.trim().split('=');
+				if (key && value) {
+					acc[key] = decodeURIComponent(value);
+				}
+				return acc;
+			}, {} as Record<string, string>);
+
+			const csrfCookieValue = cookies['csrf-token'];
+			if (!csrfCookieValue) return null;
+
+			// Parse the JSON cookie value
+			try {
+				const tokenData = JSON.parse(csrfCookieValue);
+				if (tokenData && typeof tokenData.token === 'string') {
+					return tokenData.token;
+				}
+			} catch (parseError) {
+				// Legacy format: plain string token
+				if (typeof csrfCookieValue === 'string' && csrfCookieValue.length > 0) {
+					return csrfCookieValue;
+				}
+			}
+
+			return null;
+		} catch (error) {
+			console.warn('Failed to extract CSRF token from cookie:', error);
+			return null;
+		}
+	}
+
+	/**
 	 * Get authentication headers for API requests
 	 */
 	private getAuthHeaders(): Record<string, string> {
@@ -176,7 +216,19 @@ class ApiClient {
 		}
 
 		// Add CSRF token for state-changing requests
-		if (this.csrfTokenInfo && !this.isCSRFTokenExpired()) {
+		// Priority: Read from cookie (source of truth) > fallback to in-memory cache
+		const cookieToken = this.getCsrfTokenFromCookie();
+		if (cookieToken) {
+			headers['X-CSRF-Token'] = cookieToken;
+			// Update in-memory cache to stay in sync
+			if (!this.csrfTokenInfo || this.csrfTokenInfo.token !== cookieToken) {
+				this.csrfTokenInfo = {
+					token: cookieToken,
+					expiresAt: Date.now() + (7200 * 1000) // 2 hours default
+				};
+			}
+		} else if (this.csrfTokenInfo && !this.isCSRFTokenExpired()) {
+			// Fallback to in-memory token if cookie not available
 			headers['X-CSRF-Token'] = this.csrfTokenInfo.token;
 		}
 
