@@ -202,7 +202,41 @@ export function createSecureCookie(options: CookieOptions): string {
 }
 
 /**
+ * Extract root domain from hostname for cross-subdomain cookie sharing
+ * Example: anything.fleet.ke -> .fleet.ke
+ * Example: app.get-fleet.com -> .get-fleet.com
+ */
+function extractRootDomain(hostname: string): string | undefined {
+	try {
+		// Remove port if present
+		const hostWithoutPort = hostname.split(':')[0];
+		
+		// Split by dots
+		const parts = hostWithoutPort.split('.');
+		
+		// Need at least 2 parts for a domain (e.g., fleet.ke)
+		if (parts.length < 2) {
+			return undefined;
+		}
+		
+		// For domains like fleet.ke, return .fleet.ke
+		// For domains like get-fleet.com, return .get-fleet.com
+		// Take the last 2 parts
+		const rootDomain = parts.slice(-2).join('.');
+		
+		// Return with leading dot for subdomain sharing
+		return `.${rootDomain}`;
+	} catch (error) {
+		console.error('[AUTH_DEBUG] Error extracting root domain:', error);
+		return undefined;
+	}
+}
+
+/**
  * Set auth cookies with proper security settings
+ * @param response - Response object to set cookies on
+ * @param tokens - Token data
+ * @param request - Optional request object to extract domain from (for cross-subdomain cookie sharing)
  */
 export function setSecureAuthCookies(
 	response: Response,
@@ -210,11 +244,29 @@ export function setSecureAuthCookies(
 		accessToken: string;
 		accessTokenExpiry?: number; // seconds
 	},
+	request?: Request,
 ): void {
 	const {
 		accessToken,
 		accessTokenExpiry = 3 * 24 * 60 * 60, // 3 days
 	} = tokens;
+
+	// Extract root domain from request for cross-subdomain cookie sharing
+	let cookieDomain: string | undefined;
+	if (request) {
+		try {
+			const url = new URL(request.url);
+			const rootDomain = extractRootDomain(url.hostname);
+			if (rootDomain) {
+				cookieDomain = rootDomain;
+				console.log(`[AUTH_DEBUG] Setting cookie domain to: ${cookieDomain} for hostname: ${url.hostname}`);
+			} else {
+				console.log(`[AUTH_DEBUG] Could not extract root domain from hostname: ${url.hostname}`);
+			}
+		} catch (error) {
+			console.error('[AUTH_DEBUG] Error extracting domain from request:', error);
+		}
+	}
 
 	// Set access token cookie
 	response.headers.append(
@@ -225,8 +277,11 @@ export function setSecureAuthCookies(
 			maxAge: accessTokenExpiry,
 			httpOnly: true,
 			sameSite: 'Lax',
+			domain: cookieDomain, // Set domain for cross-subdomain access (e.g., .fleet.ke)
 		}),
 	);
+	
+	console.log(`[AUTH_DEBUG] ✅ Set accessToken cookie with domain: ${cookieDomain || 'default (no domain set)'}`);
 }
 
 /**
