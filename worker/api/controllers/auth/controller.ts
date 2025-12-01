@@ -639,7 +639,7 @@ export class AuthController extends BaseController {
             
             // Debug: Log cookie setting for troubleshooting
             const url = new URL(request.url);
-            logger.debug('CSRF token generated and cookie set', {
+            AuthController.logger.debug('CSRF token generated and cookie set', {
                 tokenLength: token.length,
                 hostname: url.hostname,
                 path: url.pathname
@@ -647,7 +647,7 @@ export class AuthController extends BaseController {
             
             return response;
         } catch (error) {
-            logger.error('Error generating CSRF token:', error);
+            AuthController.logger.error('Error generating CSRF token:', error);
             return AuthController.handleError(error, 'get CSRF token');
         }
     }
