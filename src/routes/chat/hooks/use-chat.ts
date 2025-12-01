@@ -244,13 +244,17 @@ export function useChat({
 			}, {} as Record<string, string>);
 
 			// Check common cookie names in order of preference (matching server-side)
-			const cookieNames = ['accessToken', 'auth_token', 'jwt', 'token'];
+			// Also check for session cookie which is used for authentication
+			const cookieNames = ['accessToken', 'auth_token', 'jwt', 'token', 'session'];
 			for (const cookieName of cookieNames) {
 				if (cookies[cookieName]) {
 					logger.debug('🔐 Found auth token in cookie:', cookieName);
 					return cookies[cookieName];
 				}
 			}
+			
+			// Log all available cookies for debugging
+			logger.debug('📋 Available cookies:', Object.keys(cookies));
 		}
 		
 		// Priority 2: Check localStorage as fallback
@@ -264,6 +268,7 @@ export function useChat({
 		}
 		
 		logger.warn('⚠️ No authentication token found in cookies or localStorage');
+		logger.warn('📋 Full cookie string:', document.cookie);
 		return null;
 	}, []);
 
@@ -482,10 +487,10 @@ export function useChat({
 					sendMessage(createAIMessage('main', "Sure, let's get started. Bootstrapping the project first...", true));
 
 					for await (const obj of ndjsonStream(response.stream)) {
-                        logger.debug('Received chunk from server:', obj);
+                        logger.debug('📦 Received NDJSON object from server:', obj);
 						if (obj.chunk) {
 							blueprintChunkCount++;
-							logger.debug(`📄 Blueprint chunk ${blueprintChunkCount} received, length: ${obj.chunk.length}`);
+							logger.info(`📄 Blueprint chunk ${blueprintChunkCount} received, length: ${obj.chunk.length}, preview: ${obj.chunk.substring(0, 100)}...`);
 							if (!startedBlueprintStream) {
 								sendMessage(createAIMessage('main', 'Blueprint is being generated...', true));
 								logger.info('Blueprint stream has started');
