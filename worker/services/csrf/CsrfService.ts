@@ -31,21 +31,72 @@ export class CsrfService {
     }
     
     /**
-     * Set CSRF token cookie with timestamp
+     * Extract root domain from hostname for cross-subdomain cookie sharing
+     * Example: anything.fleet.ke -> .fleet.ke
      */
-    static setTokenCookie(response: Response, token: string, maxAge: number = 7200): void {
+    private static extractRootDomain(hostname: string): string | undefined {
+        try {
+            // Remove port if present
+            const hostWithoutPort = hostname.split(':')[0];
+            
+            // Split by dots
+            const parts = hostWithoutPort.split('.');
+            
+            // Need at least 2 parts for a domain (e.g., fleet.ke)
+            if (parts.length < 2) {
+                return undefined;
+            }
+            
+            // For domains like fleet.ke, return .fleet.ke
+            // For domains like get-fleet.com, return .get-fleet.com
+            // Take the last 2 parts
+            const rootDomain = parts.slice(-2).join('.');
+            
+            // Return with leading dot for subdomain sharing
+            return `.${rootDomain}`;
+        } catch (error) {
+            logger.warn('Error extracting root domain for CSRF cookie:', error);
+            return undefined;
+        }
+    }
+
+    /**
+     * Set CSRF token cookie with timestamp
+     * @param response - Response object to set cookie on
+     * @param token - CSRF token value
+     * @param maxAge - Cookie max age in seconds (default: 7200 = 2 hours)
+     * @param request - Optional request object to extract domain from (for cross-subdomain cookie sharing)
+     */
+    static setTokenCookie(response: Response, token: string, maxAge: number = 7200, request?: Request): void {
         const tokenData: CSRFTokenData = {
             token,
             timestamp: Date.now()
         };
         
+        // Extract root domain from request for cross-subdomain cookie sharing
+        let cookieDomain: string | undefined;
+        if (request) {
+            try {
+                const url = new URL(request.url);
+                const rootDomain = this.extractRootDomain(url.hostname);
+                if (rootDomain) {
+                    cookieDomain = rootDomain;
+                    logger.debug(`Setting CSRF cookie domain to: ${cookieDomain} for hostname: ${url.hostname}`);
+                }
+            } catch (error) {
+                logger.warn('Error extracting domain from request for CSRF cookie:', error);
+            }
+        }
+        
         const cookie = createSecureCookie({
             name: this.COOKIE_NAME,
             value: JSON.stringify(tokenData),
             sameSite: 'Strict',
-            maxAge
+            maxAge,
+            domain: cookieDomain // Set domain for cross-subdomain access (e.g., .fleet.ke)
         });
         response.headers.append('Set-Cookie', cookie);
+        logger.debug(`✅ Set CSRF token cookie with domain: ${cookieDomain || 'default (no domain set)'}`);
     }
     
     /**
@@ -179,7 +230,7 @@ export class CsrfService {
             if (!existingToken) {
                 const newToken = this.generateToken();
                 const maxAge = Math.floor(this.defaults.tokenTTL / 1000);
-                this.setTokenCookie(response, newToken, maxAge);
+                this.setTokenCookie(response, newToken, maxAge, request);
                 logger.debug('New CSRF token generated for GET request');
             }
             return;
@@ -221,12 +272,14 @@ export class CsrfService {
     
     /**
      * Rotate CSRF token (generate new token and invalidate old one)
+     * @param response - Response object to set cookie on
+     * @param request - Optional request object to extract domain from
      */
-    static rotateToken(response: Response): string {
+    static rotateToken(response: Response, request?: Request): string {
         const newToken = this.generateToken();
         const maxAge = Math.floor(this.defaults.tokenTTL / 1000);
         
-        this.setTokenCookie(response, newToken, maxAge);
+        this.setTokenCookie(response, newToken, maxAge, request);
         logger.info('CSRF token rotated');
         
         return newToken;
