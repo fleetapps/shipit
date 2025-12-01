@@ -741,10 +741,10 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             console.log(`[STREAM_DEBUG] Checking response type for streaming. Has stream param: ${!!stream}, response type: ${response?.constructor?.name || typeof response}`);
             
             // Check if response is actually a Stream by checking for async iterator
-            const isStream = response && typeof (response as any)[Symbol.asyncIterator] === 'function';
-            console.log(`[STREAM_DEBUG] Response is async iterable (Stream): ${isStream}`);
+            let isStreamResponse = response && typeof (response as any)[Symbol.asyncIterator] === 'function';
+            console.log(`[STREAM_DEBUG] Response is async iterable (Stream): ${isStreamResponse}`);
             
-            if (isStream) {
+            if (isStreamResponse) {
                 let streamIndex = 0;
                 let chunkCount = 0;
                 let hasReceivedContent = false;
