@@ -123,6 +123,7 @@ export class CodingAgentController extends BaseController {
                 }));
             }
         
+            console.log('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - COMPLETE: Session created, template selected', { agentId, templateName: templateDetails.name });
             writer.write({
                 message: 'Code generation started',
                 agentId: agentId,
@@ -134,6 +135,7 @@ export class CodingAgentController extends BaseController {
                 }
             });
 
+            console.log('[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - START: Beginning blueprint generation', { agentId, queryLength: query.length });
             const agentPromise = agentInstance.initialize({
                 query,
                 language: body.language || defaultCodeGenArgs.language,
@@ -142,12 +144,14 @@ export class CodingAgentController extends BaseController {
                 inferenceContext,
                 images: uploadedImages,
                 onBlueprintChunk: (chunk: string) => {
+                    console.log(`[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - PROGRESS: Blueprint chunk received`, { chunkLength: chunk.length });
                     console.log(`[CALLBACK_CHAIN] onBlueprintChunk() called in controller. Chunk length: ${chunk.length}, preview: ${chunk.substring(0, 100)}...`);
                     console.log(`[CALLBACK_CHAIN] About to call writer.write({chunk})...`);
                     try {
                         writer.write({chunk});
                         console.log(`[CALLBACK_CHAIN] ✅ writer.write({chunk}) completed successfully`);
                     } catch (writeError) {
+                        console.error(`[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - ERROR: Failed to write chunk`, writeError);
                         console.error(`[CALLBACK_CHAIN] ❌ ERROR in writer.write({chunk}):`, writeError);
                         throw writeError;
                     }

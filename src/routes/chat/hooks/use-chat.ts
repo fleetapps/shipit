@@ -328,6 +328,7 @@ export function useChat({
 					if (myAttemptId !== connectAttemptIdRef.current) return;
 					
 					clearTimeout(connectionTimeout);
+					console.log('[FLOW_STEP_4] STEP 4: WebSocket Connection - COMPLETE: Connection established successfully');
 					logger.info('✅ WebSocket connection established successfully!');
 					connectionStatus.current = 'connected';
 					
@@ -351,6 +352,7 @@ export function useChat({
 
 					// Request file generation for new chats only
 					if (!disableGenerate && urlChatId === 'new') {
+						console.log('[FLOW_STEP_5] STEP 5: Code Generation → WebSocket Messages - START: Requesting code generation');
 						logger.debug('🔄 Starting code generation for new chat');
 						sendWebSocketMessage(ws, 'generate_all');
 					}
@@ -405,6 +407,7 @@ export function useChat({
 			connectionStatus.current = 'failed';
 			
 			if (retryCount.current >= maxRetries) {
+				console.error(`[FLOW_STEP_4] STEP 4: WebSocket Connection - ERROR: Failed permanently after ${maxRetries + 1} attempts. Reason: ${reason}`);
 				logger.error(`💥 WebSocket connection failed permanently after ${maxRetries + 1} attempts`);
 				sendMessage(createAIMessage('websocket_failed', `🚨 Connection failed permanently after ${maxRetries + 1} attempts.\n\n❌ Reason: ${reason}\n\n🔄 Please refresh the page to try again.`));
 				
@@ -460,6 +463,7 @@ export function useChat({
 					}
 
 					// Start new code generation using API client
+					console.log('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - START', { query: userQuery, agentMode, imagesCount: userImages?.length || 0 });
 					logger.info('🚀 Starting new agent session creation...', { query: userQuery, agentMode, imagesCount: userImages?.length || 0 });
 					let response: Response | null = null;
 					try {
@@ -470,13 +474,16 @@ export function useChat({
 						});
 						// streamingResponse.stream is a Response object, which ndjsonStream expects
 						if (!streamingResponse.stream || !streamingResponse.stream.body) {
+							console.error('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - ERROR: No stream body in response');
 							logger.error('❌ No stream body in response');
 							toast.error('Failed to get stream from server');
 							return;
 						}
 						response = streamingResponse.stream;
+						console.log('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - COMPLETE: Session created, stream available');
 						logger.info('✅ Agent session created, starting to read stream...');
 					} catch (error) {
+						console.error('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - ERROR:', error);
 						logger.error('❌ Failed to create agent session:', error);
 						const errorMsg = error instanceof Error ? error.message : 'Failed to start code generation';
 						toast.error(errorMsg);
@@ -503,10 +510,12 @@ export function useChat({
 					sendMessage(createAIMessage('main', "Sure, let's get started. Bootstrapping the project first...", true));
 
 					if (!response) {
+						console.error('[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - ERROR: No response stream available');
 						logger.error('❌ No response stream available');
 						return;
 					}
 					
+					console.log('[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - START: Reading NDJSON stream');
 					logger.info('📡 Starting to read NDJSON stream from response...');
 					let streamObjectCount = 0;
 					for await (const obj of ndjsonStream(response)) {
@@ -518,6 +527,7 @@ export function useChat({
 							logger.info(`📄 Blueprint chunk ${blueprintChunkCount} received, length: ${chunk.length}, preview: ${chunk.substring(0, 100)}...`);
 							
 							if (!startedBlueprintStream) {
+								console.log('[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - PROGRESS: Blueprint stream started, receiving chunks');
 								sendMessage(createAIMessage('main', 'Blueprint is being generated...', true));
 								logger.info('Blueprint stream has started');
 								setIsBootstrapping(false);
@@ -557,6 +567,14 @@ export function useChat({
 						}
 					}
 
+					console.log('[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - COMPLETE', { 
+						totalObjects: streamObjectCount,
+						blueprintChunks: blueprintChunkCount,
+						hasAgentId: !!result.agentId,
+						hasWebSocketUrl: !!result.websocketUrl,
+						hasTemplate: !!result.template,
+						blueprintBufferLength: blueprintBuffer.length
+					});
 					logger.info('🏁 NDJSON stream completed', { 
 						totalObjects: streamObjectCount,
 						blueprintChunks: blueprintChunkCount,
@@ -576,17 +594,21 @@ export function useChat({
 								parser.feed(blueprintBuffer);
 								const parsed = parser.finalize();
 								if (parsed && Object.keys(parsed).length > 0) {
+									console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - COMPLETE: Blueprint parsed and displayed', { title: parsed.title });
 									logger.info('✅ Blueprint parsed as JSON successfully');
 									setBlueprint(parsed);
 								} else {
+									console.warn('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - WARNING: Blueprint parsed but appears empty');
 									logger.warn('⚠️ Blueprint parsed but appears empty');
 								}
 							} catch (e) {
+								console.warn('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - WARNING: Failed to parse JSON, will come via WebSocket:', e);
 								logger.warn('⚠️ Blueprint buffer looks like JSON but failed to parse, treating as markdown:', e);
 								// Blueprint will remain undefined - it will come via WebSocket later
 							}
 						} else {
 							// It's markdown/PRD text - this is expected, blueprint will come via WebSocket
+							console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - PROGRESS: Markdown received, structured blueprint will come via WebSocket');
 							logger.info('📝 Blueprint is markdown/PRD text (not JSON), will receive structured blueprint via WebSocket');
 						}
 					}
@@ -596,17 +618,20 @@ export function useChat({
 					
 					// Log blueprint status
 					if (blueprint) {
+						console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - COMPLETE: Blueprint displayed successfully');
 						logger.info('✅ Blueprint received successfully:', { 
 							title: blueprint.title, 
 							hasDescription: !!blueprint.description,
 							chunkCount: blueprintChunkCount 
 						});
 					} else if (blueprintChunkCount > 0) {
+						console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - PROGRESS: Waiting for structured blueprint via WebSocket');
 						logger.info('📝 Blueprint chunks received as markdown text, structured blueprint will come via WebSocket', { 
 							chunkCount: blueprintChunkCount,
 							bufferLength: blueprintBuffer.length
 						});
 					} else {
+						console.error('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - ERROR: No blueprint chunks received');
 						logger.warn('⚠️ No blueprint chunks received', { 
 							chunkCount: blueprintChunkCount,
 							totalStreamObjects: streamObjectCount,
@@ -622,13 +647,16 @@ export function useChat({
 					sendMessage(createAIMessage('main', 'Blueprint generation complete. Now starting the code generation...', true));
 
 					// Connect to WebSocket
+					console.log('[FLOW_STEP_4] STEP 4: WebSocket Connection - START', { websocketUrl: result.websocketUrl, agentId: result.agentId });
 					logger.debug('connecting to ws with created id:', result.websocketUrl);
 					if (!result.websocketUrl) {
+						console.error('[FLOW_STEP_4] STEP 4: WebSocket Connection - ERROR: No WebSocket URL received from server');
 						logger.error('❌ No WebSocket URL received from server');
 						toast.error('Failed to get WebSocket URL. Please try again.');
 						return;
 					}
 					if (!result.agentId) {
+						console.error('[FLOW_STEP_4] STEP 4: WebSocket Connection - ERROR: No agent ID received from server');
 						logger.error('❌ No agent ID received from server');
 						toast.error('Failed to get agent ID. Please try again.');
 						return;

@@ -30,8 +30,12 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 }
                 
                 // Start generation process
+                console.log('[FLOW_STEP_5] STEP 5: Code Generation → WebSocket Messages - START: Code generation process initiated');
                 logger.info('Starting code generation process');
-                agent.generateAllFiles().catch(error => {
+                agent.generateAllFiles().then(() => {
+                    console.log('[FLOW_STEP_5] STEP 5: Code Generation → WebSocket Messages - COMPLETE: Code generation finished successfully');
+                }).catch(error => {
+                    console.error('[FLOW_STEP_5] STEP 5: Code Generation → WebSocket Messages - ERROR: Code generation failed', error);
                     logger.error('Error during code generation:', error);
                     sendError(connection, `Error generating files: ${error instanceof Error ? error.message : String(error)}`);
                 }).finally(() => {
@@ -58,10 +62,13 @@ export function handleWebSocketMessage(agent: SimpleCodeGeneratorAgent, connecti
                 break;
             case WebSocketMessageRequests.PREVIEW:
                 // Deploy current state for preview
+                console.log('[FLOW_STEP_6] STEP 6: Sandbox Deployment → WebSocket Messages - START: Deploying for preview');
                 logger.info('Deploying for preview');
                 agent.deployToSandbox().then((deploymentResult) => {
+                    console.log('[FLOW_STEP_6] STEP 6: Sandbox Deployment → WebSocket Messages - COMPLETE: Preview deployed successfully', { previewURL: deploymentResult?.previewURL });
                     logger.info(`Preview deployed successfully!, deploymentResult:`, deploymentResult);
                 }).catch((error: unknown) => {
+                    console.error('[FLOW_STEP_6] STEP 6: Sandbox Deployment → WebSocket Messages - ERROR: Preview deployment failed', error);
                     logger.error('Error during preview deployment:', error);
                 });
                 break;

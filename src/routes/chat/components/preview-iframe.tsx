@@ -162,6 +162,7 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 
 			// Check if we've exceeded max retries
 			if (attempt >= MAX_RETRIES) {
+				console.error('[FLOW_STEP_8] STEP 8: Sandbox Preview URL → GET Request - ERROR: Preview failed to load after multiple attempts', { url, attempt });
 				setLoadState({
 					status: 'error',
 					attempt,
@@ -180,10 +181,14 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 			});
 
 			// Test availability
+			if (attempt === 0) {
+				console.log('[FLOW_STEP_8] STEP 8: Sandbox Preview URL → GET Request - START: Testing preview availability', { url, attempt: attempt + 1 });
+			}
 			const previewType = await testAvailability(url);
 
 			if (previewType) {
 				// Success: put component into postload state, keep loading UI visible
+				console.log(`[FLOW_STEP_8] STEP 8: Sandbox Preview URL → GET Request - COMPLETE: Preview available (${previewType}) at attempt ${attempt + 1}`);
 				console.log(`Preview available (${previewType}) at attempt ${attempt + 1}`);
 				setLoadState({
 					status: 'postload',
@@ -195,8 +200,10 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 
 				// Wait for page to render before revealing iframe and capturing screenshot
 				const waitTime = previewType === 'dispatcher' ? POST_LOAD_WAIT_DISPATCHER : POST_LOAD_WAIT_SANDBOX;
+				console.log(`[FLOW_STEP_10] STEP 10: Preview Rendering - START: Waiting ${waitTime}ms for page render (${previewType} app)`);
 				console.log(`Waiting ${waitTime}ms before showing preview and capturing screenshot (${previewType} app)`);
 				postLoadTimeoutRef.current = setTimeout(() => {
+					console.log('[FLOW_STEP_10] STEP 10: Preview Rendering - COMPLETE: Preview rendered and visible');
 					setLoadState(prev => ({
 						...prev,
 						status: 'loaded',
@@ -208,10 +215,12 @@ export const PreviewIframe = forwardRef<HTMLIFrameElement, PreviewIframeProps>(
 				const delay = getRetryDelay(attempt);
 				const nextAttempt = attempt + 1;
 				
+				console.log(`[FLOW_STEP_8] STEP 8: Sandbox Preview URL → GET Request - PROGRESS: Preview not ready. Retrying in ${Math.ceil(delay / 1000)}s (attempt ${nextAttempt}/${MAX_RETRIES})`);
 				console.log(`Preview not ready. Retrying in ${Math.ceil(delay / 1000)}s (attempt ${nextAttempt}/${MAX_RETRIES})`);
 
 				// Auto-redeploy after 3 failed attempts
 				if (nextAttempt === REDEPLOY_AFTER_ATTEMPT) {
+					console.log('[FLOW_STEP_8] STEP 8: Sandbox Preview URL → GET Request - PROGRESS: Auto-redeploying after 3 failed attempts');
 					requestRedeploy();
 				}
 

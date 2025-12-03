@@ -521,6 +521,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'generation_started': {
+                console.log('[FLOW_STEP_5] STEP 5: Code Generation → WebSocket Messages - PROGRESS: Generation started', { totalFiles: message.totalFiles });
                 updateStage('code', { status: 'active' });
                 setTotalFiles(message.totalFiles);
                 setIsGenerating(true);
@@ -528,6 +529,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'generation_complete': {
+                console.log('[FLOW_STEP_5] STEP 5: Code Generation → WebSocket Messages - COMPLETE: Code generation finished');
                 setIsRedeployReady(true);
                 setFiles((prev) => setAllFilesCompleted(prev));
                 setProjectStages((prev) => completeStages(prev, ['code']));
@@ -579,14 +581,19 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             }
 
             case 'deployment_started': {
+                console.log('[FLOW_STEP_6] STEP 6: Sandbox Deployment → WebSocket Messages - START: Deployment initiated');
                 setIsPreviewDeploying(true);
                 break;
             }
 
             case 'deployment_completed': {
+                console.log('[FLOW_STEP_6] STEP 6: Sandbox Deployment → WebSocket Messages - COMPLETE: Deployment finished', { previewURL: message.previewURL, tunnelURL: message.tunnelURL });
                 setIsPreviewDeploying(false);
                 const finalPreviewURL = getPreviewUrl(message.previewURL, message.tunnelURL);
                 setPreviewUrl(finalPreviewURL);
+                if (finalPreviewURL) {
+                    console.log('[FLOW_STEP_8] STEP 8: Sandbox Preview URL → GET Request - COMPLETE: Preview URL ready', { previewURL: finalPreviewURL });
+                }
                 break;
             }
 

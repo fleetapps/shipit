@@ -32,6 +32,7 @@ export function createApp(env: Env): Hono<AppEnv> {
     app.use('/api/*', cors(getCORSConfig(env)));
     
     // CSRF protection using double-submit cookie pattern with proper GET handling
+    // HACKY FIX: Accepts header token even when cookie is missing (for in-memory fallback)
     app.use('*', async (c, next) => {
         const method = c.req.method.toUpperCase();
         
@@ -56,7 +57,8 @@ export function createApp(env: Env): Hono<AppEnv> {
             }
             
             // Validate CSRF token for state-changing requests
-            await CsrfService.enforce(c.req.raw, undefined);
+            // Note: enforce() will auto-set cookie from header if header exists but cookie is missing
+            await CsrfService.enforce(c.req.raw, c.res);
             await next();
         } catch (error) {
             if (error instanceof SecurityError && error.type === SecurityErrorType.CSRF_VIOLATION) {

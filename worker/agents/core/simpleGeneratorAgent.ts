@@ -205,6 +205,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         this.initLogger(inferenceContext.agentId, sandboxSessionId, inferenceContext.userId);
         
         // Generate a blueprint
+        console.log('[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - PROGRESS: Starting blueprint generation in agent', { queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
         this.logger().info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
         this.logger().info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
         
