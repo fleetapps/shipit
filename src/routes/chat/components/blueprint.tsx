@@ -1,29 +1,34 @@
 import type { BlueprintType } from '@/api-types';
 import clsx from 'clsx';
 import { Markdown } from './messages';
+import { useEffect, useState } from 'react';
 
 export function Blueprint({
 	blueprint,
+	blueprintMarkdown,
+	isGenerating,
 	className,
 	...props
 }: React.ComponentProps<'div'> & {
-	blueprint: BlueprintType;
+	blueprint?: BlueprintType;
+	blueprintMarkdown?: string;
+	isGenerating?: boolean;
 }) {
-	if (!blueprint) return null;
-
-	return (
-		<div className={clsx('w-full flex flex-col', className)} {...props}>
-			<div className="bg-accent p-6 rounded-t-xl flex items-center bg-graph-paper">
-				<div className="flex flex-col gap-1">
-					<div className="uppercase text-xs tracking-wider text-text-on-brand/90">
-						Blueprint
-					</div>
-					<div className="text-2xl font-medium text-text-on-brand">
-						{blueprint.title}
+	// If we have structured blueprint, use it
+	if (blueprint && blueprint.title) {
+		return (
+			<div className={clsx('w-full flex flex-col', className)} {...props}>
+				<div className="bg-accent p-6 rounded-t-xl flex items-center bg-graph-paper">
+					<div className="flex flex-col gap-1">
+						<div className="uppercase text-xs tracking-wider text-text-on-brand/90">
+							Blueprint
+						</div>
+						<div className="text-2xl font-medium text-text-on-brand">
+							{blueprint.title}
+						</div>
 					</div>
 				</div>
-			</div>
-			<div className="flex flex-col px-6 py-4 bg-bg-2 rounded-b-xl space-y-8">
+				<div className="flex flex-col px-6 py-4 bg-bg-2 rounded-b-xl space-y-8">
 				{/* Basic Info */}
 				<div className="grid grid-cols-[120px_1fr] gap-4 text-sm">
 					<div className="text-text-50/70 font-mono">Description</div>
@@ -236,4 +241,40 @@ export function Blueprint({
 			</div>
 		</div>
 	);
+	}
+
+	// If we have markdown but no structured blueprint, display markdown with typewriter effect
+	if (blueprintMarkdown && blueprintMarkdown.trim().length > 0) {
+		// Extract title from markdown if available (first # heading)
+		const titleMatch = blueprintMarkdown.match(/^#+\s+(.+)$/m);
+		const extractedTitle = titleMatch ? titleMatch[1].trim() : 'Blueprint';
+
+		return (
+			<div className={clsx('w-full flex flex-col', className)} {...props}>
+				<div className="bg-accent p-6 rounded-t-xl flex items-center bg-graph-paper">
+					<div className="flex flex-col gap-1">
+						<div className="uppercase text-xs tracking-wider text-text-on-brand/90">
+							Blueprint
+						</div>
+						<div className="text-2xl font-medium text-text-on-brand">
+							{extractedTitle}
+						</div>
+						{isGenerating && (
+							<div className="text-xs text-text-on-brand/70 mt-1">
+								Generating...
+							</div>
+						)}
+					</div>
+				</div>
+				<div className="flex flex-col px-6 py-4 bg-bg-2 rounded-b-xl">
+					<div className="prose prose-sm prose-invert max-w-none">
+						<Markdown>{blueprintMarkdown}</Markdown>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
+	// No blueprint content yet
+	return null;
 }

@@ -30,6 +30,7 @@ export interface HandleMessageDeps {
     setProjectStages: React.Dispatch<React.SetStateAction<any[]>>;
     setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
     setBlueprint: React.Dispatch<React.SetStateAction<BlueprintType | undefined>>;
+    setBlueprintMarkdown: React.Dispatch<React.SetStateAction<string>>;
     setQuery: React.Dispatch<React.SetStateAction<string | undefined>>;
     setPreviewUrl: React.Dispatch<React.SetStateAction<string | undefined>>;
     setTotalFiles: React.Dispatch<React.SetStateAction<number | undefined>>;
@@ -156,6 +157,7 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
             setProjectStages,
             setMessages,
             setBlueprint,
+            setBlueprintMarkdown,
             setQuery,
             setPreviewUrl,
             setTotalFiles,
@@ -217,7 +219,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     logger.debug('📥 Performing initial state restoration');
                     
                     if (state.blueprint && !blueprint) {
+                        console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - COMPLETE: Structured blueprint received via WebSocket');
                         setBlueprint(state.blueprint);
+                        setBlueprintMarkdown(''); // Clear markdown when structured blueprint arrives
                         updateStage('blueprint', { status: 'completed' });
                     }
 

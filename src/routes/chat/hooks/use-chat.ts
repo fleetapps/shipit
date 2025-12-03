@@ -80,6 +80,7 @@ export function useChat({
 
 	const [bootstrapFiles, setBootstrapFiles] = useState<FileType[]>([]);
 	const [blueprint, setBlueprint] = useState<BlueprintType>();
+	const [blueprintMarkdown, setBlueprintMarkdown] = useState<string>('');
 	const [previewUrl, setPreviewUrl] = useState<string>();
 	const [query, setQuery] = useState<string>();
 
@@ -175,6 +176,7 @@ export function useChat({
 			setProjectStages,
 			setMessages,
 			setBlueprint,
+			setBlueprintMarkdown,
 			setQuery,
 			setPreviewUrl,
 			setTotalFiles,
@@ -540,6 +542,9 @@ export function useChat({
 							// Accumulate chunks as markdown/PRD text
 							blueprintBuffer += chunk;
 							
+							// Update markdown state in real-time for typewriter effect
+							setBlueprintMarkdown(blueprintBuffer);
+							
 							// Check if it looks like JSON (starts with { or [)
 							const trimmed = blueprintBuffer.trimStart();
 							if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
@@ -597,6 +602,7 @@ export function useChat({
 									console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - COMPLETE: Blueprint parsed and displayed', { title: parsed.title });
 									logger.info('✅ Blueprint parsed as JSON successfully');
 									setBlueprint(parsed);
+									setBlueprintMarkdown(''); // Clear markdown when structured blueprint is set
 								} else {
 									console.warn('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - WARNING: Blueprint parsed but appears empty');
 									logger.warn('⚠️ Blueprint parsed but appears empty');
@@ -607,22 +613,36 @@ export function useChat({
 								// Blueprint will remain undefined - it will come via WebSocket later
 							}
 						} else {
-							// It's markdown/PRD text - this is expected, blueprint will come via WebSocket
-							console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - PROGRESS: Markdown received, structured blueprint will come via WebSocket');
-							logger.info('📝 Blueprint is markdown/PRD text (not JSON), will receive structured blueprint via WebSocket');
+							// It's markdown/PRD text - display it immediately with typewriter effect
+							console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - PROGRESS: Markdown received, displaying in real-time');
+							logger.info('📝 Blueprint is markdown/PRD text (not JSON), displaying markdown with typewriter effect');
+							// Markdown is already being updated in real-time via setBlueprintMarkdown above
+							// Structured blueprint will come via WebSocket later if available
 						}
 					}
 					
+					// Mark blueprint generation as complete (even if we only have markdown)
+					if (blueprintChunkCount > 0) {
+						console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - COMPLETE: Markdown blueprint displayed, waiting for structured blueprint via WebSocket');
+					}
 					updateStage('blueprint', { status: 'completed' });
 					setIsGeneratingBlueprint(false);
 					
 					// Log blueprint status
 					if (blueprint) {
-						console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - COMPLETE: Blueprint displayed successfully');
+						// Clear markdown when structured blueprint arrives
+						setBlueprintMarkdown('');
+						console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - COMPLETE: Structured blueprint displayed successfully');
 						logger.info('✅ Blueprint received successfully:', { 
 							title: blueprint.title, 
 							hasDescription: !!blueprint.description,
 							chunkCount: blueprintChunkCount 
+						});
+					} else if (blueprintChunkCount > 0 && blueprintBuffer.length > 0) {
+						console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - PROGRESS: Markdown blueprint displayed, structured blueprint may come via WebSocket');
+						logger.info('📝 Blueprint markdown displayed with typewriter effect, structured blueprint will come via WebSocket if available', { 
+							chunkCount: blueprintChunkCount,
+							bufferLength: blueprintBuffer.length
 						});
 					} else if (blueprintChunkCount > 0) {
 						console.log('[FLOW_STEP_3] STEP 3: Blueprint Display → UI Rendering - PROGRESS: Waiting for structured blueprint via WebSocket');
@@ -817,6 +837,7 @@ export function useChat({
 		query,
 		files,
 		blueprint,
+		blueprintMarkdown,
 		previewUrl,
 		setPreviewUrl,
 		isGeneratingBlueprint,

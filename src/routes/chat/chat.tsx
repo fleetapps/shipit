@@ -21,7 +21,7 @@ import { ViewModeSwitch } from './components/view-mode-switch';
 import { DebugPanel, type DebugMessage } from './components/debug-panel';
 import { DeploymentControls } from './components/deployment-controls';
 import { useChat, type FileType } from './hooks/use-chat';
-import { type ModelConfigsData, type BlueprintType, SUPPORTED_IMAGE_MIME_TYPES } from '@/api-types';
+import { type ModelConfigsData, SUPPORTED_IMAGE_MIME_TYPES } from '@/api-types';
 import { Copy } from './components/copy';
 import { useFileContentStream } from './hooks/use-file-content-stream';
 import { logger } from '@/utils/logger';
@@ -118,6 +118,7 @@ export default function Chat() {
 		sendUserMessage,
 		sendAiMessage,
 		blueprint,
+		blueprintMarkdown,
 		previewUrl,
 		setPreviewUrl,
 		clearEdit,
@@ -1126,10 +1127,9 @@ export default function Chat() {
 									<div className="flex-1 overflow-y-auto bg-bg-3">
 										<div className="py-12 mx-auto">
 											<Blueprint
-												blueprint={
-													blueprint ??
-													({} as BlueprintType)
-												}
+												blueprint={blueprint}
+												blueprintMarkdown={blueprintMarkdown}
+												isGenerating={isGeneratingBlueprint}
 												className="w-full max-w-2xl mx-auto"
 											/>
 										</div>
