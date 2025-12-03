@@ -216,8 +216,7 @@ class ApiClient {
 		}
 
 		// Add CSRF token for state-changing requests
-		// CRITICAL: Only use cookie token - never fallback to in-memory token
-		// This ensures cookie and header always match (required for CSRF validation)
+		// Priority: Read from cookie (source of truth) > fallback to in-memory cache
 		const cookieToken = this.getCsrfTokenFromCookie();
 		if (cookieToken) {
 			headers['X-CSRF-Token'] = cookieToken;
@@ -228,9 +227,10 @@ class ApiClient {
 					expiresAt: Date.now() + (7200 * 1000) // 2 hours default
 				};
 			}
+		} else if (this.csrfTokenInfo && !this.isCSRFTokenExpired()) {
+			// Fallback to in-memory token if cookie not available
+			headers['X-CSRF-Token'] = this.csrfTokenInfo.token;
 		}
-		// REMOVED: Fallback to in-memory token - this causes CSRF validation failures
-		// If cookie is missing, ensureCsrfToken() should have fetched it before this is called
 
 		return headers;
 	}

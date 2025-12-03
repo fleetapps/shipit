@@ -47,7 +47,8 @@ export function createApp(env: Env): Hono<AppEnv> {
                 await next();
                 
                 // Only set CSRF token for successful API responses
-                if (c.req.url.startsWith('/api/') && c.res.status < 400) {
+                // Skip /api/auth/csrf-token since it handles cookie setting itself
+                if (c.req.url.startsWith('/api/') && c.res.status < 400 && !c.req.url.includes('/api/auth/csrf-token')) {
                     await CsrfService.enforce(c.req.raw, c.res);
                 }
                 
