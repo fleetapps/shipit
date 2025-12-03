@@ -347,4 +347,54 @@ export class CodingAgentController extends BaseController {
             return appError;
         }
     }
+
+    /**
+     * Trigger code generation via HTTP (fallback when WebSocket fails)
+     * POST /api/agent/:agentId/generate
+     */
+    static async triggerCodeGeneration(
+        _request: Request,
+        env: Env,
+        _: ExecutionContext,
+        context: RouteContext
+    ): Promise<ControllerResponse<ApiResponse<{ message: string; agentId: string }>>> {
+        try {
+            const agentId = context.pathParams.agentId;
+            if (!agentId) {
+                return CodingAgentController.createErrorResponse('Missing agent ID parameter', 400);
+            }
+
+            this.logger.info(`Triggering code generation via HTTP for agent: ${agentId}`);
+
+            try {
+                // Get the agent instance
+                const agentInstance = await getAgentStub(env, agentId);
+                
+                // Check if agent is initialized
+                if (!(await agentInstance.isInitialized())) {
+                    return CodingAgentController.createErrorResponse('Agent instance not initialized', 404);
+                }
+
+                // Trigger code generation (non-blocking - it runs in background)
+                console.log('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - START: Triggering code generation via HTTP');
+                agentInstance.generateAllFiles().catch((error) => {
+                    this.logger.error('Error during HTTP-triggered code generation:', error);
+                    console.error('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - ERROR: Code generation failed', error);
+                });
+
+                this.logger.info('Code generation triggered successfully via HTTP', { agentId });
+
+                return CodingAgentController.createSuccessResponse({
+                    message: 'Code generation started',
+                    agentId,
+                });
+            } catch (error) {
+                this.logger.error(`Failed to trigger code generation for agent ${agentId}:`, error);
+                return CodingAgentController.createErrorResponse(`Failed to trigger code generation: ${error instanceof Error ? error.message : String(error)}`, 500);
+            }
+        } catch (error) {
+            this.logger.error('Error triggering code generation', error);
+            return CodingAgentController.handleError(error, 'trigger code generation') as ControllerResponse<ApiResponse<{ message: string; agentId: string }>>;
+        }
+    }
 }

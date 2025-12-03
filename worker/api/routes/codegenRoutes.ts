@@ -28,4 +28,7 @@ export function setupCodegenRoutes(app: Hono<AppEnv>): void {
     app.get('/api/agent/:agentId/connect', setAuthLevel(AuthConfig.ownerOnly), adaptController(CodingAgentController, CodingAgentController.connectToExistingAgent));
 
     app.get('/api/agent/:agentId/preview', setAuthLevel(AuthConfig.authenticated), adaptController(CodingAgentController, CodingAgentController.deployPreview));
+    
+    // HTTP fallback to trigger code generation (when WebSocket fails)
+    app.post('/api/agent/:agentId/generate', setAuthLevel(AuthConfig.ownerOnly), adaptController(CodingAgentController, CodingAgentController.triggerCodeGeneration));
 }

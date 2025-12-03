@@ -411,7 +411,7 @@ export function useChat({
 			if (retryCount.current >= maxRetries) {
 				console.error(`[FLOW_STEP_4] STEP 4: WebSocket Connection - ERROR: Failed permanently after ${maxRetries + 1} attempts. Reason: ${reason}`);
 				logger.error(`💥 WebSocket connection failed permanently after ${maxRetries + 1} attempts`);
-				sendMessage(createAIMessage('websocket_failed', `🚨 Connection failed permanently after ${maxRetries + 1} attempts.\n\n❌ Reason: ${reason}\n\n🔄 Please refresh the page to try again.`));
+				sendMessage(createAIMessage('websocket_failed', `🚨 WebSocket connection failed after ${maxRetries + 1} attempts.\n\n⚠️ Switching to HTTP fallback for code generation...\n\n❌ Reason: ${reason}`));
 				
 				// Debug logging for permanent failure
 				onDebugMessage?.('error',
@@ -419,6 +419,38 @@ export function useChat({
 					`Failed after ${maxRetries + 1} attempts. Reason: ${reason}`,
 					'WebSocket Resilience'
 				);
+				
+				// HTTP FALLBACK: Trigger code generation via HTTP if WebSocket fails permanently
+				// Only for new chats that need code generation
+				// Extract agentId from WebSocket URL (format: /api/agent/{agentId}/ws)
+				const agentIdMatch = wsUrl.match(/\/api\/agent\/([^/]+)\/ws/);
+				const agentId = agentIdMatch ? agentIdMatch[1] : (chatId || urlChatId);
+				
+				if (!disableGenerate && urlChatId === 'new' && agentId) {
+					console.log('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - START: WebSocket failed, using HTTP fallback', { agentId });
+					logger.info('🔄 WebSocket failed permanently, triggering code generation via HTTP fallback', { agentId });
+					
+					// Trigger code generation via HTTP
+					apiClient.triggerCodeGeneration(agentId)
+						.then((response) => {
+							if (response.success) {
+								console.log('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - COMPLETE: Code generation started via HTTP');
+								logger.info('✅ Code generation started successfully via HTTP fallback');
+								sendMessage(createAIMessage('code_generation_http', '✅ Code generation started via HTTP (WebSocket unavailable). Progress updates may be limited.'));
+								updateStage('code', { status: 'active' });
+							} else {
+								console.error('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - ERROR: Failed to start code generation via HTTP');
+								logger.error('❌ Failed to trigger code generation via HTTP fallback:', response.error);
+								sendMessage(createAIMessage('code_generation_failed', `❌ Failed to start code generation:\n\n${response.error?.message || 'Unknown error'}\n\n🔄 Please refresh the page to try again.`));
+							}
+						})
+						.catch((error) => {
+							console.error('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - ERROR: Exception during HTTP fallback', error);
+							logger.error('❌ Exception triggering code generation via HTTP fallback:', error);
+							sendMessage(createAIMessage('code_generation_failed', `❌ Failed to start code generation:\n\n${error instanceof Error ? error.message : 'Unknown error'}\n\n🔄 Please refresh the page to try again.`));
+						});
+				}
+				
 				return;
 			}
 
@@ -446,7 +478,7 @@ export function useChat({
 				'WebSocket Resilience'
 			);
 		},
-		[maxRetries, retryCount, retryTimeouts, onDebugMessage, sendMessage],
+		[maxRetries, retryCount, retryTimeouts, onDebugMessage, sendMessage, urlChatId, chatId, updateStage],
 	);
 
     // No legacy wrapper; call connectWithRetry directly

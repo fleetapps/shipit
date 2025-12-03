@@ -1101,6 +1101,21 @@ class ApiClient {
 		);
 	}
 
+	/**
+	 * Trigger code generation via HTTP (fallback when WebSocket fails)
+	 * POST /api/agent/:agentId/generate
+	 */
+	async triggerCodeGeneration(
+		agentId: string,
+	): Promise<ApiResponse<{ message: string; agentId: string }>> {
+		return this.request<{ message: string; agentId: string }>(
+			`/api/agent/${agentId}/generate`,
+			{
+				method: 'POST',
+			},
+		);
+	}
+
 	// ===============================
 	// Session Management API Methods
 	// ===============================
