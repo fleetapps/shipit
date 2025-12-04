@@ -256,12 +256,20 @@ class ApiClient {
 						expiresAt: Date.now() + (expiresIn * 1000)
 					};
 					
-					// Debug: Check if Set-Cookie header was present
-					const setCookieHeader = response.headers.get('Set-Cookie');
-					if (setCookieHeader) {
-						console.debug('CSRF token Set-Cookie header received:', setCookieHeader.substring(0, 100));
+					// NOTE: response.headers.get('Set-Cookie') will ALWAYS be null in browser
+					// This is by design for security - browsers don't expose Set-Cookie headers to JavaScript
+					// The cookie is set automatically by the browser, we just need to verify it exists after a delay
+					// Wait a brief moment for browser to set the cookie
+					await new Promise(resolve => setTimeout(resolve, 100));
+					
+					// Verify cookie was actually set by checking document.cookie
+					const cookieToken = this.getCsrfTokenFromCookie();
+					if (cookieToken) {
+						console.debug('✅ CSRF token cookie verified after fetch');
 					} else {
-						console.warn('CSRF token response missing Set-Cookie header!');
+						// Cookie might not be set yet, or might be HttpOnly (which is fine)
+						// HttpOnly cookies can't be read by JavaScript but are still sent automatically
+						console.debug('⚠️ CSRF token cookie not readable (may be HttpOnly - this is OK)');
 					}
 					
 					return true;
@@ -325,13 +333,17 @@ class ApiClient {
 		
 		// Verify cookie was actually set after fetch
 		// Wait a brief moment for cookie to be set by browser
-		await new Promise(resolve => setTimeout(resolve, 50));
+		await new Promise(resolve => setTimeout(resolve, 100));
 		
 		const newCookieToken = this.getCsrfTokenFromCookie();
 		if (!newCookieToken) {
-			console.warn('CSRF token fetched but cookie not set - this may cause CSRF validation failures');
-			// Still return true if we have in-memory token, but log warning
-			// The cookie should be set by the browser automatically
+			// Cookie might be HttpOnly (which is fine - it's still sent automatically)
+			// Or it might not be set yet - but we have the in-memory token as fallback
+			console.debug('CSRF token cookie not readable (may be HttpOnly - browser will send it automatically)');
+			// Still return true - the cookie is set by the browser even if we can't read it
+			// HttpOnly cookies are sent automatically with requests
+		} else {
+			console.debug('✅ CSRF token cookie verified');
 		}
 		
 		return true;

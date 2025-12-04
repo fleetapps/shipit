@@ -7,7 +7,7 @@ import { AgentConnectionData, AgentPreviewResponse, CodeGenArgs } from './types'
 import { ApiResponse, ControllerResponse } from '../types';
 import { RouteContext } from '../../types/route-context';
 import { ModelConfigService } from '../../../database';
-import { ModelConfig } from '../../../agents/inferutils/config.types';
+import { ModelConfig, InferenceContext } from '../../../agents/inferutils/config.types';
 import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { validateWebSocketOrigin } from '../../../middleware/security/websocket';
 import { createLogger } from '../../../logger';
@@ -80,28 +80,82 @@ export class CodingAgentController extends BaseController {
             
             // Create app record IMMEDIATELY so frontend can fetch it
             // This prevents 404 errors when frontend tries to fetch app before blueprint completes
+            // CRITICAL: This MUST succeed - retry up to 3 times if it fails
             const appService = new AppService(env);
-            try {
-                await appService.createApp({
-                    id: agentId,
-                    userId: user.id,
-                    sessionToken: null,
-                    title: query.substring(0, 100), // Temporary, will be updated with blueprint title
-                    description: null,
-                    originalPrompt: query,
-                    finalPrompt: query,
-                    framework: null, // Will be updated when blueprint completes
-                    visibility: 'private' as const,
-                    status: 'generating' as const,
-                    createdAt: new Date(),
-                    updatedAt: new Date()
+            const userId = user?.id || null;
+            let appCreated = false;
+            let lastError: unknown = null;
+            
+            // Retry app creation up to 3 times
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    await appService.createApp({
+                        id: agentId,
+                        userId: userId, // Can be null for anonymous users (if route allows it)
+                        sessionToken: null,
+                        title: query.substring(0, 100), // Temporary, will be updated with blueprint title
+                        description: null,
+                        originalPrompt: query,
+                        finalPrompt: query,
+                        framework: null, // Will be updated when blueprint completes
+                        visibility: 'private' as const,
+                        status: 'generating' as const,
+                        createdAt: new Date(),
+                        updatedAt: new Date()
+                    });
+                    appCreated = true;
+                    this.logger.info(`[createApp] App record created immediately for agent: ${agentId} (attempt ${attempt})`, {
+                        agentId,
+                        userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                        attempt,
+                        timestamp: new Date().toISOString()
+                    });
+                    console.log('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - PROGRESS: App record created in database', { agentId, userId: userId || 'anonymous', attempt });
+                    break; // Success - exit retry loop
+                } catch (error) {
+                    lastError = error;
+                    const errorDetails = error instanceof Error ? {
+                        message: error.message,
+                        name: error.name,
+                        stack: error.stack?.split('\n').slice(0, 3).join('\n')
+                    } : { error: String(error) };
+                    
+                    this.logger.warn(`[createApp] Failed to create app record immediately for agent ${agentId} (attempt ${attempt}/3)`, {
+                        agentId,
+                        userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                        attempt,
+                        error: errorDetails,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    // If this is the last attempt, log as error
+                    if (attempt === 3) {
+                        this.logger.error(`[createApp] CRITICAL: Failed to create app record after 3 attempts for agent ${agentId}`, {
+                            agentId,
+                            userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                            error: errorDetails,
+                            timestamp: new Date().toISOString()
+                        });
+                        console.error('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - ERROR: Failed to create app record after 3 attempts', { 
+                            agentId, 
+                            userId: user?.id || 'anonymous',
+                            error: errorDetails 
+                        });
+                    } else {
+                        // Wait before retry (exponential backoff)
+                        await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+                    }
+                }
+            }
+            
+            // If app creation failed after all retries, this is critical but we continue
+            // The app will be created in saveToDatabase() as a fallback
+            if (!appCreated) {
+                this.logger.error(`[createApp] CRITICAL: App record creation failed for agent ${agentId} - will retry in saveToDatabase()`, {
+                    agentId,
+                    userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                    lastError: lastError instanceof Error ? lastError.message : String(lastError)
                 });
-                this.logger.info(`App record created immediately for agent: ${agentId}`);
-                console.log('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - PROGRESS: App record created in database', { agentId });
-            } catch (error) {
-                // Log error but don't fail the request - app creation will be retried in saveToDatabase
-                this.logger.error(`Failed to create app record immediately for agent ${agentId}:`, error);
-                console.error('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - WARNING: Failed to create app record immediately', { agentId, error });
             }
             
             const modelConfigService = new ModelConfigService(env);
@@ -447,7 +501,7 @@ export class CodingAgentController extends BaseController {
      * POST /api/agent/:agentId/generate
      */
     static async triggerCodeGeneration(
-        _request: Request,
+        request: Request,
         env: Env,
         _: ExecutionContext,
         context: RouteContext
@@ -465,8 +519,100 @@ export class CodingAgentController extends BaseController {
                 const agentInstance = await getAgentStub(env, agentId);
                 
                 // Check if agent is initialized
-                if (!(await agentInstance.isInitialized())) {
-                    return CodingAgentController.createErrorResponse('Agent instance not initialized', 404);
+                const isInitialized = await agentInstance.isInitialized();
+                
+                if (!isInitialized) {
+                    // Agent not initialized - initialize it first using app data
+                    this.logger.info(`Agent ${agentId} not initialized, initializing from app data...`);
+                    
+                    // Get app details to retrieve original prompt and user info
+                    const appService = new AppService(env);
+                    const app = await appService.getAppDetails(agentId, context.user?.id || undefined);
+                    
+                    if (!app) {
+                        return CodingAgentController.createErrorResponse(`App not found for agent ${agentId}`, 404);
+                    }
+                    
+                    // Get user for model configs (if authenticated)
+                    const user = context.user;
+                    let userModelConfigs = new Map();
+                    let inferenceContext: InferenceContext;
+                    
+                    if (user?.id) {
+                        const modelConfigService = new ModelConfigService(env);
+                        const userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
+                        
+                        for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
+                            if (mergedConfig.isUserOverride) {
+                                const modelConfig: ModelConfig = {
+                                    name: mergedConfig.name,
+                                    max_tokens: mergedConfig.max_tokens,
+                                    temperature: mergedConfig.temperature,
+                                    reasoning_effort: mergedConfig.reasoning_effort,
+                                    fallbackModel: mergedConfig.fallbackModel
+                                };
+                                userModelConfigs.set(actionKey, modelConfig);
+                            }
+                        }
+                        
+                        inferenceContext = {
+                            userModelConfigs: Object.fromEntries(userModelConfigs),
+                            agentId: agentId,
+                            userId: user.id,
+                            enableRealtimeCodeFix: false,
+                            enableFastSmartCodeFix: false,
+                        };
+                    } else {
+                        // Anonymous user - use minimal inference context
+                        // For anonymous users, we need a userId - use the agentId as a placeholder
+                        // This allows the agent to work without a real user ID
+                        const emptyModelConfigs = new Map<string, ModelConfig>();
+                        inferenceContext = {
+                            userModelConfigs: Object.fromEntries(emptyModelConfigs) as Record<string, ModelConfig>,
+                            agentId: agentId,
+                            userId: `anonymous-${agentId}`, // Use agentId as placeholder for anonymous users
+                            enableRealtimeCodeFix: false,
+                            enableFastSmartCodeFix: false,
+                        };
+                    }
+                    
+                    // Get template for the query
+                    const url = new URL(request.url);
+                    const hostname = url.hostname === 'localhost' ? `localhost:${url.port}`: getPreviewDomain(env);
+                    const { templateDetails, selection } = await getTemplateForQuery(
+                        env, 
+                        inferenceContext, 
+                        app.originalPrompt, 
+                        undefined, // No images available in fallback
+                        this.logger
+                    );
+                    
+                    // Initialize the agent (non-blocking)
+                    console.log('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - PROGRESS: Initializing agent from app data', { agentId });
+                    agentInstance.initialize({
+                        query: app.originalPrompt,
+                        language: 'typescript', // Default
+                        frameworks: app.framework ? [app.framework] : ['react'], // Use app framework or default
+                        hostname,
+                        inferenceContext,
+                        images: [], // No images in fallback
+                        onBlueprintChunk: () => {
+                            // No-op for HTTP fallback - blueprint already generated
+                        },
+                        templateInfo: { templateDetails, selection },
+                    }, 'deterministic' as any).catch((error) => {
+                        this.logger.error('Error initializing agent in HTTP fallback:', error);
+                        console.error('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - ERROR: Agent initialization failed', error);
+                    });
+                    
+                    // Wait a moment for initialization to start, then trigger generation
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    // Check if initialized now
+                    const nowInitialized = await agentInstance.isInitialized();
+                    if (!nowInitialized) {
+                        this.logger.warn(`Agent ${agentId} still not initialized after 1s, proceeding anyway...`);
+                    }
                 }
 
                 // Trigger code generation (non-blocking - it runs in background)
@@ -479,7 +625,7 @@ export class CodingAgentController extends BaseController {
                 this.logger.info('Code generation triggered successfully via HTTP', { agentId });
 
                 return CodingAgentController.createSuccessResponse({
-                    message: 'Code generation started',
+                    message: isInitialized ? 'Code generation started' : 'Agent initialized and code generation started',
                     agentId,
                 });
             } catch (error) {
