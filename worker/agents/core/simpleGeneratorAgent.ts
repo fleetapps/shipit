@@ -568,10 +568,39 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     private async saveToDatabase() {
-        this.logger().info(`Blueprint generated successfully for agent ${this.getAgentId()}`);
-        // Save the app to database (authenticated users only)
-        const appService = new AppService(this.env);
-        await appService.createApp({
+        const startTime = Date.now();
+        const agentId = this.getAgentId();
+        const userId = this.state.inferenceContext.userId || null;
+        
+        // Entry log
+        this.logger().info(`Blueprint generated successfully for agent ${agentId}`);
+        this.logger().info('[saveToDatabase] Starting database save operation', {
+            operation: 'saveToDatabase',
+            agentId,
+            userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+            blueprintTitle: this.state.blueprint?.title?.substring(0, 50) || 'undefined',
+            blueprintDescription: this.state.blueprint?.description?.substring(0, 50) || 'undefined',
+            queryLength: this.state.query?.length || 0,
+            framework: this.state.blueprint?.frameworks?.[0] || 'undefined',
+            timestamp: new Date().toISOString(),
+        });
+        
+        // Context validation
+        this.logger().debug('[saveToDatabase] Validating agent context', {
+            agentId,
+            userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+            validation: {
+                hasAgentId: !!agentId,
+                hasInferenceContext: !!this.state.inferenceContext,
+                hasBlueprint: !!this.state.blueprint,
+                hasQuery: !!this.state.query,
+                blueprintTitleLength: this.state.blueprint?.title?.length || 0,
+                blueprintDescriptionLength: this.state.blueprint?.description?.length || 0,
+            }
+        });
+        
+        // Prepare app data
+        const appData = {
             id: this.state.inferenceContext.agentId,
             userId: this.state.inferenceContext.userId,
             sessionToken: null,
@@ -580,17 +609,94 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             originalPrompt: this.state.query,
             finalPrompt: this.state.query,
             framework: this.state.blueprint.frameworks?.[0],
-            visibility: 'private',
-            status: 'generating',
+            visibility: 'private' as const,
+            status: 'generating' as const,
             createdAt: new Date(),
             updatedAt: new Date()
+        };
+        
+        this.logger().debug('[saveToDatabase] Prepared app data', {
+            agentId,
+            userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+            appData: {
+                id: appData.id,
+                title: appData.title?.substring(0, 50),
+                description: appData.description?.substring(0, 50),
+                status: appData.status,
+                visibility: appData.visibility,
+                framework: appData.framework,
+                hasOriginalPrompt: !!appData.originalPrompt,
+                originalPromptLength: appData.originalPrompt?.length || 0,
+            }
         });
-        this.logger().info(`App saved successfully to database for agent ${this.state.inferenceContext.agentId}`, { 
-            agentId: this.state.inferenceContext.agentId, 
-            userId: this.state.inferenceContext.userId,
-            visibility: 'private'
-        });
-        this.logger().info(`Agent initialized successfully for agent ${this.state.inferenceContext.agentId}`);
+        
+        // Save the app to database (authenticated users only)
+        try {
+            const appService = new AppService(this.env);
+            
+            this.logger().debug('[saveToDatabase] AppService created, calling createApp', {
+                agentId,
+                userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                timestamp: new Date().toISOString(),
+            });
+            
+            await appService.createApp(appData);
+            
+            const duration = Date.now() - startTime;
+            
+            // Success log
+            this.logger().info(`App saved successfully to database for agent ${agentId}`, { 
+                agentId: agentId, 
+                userId: userId,
+                visibility: 'private'
+            });
+            this.logger().info('[saveToDatabase] App saved successfully to database', {
+                operation: 'saveToDatabase',
+                agentId,
+                userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                title: appData.title?.substring(0, 50),
+                status: appData.status,
+                visibility: appData.visibility,
+                duration,
+            });
+            this.logger().info(`Agent initialized successfully for agent ${agentId}`);
+            
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorStack = error instanceof Error ? error.stack : undefined;
+            const errorName = error instanceof Error ? error.name : 'UnknownError';
+            
+            // Comprehensive error log
+            this.logger().error('[saveToDatabase] Failed to save app to database', {
+                operation: 'saveToDatabase',
+                agentId,
+                userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                error: {
+                    type: errorName,
+                    message: errorMessage,
+                    stack: errorStack?.split('\n').slice(0, 10).join('\n'), // First 10 lines
+                },
+                context: {
+                    blueprintTitle: this.state.blueprint?.title?.substring(0, 50),
+                    queryLength: this.state.query?.length || 0,
+                    framework: this.state.blueprint?.frameworks?.[0],
+                    hasBlueprint: !!this.state.blueprint,
+                },
+                appData: {
+                    id: appData.id,
+                    title: appData.title?.substring(0, 50),
+                    status: appData.status,
+                    visibility: appData.visibility,
+                },
+                duration,
+                timestamp: new Date().toISOString(),
+                fatal: false, // Not fatal - agent can continue
+            });
+            
+            // Re-throw to maintain existing error propagation behavior
+            throw error;
+        }
     }
 
     getPreviewUrlCache() {

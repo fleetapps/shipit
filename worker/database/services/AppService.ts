@@ -50,13 +50,232 @@ export class AppService extends BaseService {
      * Create a new app
      */
     async createApp(appData:schema.NewApp): Promise<schema.App> {
-        const [app] = await this.database
-            .insert(schema.apps)
-            .values({
-                ...appData,
-            })
-            .returning();
-        return app;
+        const startTime = Date.now();
+        const agentId = appData.id;
+        const userId = appData.userId || null;
+        
+        // Entry log with input parameters
+        this.logger.info('[createApp] Starting app creation', {
+            operation: 'createApp',
+            agentId,
+            userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+            title: appData.title?.substring(0, 50) || 'undefined',
+            status: appData.status || 'undefined',
+            visibility: appData.visibility || 'undefined',
+            hasOriginalPrompt: !!appData.originalPrompt,
+            originalPromptLength: appData.originalPrompt?.length || 0,
+            hasFramework: !!appData.framework,
+            framework: appData.framework || 'undefined',
+            timestamp: new Date().toISOString(),
+        });
+        
+        // Validation log
+        this.logger.debug('[createApp] Validating input data', {
+            agentId,
+            validation: {
+                hasId: !!appData.id,
+                hasTitle: !!appData.title,
+                hasOriginalPrompt: !!appData.originalPrompt,
+                hasVisibility: !!appData.visibility,
+                hasStatus: !!appData.status,
+                userIdType: userId ? typeof userId : 'null',
+                idLength: appData.id?.length || 0,
+                titleLength: appData.title?.length || 0,
+            }
+        });
+        
+        // Check if record already exists
+        try {
+            const existing = await this.database
+                .select({ id: schema.apps.id })
+                .from(schema.apps)
+                .where(eq(schema.apps.id, agentId))
+                .get();
+            
+            if (existing) {
+                this.logger.warn('[createApp] App record already exists', {
+                    agentId,
+                    userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                    existingRecordId: existing.id,
+                });
+            } else {
+                this.logger.debug('[createApp] No existing record found, proceeding with insert', {
+                    agentId,
+                });
+            }
+        } catch (checkError) {
+            this.logger.warn('[createApp] Error checking existing record (non-fatal)', {
+                agentId,
+                error: checkError instanceof Error ? checkError.message : String(checkError),
+            });
+        }
+        
+        // Validate foreign key if userId provided
+        if (userId) {
+            try {
+                const userExists = await this.database
+                    .select({ id: schema.users.id })
+                    .from(schema.users)
+                    .where(eq(schema.users.id, userId))
+                    .get();
+                
+                if (!userExists) {
+                    this.logger.error('[createApp] Foreign key validation failed - User does not exist', {
+                        agentId,
+                        userId,
+                        error: 'FOREIGN_KEY_VIOLATION',
+                        constraint: {
+                            type: 'FOREIGN_KEY',
+                            table: 'apps',
+                            column: 'user_id',
+                            referencedTable: 'users',
+                            referencedColumn: 'id',
+                            value: userId,
+                        },
+                        suggestedFix: 'Verify userId exists in users table before creating app',
+                    });
+                    // Don't throw here - let the database constraint handle it for consistency
+                } else {
+                    this.logger.debug('[createApp] Foreign key validation passed', {
+                        agentId,
+                        userId: `${userId.substring(0, 8)}...`,
+                    });
+                }
+            } catch (fkError) {
+                this.logger.warn('[createApp] Error validating foreign key (non-fatal)', {
+                    agentId,
+                    userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                    error: fkError instanceof Error ? fkError.message : String(fkError),
+                });
+            }
+        }
+        
+        // Database operation log
+        this.logger.debug('[createApp] Executing database insert', {
+            agentId,
+            userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+            table: 'apps',
+            operation: 'INSERT',
+            timestamp: new Date().toISOString(),
+        });
+        
+        try {
+            const [app] = await this.database
+                .insert(schema.apps)
+                .values({
+                    ...appData,
+                })
+                .returning();
+            
+            const duration = Date.now() - startTime;
+            
+            if (!app) {
+                this.logger.error('[createApp] Insert returned no record', {
+                    agentId,
+                    userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                    duration,
+                    error: 'INSERT_RETURNED_EMPTY',
+                    inputData: {
+                        id: appData.id,
+                        title: appData.title?.substring(0, 50),
+                        status: appData.status,
+                        visibility: appData.visibility,
+                    },
+                });
+                throw new Error('Failed to create app: insert returned no record');
+            }
+            
+            // Success log
+            this.logger.info('[createApp] App created successfully', {
+                operation: 'createApp',
+                agentId: app.id,
+                userId: app.userId ? `${app.userId.substring(0, 8)}...` : 'null',
+                title: app.title?.substring(0, 50),
+                status: app.status,
+                visibility: app.visibility,
+                createdAt: app.createdAt?.toISOString(),
+                duration,
+            });
+            
+            return app;
+            
+        } catch (error) {
+            const duration = Date.now() - startTime;
+            
+            // Extract error details
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorStack = error instanceof Error ? error.stack : undefined;
+            const errorName = error instanceof Error ? error.name : 'UnknownError';
+            
+            // Check for SQLite error codes and constraint violations
+            let sqliteCode: string | undefined;
+            let constraintType: string | undefined;
+            let constraintDetails: Record<string, unknown> | undefined;
+            
+            if (errorMessage.includes('FOREIGN KEY') || errorMessage.includes('foreign key')) {
+                sqliteCode = 'SQLITE_CONSTRAINT_FOREIGNKEY';
+                constraintType = 'FOREIGN_KEY';
+                const match = errorMessage.match(/(?:references|REFERENCES)\s+(\w+)\.(\w+)/i);
+                constraintDetails = {
+                    type: 'FOREIGN_KEY',
+                    table: 'apps',
+                    column: 'user_id',
+                    referencedTable: match ? match[1] : 'users',
+                    referencedColumn: match ? match[2] : 'id',
+                    value: userId,
+                };
+            } else if (errorMessage.includes('UNIQUE constraint') || errorMessage.includes('UNIQUE')) {
+                sqliteCode = 'SQLITE_CONSTRAINT_UNIQUE';
+                constraintType = 'UNIQUE';
+                constraintDetails = {
+                    type: 'UNIQUE',
+                    table: 'apps',
+                    column: 'id',
+                    value: agentId,
+                };
+            } else if (errorMessage.includes('NOT NULL') || errorMessage.includes('NOT NULL constraint')) {
+                sqliteCode = 'SQLITE_CONSTRAINT_NOTNULL';
+                constraintType = 'NOT_NULL';
+                const match = errorMessage.match(/NOT NULL constraint failed: apps\.(\w+)/i);
+                constraintDetails = {
+                    type: 'NOT_NULL',
+                    table: 'apps',
+                    column: match ? match[1] : 'unknown',
+                };
+            }
+            
+            // Comprehensive error log
+            this.logger.error('[createApp] Failed to create app in database', {
+                operation: 'createApp',
+                agentId,
+                userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                error: {
+                    type: errorName,
+                    message: errorMessage,
+                    code: sqliteCode || 'UNKNOWN',
+                    constraintType,
+                    constraintDetails,
+                    stack: errorStack?.split('\n').slice(0, 5).join('\n'), // First 5 lines of stack
+                },
+                inputData: {
+                    id: appData.id,
+                    title: appData.title?.substring(0, 50),
+                    description: appData.description?.substring(0, 50),
+                    status: appData.status,
+                    visibility: appData.visibility,
+                    framework: appData.framework,
+                    hasOriginalPrompt: !!appData.originalPrompt,
+                    originalPromptLength: appData.originalPrompt?.length || 0,
+                },
+                duration,
+                timestamp: new Date().toISOString(),
+                suggestedFix: constraintType 
+                    ? `Fix ${constraintType} constraint violation: ${constraintDetails ? JSON.stringify(constraintDetails) : 'see error details'}`
+                    : 'Check database connection and schema compatibility',
+            });
+            
+            throw error; // Re-throw to maintain existing error propagation behavior
+        }
     }
     /**
      * Get public apps with pagination and sorting
