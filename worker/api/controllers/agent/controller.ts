@@ -78,6 +78,10 @@ export class CodingAgentController extends BaseController {
 
             const agentId = generateId();
             
+            // CRITICAL LOG: Verify we reach app creation code
+            console.log('[CRITICAL] About to create app record', { agentId, userId: user?.id || 'null', hasUser: !!user });
+            this.logger.info('[CRITICAL] About to create app record', { agentId, userId: user?.id || 'null', hasUser: !!user });
+            
             // Create app record IMMEDIATELY so frontend can fetch it
             // This prevents 404 errors when frontend tries to fetch app before blueprint completes
             // CRITICAL: This MUST succeed - retry up to 3 times if it fails
@@ -86,8 +90,10 @@ export class CodingAgentController extends BaseController {
             let appCreated = false;
             let lastError: unknown = null;
             
+            console.log('[CRITICAL] Starting app creation retry loop', { agentId, userId, attempt: 1 });
             // Retry app creation up to 3 times
             for (let attempt = 1; attempt <= 3; attempt++) {
+                console.log(`[CRITICAL] App creation attempt ${attempt}/3`, { agentId, userId });
                 try {
                     await appService.createApp({
                         id: agentId,
@@ -110,6 +116,7 @@ export class CodingAgentController extends BaseController {
                         attempt,
                         timestamp: new Date().toISOString()
                     });
+                    console.log('[CRITICAL] ✅ App record created successfully in database', { agentId, userId: userId || 'anonymous', attempt });
                     console.log('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - PROGRESS: App record created in database', { agentId, userId: userId || 'anonymous', attempt });
                     break; // Success - exit retry loop
                 } catch (error) {
@@ -120,6 +127,7 @@ export class CodingAgentController extends BaseController {
                         stack: error.stack?.split('\n').slice(0, 3).join('\n')
                     } : { error: String(error) };
                     
+                    console.error(`[CRITICAL] ❌ App creation attempt ${attempt}/3 FAILED`, { agentId, userId, error: errorDetails });
                     this.logger.warn(`[createApp] Failed to create app record immediately for agent ${agentId} (attempt ${attempt}/3)`, {
                         agentId,
                         userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
