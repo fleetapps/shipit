@@ -77,6 +77,33 @@ export class CodingAgentController extends BaseController {
             }
 
             const agentId = generateId();
+            
+            // Create app record IMMEDIATELY so frontend can fetch it
+            // This prevents 404 errors when frontend tries to fetch app before blueprint completes
+            const appService = new AppService(env);
+            try {
+                await appService.createApp({
+                    id: agentId,
+                    userId: user.id,
+                    sessionToken: null,
+                    title: query.substring(0, 100), // Temporary, will be updated with blueprint title
+                    description: null,
+                    originalPrompt: query,
+                    finalPrompt: query,
+                    framework: null, // Will be updated when blueprint completes
+                    visibility: 'private' as const,
+                    status: 'generating' as const,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                });
+                this.logger.info(`App record created immediately for agent: ${agentId}`);
+                console.log('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - PROGRESS: App record created in database', { agentId });
+            } catch (error) {
+                // Log error but don't fail the request - app creation will be retried in saveToDatabase
+                this.logger.error(`Failed to create app record immediately for agent ${agentId}:`, error);
+                console.error('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - WARNING: Failed to create app record immediately', { agentId, error });
+            }
+            
             const modelConfigService = new ModelConfigService(env);
                                 
             // Fetch all user model configs, api keys and agent instance at once

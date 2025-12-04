@@ -630,27 +630,46 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             }
         });
         
-        // Save the app to database (authenticated users only)
+        // Update the app record with blueprint data (app should already exist from early creation)
         try {
             const appService = new AppService(this.env);
             
-            this.logger().debug('[saveToDatabase] AppService created, calling createApp', {
+            this.logger().debug('[saveToDatabase] AppService created, updating app with blueprint data', {
                 agentId,
                 userId: userId ? `${userId.substring(0, 8)}...` : 'null',
                 timestamp: new Date().toISOString(),
             });
             
-            await appService.createApp(appData);
+            // Try to update first (app should exist from early creation)
+            const updateSuccess = await appService.updateApp(agentId, {
+                title: appData.title,
+                description: appData.description,
+                framework: appData.framework,
+                finalPrompt: appData.finalPrompt,
+                // Keep status as 'generating' - it will be updated when code generation completes
+            });
+            
+            if (!updateSuccess) {
+                // If update failed, app might not exist (early creation failed), so try create
+                this.logger().warn('[saveToDatabase] Update failed, app record may not exist, attempting create', {
+                    agentId,
+                    userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                });
+                await appService.createApp(appData);
+                this.logger().info('[saveToDatabase] App record created (fallback after update failed)', {
+                    agentId,
+                });
+            }
             
             const duration = Date.now() - startTime;
             
             // Success log
-            this.logger().info(`App saved successfully to database for agent ${agentId}`, { 
+            this.logger().info(`App updated successfully in database for agent ${agentId}`, { 
                 agentId: agentId, 
                 userId: userId,
                 visibility: 'private'
             });
-            this.logger().info('[saveToDatabase] App saved successfully to database', {
+            this.logger().info('[saveToDatabase] App updated successfully in database', {
                 operation: 'saveToDatabase',
                 agentId,
                 userId: userId ? `${userId.substring(0, 8)}...` : 'null',
