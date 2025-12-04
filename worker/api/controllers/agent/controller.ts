@@ -15,6 +15,7 @@ import { getPreviewDomain } from 'worker/utils/urls';
 import { ImageType, uploadImage } from 'worker/utils/images';
 import { ProcessedImageAttachment } from 'worker/types/image-attachment';
 import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
+import { AppService } from '../../../database';
 
 const defaultCodeGenArgs: CodeGenArgs = {
     query: '',
@@ -210,13 +211,28 @@ export class CodingAgentController extends BaseController {
                 return new Response('Forbidden: Invalid origin', { status: 403 });
             }
 
-            // Extract user for rate limiting
-            const user = context.user!;
+            // Extract user (optional - route is public, supports anonymous users)
+            const user = context.user || null;
+
+            // For anonymous users, verify they can access this agent (created recently)
             if (!user) {
-                return CodingAgentController.createErrorResponse('Missing user', 401);
+                const canAccess = await CodingAgentController.verifyAnonymousAccess(chatId, env);
+                if (!canAccess) {
+                    this.logger.warn(`Anonymous access denied for agent: ${chatId}`, {
+                        reason: 'Agent not found or access expired (> 1 hour since creation)'
+                    });
+                    return CodingAgentController.createErrorResponse(
+                        'Anonymous access expired. Please log in to continue, or reconnect within 1 hour of creation.',
+                        401
+                    );
+                }
+                this.logger.info(`Anonymous WebSocket connection allowed for agent: ${chatId}`);
             }
 
-            this.logger.info(`WebSocket connection request for chat: ${chatId}`);
+            this.logger.info(`WebSocket connection request for chat: ${chatId}`, {
+                userId: user?.id || 'anonymous',
+                isAnonymous: !user
+            });
             
             // Log request details for debugging
             const headers: Record<string, string> = {};
@@ -259,6 +275,57 @@ export class CodingAgentController extends BaseController {
         } catch (error) {
             this.logger.error('Error handling WebSocket connection', error);
             return CodingAgentController.handleError(error, 'handle WebSocket connection');
+        }
+    }
+
+    /**
+     * Verify that an anonymous user can access an agent
+     * Allows access if agent was created recently (< 1 hour ago) and belongs to anonymous user
+     */
+    private static async verifyAnonymousAccess(
+        agentId: string,
+        env: Env
+    ): Promise<boolean> {
+        try {
+            const appService = new AppService(env);
+            const app = await appService.getAppDetails(agentId, undefined);
+            
+            if (!app) {
+                this.logger.warn(`Agent not found for anonymous access check: ${agentId}`);
+                return false; // Agent doesn't exist
+            }
+            
+            // Check if agent belongs to anonymous user (userId is null)
+            if (app.userId) {
+                this.logger.warn(`Agent ${agentId} belongs to authenticated user, anonymous access denied`);
+                return false; // Agent belongs to an authenticated user
+            }
+            
+            // Check if agent was created recently (within 1 hour)
+            const oneHourAgo = Date.now() - (60 * 60 * 1000);
+            const createdAt = app.createdAt?.getTime() || 0;
+            
+            if (createdAt === 0) {
+                this.logger.warn(`Agent ${agentId} has no creation timestamp`);
+                return false; // No creation time - deny access
+            }
+            
+            const isRecent = createdAt > oneHourAgo;
+            
+            if (!isRecent) {
+                this.logger.info(`Anonymous access expired for agent: ${agentId}`, {
+                    createdAt: new Date(createdAt).toISOString(),
+                    hoursAgo: ((Date.now() - createdAt) / (60 * 60 * 1000)).toFixed(2)
+                });
+            }
+            
+            return isRecent;
+        } catch (error) {
+            this.logger.error('Error verifying anonymous access', {
+                agentId,
+                error: error instanceof Error ? error.message : String(error)
+            });
+            return false; // Deny on error for security
         }
     }
 
