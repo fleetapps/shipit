@@ -41,6 +41,7 @@ import { customizePackageJson, customizeTemplateFiles, generateBootstrapScript, 
 import { generateBlueprint } from '../planning/blueprint';
 import { AppService } from '../../database';
 import * as schema from '../../database/schema';
+import { eq } from 'drizzle-orm';
 import { RateLimitExceededError } from 'shared/types/errors';
 import { ImageAttachment, type ProcessedImageAttachment } from '../../types/image-attachment';
 import { OperationOptions } from '../operations/common';
@@ -426,7 +427,6 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 // Fallback: Try to get templateName from app record
                 // This is the PRIMARY source of truth if state hasn't been persisted yet
                 try {
-                    const appService = new AppService(this.env);
                     const agentId = this.getAgentId();
                     const userId = this.state.inferenceContext?.userId;
                     
@@ -435,31 +435,66 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                         userId: userId || 'null',
                     });
                     
-                    const app = await appService.getAppDetails(agentId, userId);
+                    // Try getAppDetails first (includes stats)
+                    const appService = new AppService(this.env);
+                    let app = await appService.getAppDetails(agentId, userId);
+                    let templateNameFromApp: string | null = null;
+                    
+                    if (app?.templateName && app.templateName.trim() !== '') {
+                        templateNameFromApp = app.templateName;
+                    } else {
+                        // Fallback: Direct database query if getAppDetails doesn't return templateName
+                        // This can happen if there's a schema mismatch or query issue
+                        this.logger().warn(`getAppDetails didn't return templateName, trying direct DB query...`, {
+                            agentId,
+                            appExists: !!app,
+                            templateNameFromGetAppDetails: app?.templateName || 'null/undefined',
+                        });
+                        
+                        try {
+                            const directQuery = await appService['database']
+                                .select({ templateName: schema.apps.templateName })
+                                .from(schema.apps)
+                                .where(eq(schema.apps.id, agentId))
+                                .get();
+                            
+                            if (directQuery?.templateName && directQuery.templateName.trim() !== '') {
+                                templateNameFromApp = directQuery.templateName;
+                                this.logger().info(`✅ Retrieved templateName via direct DB query: ${templateNameFromApp}`, {
+                                    agentId,
+                                });
+                            }
+                        } catch (dbError) {
+                            this.logger().error(`Direct DB query failed:`, {
+                                agentId,
+                                error: dbError instanceof Error ? dbError.message : String(dbError),
+                            });
+                        }
+                    }
                     
                     this.logger().info(`App record lookup result:`, {
                         agentId,
                         appExists: !!app,
-                        templateName: app?.templateName || 'null/undefined',
-                        templateNameType: typeof app?.templateName,
-                        templateNameLength: app?.templateName?.length || 0,
+                        templateName: templateNameFromApp || app?.templateName || 'null/undefined',
+                        templateNameType: typeof (templateNameFromApp || app?.templateName),
+                        templateNameLength: (templateNameFromApp || app?.templateName)?.length || 0,
                         hasBlueprint: !!this.state.blueprint,
                         hasQuery: !!this.state.query,
                         appKeys: app ? Object.keys(app).join(', ') : 'N/A',
                     });
                     
-                    // Check if app exists and has templateName
-                    if (app && app.templateName && app.templateName.trim() !== '') {
-                        this.logger().info(`✅ Retrieved templateName from app record: ${app.templateName}`, {
+                    // Check if we found templateName (from either source)
+                    if (templateNameFromApp && templateNameFromApp.trim() !== '') {
+                        this.logger().info(`✅ Retrieved templateName from app record: ${templateNameFromApp}`, {
                             agentId: this.getAgentId(),
                         });
                         // Update state with templateName from app record
                         this.setState({
                             ...this.state,
-                            templateName: app.templateName,
+                            templateName: templateNameFromApp,
                         });
                         // Use the templateName from app record
-                        const appTemplateName = app.templateName;
+                        const appTemplateName = templateNameFromApp;
                         this.logger().info(`Loading template details for: ${appTemplateName} (from app record)`);
                         const results = await BaseSandboxService.getTemplateDetails(appTemplateName);
                         if (!results.success || !results.templateDetails) {
