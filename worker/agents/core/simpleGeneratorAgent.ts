@@ -41,7 +41,6 @@ import { customizePackageJson, customizeTemplateFiles, generateBootstrapScript, 
 import { generateBlueprint } from '../planning/blueprint';
 import { AppService } from '../../database';
 import * as schema from '../../database/schema';
-import { eq } from 'drizzle-orm';
 import { RateLimitExceededError } from 'shared/types/errors';
 import { ImageAttachment, type ProcessedImageAttachment } from '../../types/image-attachment';
 import { OperationOptions } from '../operations/common';
@@ -430,7 +429,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
         
         // Ensure template details are loaded before sending them to the client
-        // This will use state.templateName first, then fallback to DB if needed
+        // Cache is typically already set in initialize(), but ensureTemplateDetails() is a safety check
         await this.ensureTemplateDetails();
         
         sendToConnection(connection, 'agent_connected', {
@@ -441,197 +440,19 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
     async ensureTemplateDetails() {
         if (!this.templateDetailsCache) {
-            // Original pattern: Use templateName from state first (primary source)
-            let templateName = this.state.templateName;
-            
-            // Fallback: If templateName is missing from state, try to get it from DB
-            // This can happen if WebSocket connects before initialize() completes
-            if (!templateName || templateName.trim() === '') {
-                // Get agentId for DB query (DO ID name is the source of truth)
-                const agentId = this.getAgentId();
-                
-                if (!agentId || agentId.trim() === '') {
-                    throw new Error(`Cannot retrieve templateName from DB: agentId is empty. Agent state may not be initialized.`);
-                }
-                
-                this.logger().warn(`Template name is empty in agent state, attempting to retrieve from app record...`, {
-                    agentId,
-                    hasBlueprint: !!this.state.blueprint,
-                    hasQuery: !!this.state.query,
-                    hasInferenceContext: !!this.state.inferenceContext,
-                });
-                
-                // Fallback: Try to get templateName from app record
-                // This is the PRIMARY source of truth if state hasn't been persisted yet
-                try {
-                    
-                    const userId = this.state.inferenceContext?.userId;
-                    
-                    this.logger().info(`Attempting to retrieve templateName from app record...`, {
-                        agentId,
-                        agentIdLength: agentId.length,
-                        userId: userId || 'null',
-                        doIdName: (this.ctx as any)?.id?.name || 'N/A',
-                        queryColumn: 'id', // We're querying by 'id' column (primary key), not 'agentId'
-                    });
-                    
-                    // Try getAppDetails first (includes stats)
-                    // Query by 'id' column (not 'agentId') - the table uses 'id' as primary key
-                    const appService = new AppService(this.env);
-                    let app = await appService.getAppDetails(agentId, userId);
-                    let templateNameFromApp: string | null = null;
-                    
-                    if (app?.templateName && app.templateName.trim() !== '') {
-                        templateNameFromApp = app.templateName;
-                    } else {
-                        // Fallback: Direct database query if getAppDetails doesn't return templateName
-                        // This can happen if there's a schema mismatch or query issue
-                        this.logger().warn(`getAppDetails didn't return templateName, trying direct DB query...`, {
-                            agentId,
-                            appExists: !!app,
-                            templateNameFromGetAppDetails: app?.templateName || 'null/undefined',
-                        });
-                        
-                        try {
-                            // CRITICAL: Validate agentId again before direct DB query
-                            if (!agentId || agentId.trim() === '') {
-                                this.logger().error(`Cannot execute direct DB query: agentId is empty`, {
-                                    agentId,
-                                    doIdName: (this.ctx as any)?.id?.name || 'N/A',
-                                });
-                                throw new Error(`agentId is empty, cannot query database`);
-                            }
-                            
-                            this.logger().info(`Executing direct DB query for templateName...`, {
-                                agentId,
-                                agentIdLength: agentId.length,
-                                queryColumn: 'id', // We're querying by 'id' column, not 'agentId'
-                            });
-                            
-                            const directQuery = await appService['database']
-                                .select({ templateName: schema.apps.templateName })
-                                .from(schema.apps)
-                                .where(eq(schema.apps.id, agentId)) // Query by 'id' column (primary key)
-                                .get();
-                            
-                            if (directQuery?.templateName && directQuery.templateName.trim() !== '') {
-                                templateNameFromApp = directQuery.templateName;
-                                this.logger().info(`✅ Retrieved templateName via direct DB query: ${templateNameFromApp}`, {
-                                    agentId,
-                                });
-                            }
-                        } catch (dbError) {
-                            this.logger().error(`Direct DB query failed:`, {
-                                agentId,
-                                error: dbError instanceof Error ? dbError.message : String(dbError),
-                            });
-                        }
-                    }
-                    
-                    this.logger().info(`App record lookup result:`, {
-                        agentId,
-                        appExists: !!app,
-                        templateName: templateNameFromApp || app?.templateName || 'null/undefined',
-                        templateNameType: typeof (templateNameFromApp || app?.templateName),
-                        templateNameLength: (templateNameFromApp || app?.templateName)?.length || 0,
-                        hasBlueprint: !!this.state.blueprint,
-                        hasQuery: !!this.state.query,
-                        appKeys: app ? Object.keys(app).join(', ') : 'N/A',
-                    });
-                    
-                    // Check if we found templateName (from either source)
-                    if (templateNameFromApp && templateNameFromApp.trim() !== '') {
-                        this.logger().info(`✅ Retrieved templateName from app record: ${templateNameFromApp}`, {
-                            agentId,
-                        });
-                        // Update state with templateName from app record
-                        this.setState({
-                            ...this.state,
-                            templateName: templateNameFromApp,
-                        });
-                        // Use the templateName from app record
-                        const appTemplateName = templateNameFromApp;
-                        this.logger().info(`Loading template details for: ${appTemplateName} (from app record)`);
-                        const results = await BaseSandboxService.getTemplateDetails(appTemplateName);
-                        if (!results.success || !results.templateDetails) {
-                            throw new Error(`Failed to get template details for: ${appTemplateName}`);
-                        }
-                        
-                        const templateDetails = results.templateDetails;
-                        const customizedAllFiles = { ...templateDetails.allFiles };
-                        
-                        this.logger().info('Customizing template files for older app');
-                        const customizedFiles = customizeTemplateFiles(
-                            templateDetails.allFiles,
-                            {
-                                projectName: this.state.projectName,
-                                commandsHistory: this.getBootstrapCommands()
-                            }
-                        );
-                        Object.assign(customizedAllFiles, customizedFiles);
-                        
-                        this.templateDetailsCache = {
-                            ...templateDetails,
-                            allFiles: customizedAllFiles
-                        };
-                        this.logger().info('Template details loaded and customized (from app record fallback)');
-                        return this.templateDetailsCache;
-                    } else {
-                        // App record doesn't have templateName - check if agent is initialized
-                        const isInitialized = !!(this.state.blueprint && this.state.query);
-                        
-                        if (!isInitialized) {
-                            this.logger().error(`Agent not initialized and app record has no templateName. Agent ID: ${agentId}, app exists: ${!!app}, app.templateName: ${app?.templateName || 'null'}`);
-                            throw new Error(`Agent not initialized. Template name is missing and agent state is incomplete. Please wait for agent initialization to complete before connecting via WebSocket.`);
-                        }
-                        
-                        // Agent appears initialized but templateName is missing from both state and app record
-                        this.logger().error(`Template name is missing from both agent state and app record. This indicates the agent state was not properly persisted. Agent ID: ${agentId}, has blueprint: ${!!this.state.blueprint}, has query: ${!!this.state.query}, app exists: ${!!app}`);
-                        throw new Error(`Template name is missing from agent state and app record. The agent appears initialized but the template name was not persisted. This may indicate the agent initialization was interrupted before state could be saved. Please try creating a new agent session.`);
-                    }
-                } catch (error) {
-                    // If app record lookup fails, log the error and check if agent is initialized
-                    this.logger().error(`Failed to retrieve templateName from app record`, {
-                        agentId,
-                        error: error instanceof Error ? error.message : String(error),
-                        errorStack: error instanceof Error ? error.stack : undefined,
-                        hasBlueprint: !!this.state.blueprint,
-                        hasQuery: !!this.state.query,
-                        hasInferenceContext: !!this.state.inferenceContext,
-                    });
-                    
-                    // Check if agent is initialized
-                    const isInitialized = !!(this.state.blueprint && this.state.query);
-                    
-                    if (!isInitialized) {
-                        throw new Error(`Agent not initialized. Template name is missing and agent state is incomplete. Please wait for agent initialization to complete before connecting via WebSocket.`);
-                    }
-                    
-                    // Agent is initialized but we couldn't get templateName from app record
-                    throw new Error(`Template name is missing from agent state and could not be retrieved from app record. The agent appears initialized but the template name was not persisted. This may indicate the agent initialization was interrupted before state could be saved. Please try creating a new agent session.`);
-                }
-            }
-            
-            this.logger().info(`Loading template details for: ${templateName}`);
-            const results = await BaseSandboxService.getTemplateDetails(templateName);
+            this.logger().info(`Loading template details for: ${this.state.templateName}`);
+            const results = await BaseSandboxService.getTemplateDetails(this.state.templateName);
             if (!results.success || !results.templateDetails) {
-                throw new Error(`Failed to get template details for: ${templateName}`);
+                throw new Error(`Failed to get template details for: ${this.state.templateName}`);
             }
-            
             const templateDetails = results.templateDetails;
-            
             const customizedAllFiles = { ...templateDetails.allFiles };
-            
             this.logger().info('Customizing template files for older app');
-            const customizedFiles = customizeTemplateFiles(
-                templateDetails.allFiles,
-                {
-                    projectName: this.state.projectName,
-                    commandsHistory: this.getBootstrapCommands()
-                }
-            );
+            const customizedFiles = customizeTemplateFiles(templateDetails.allFiles, {
+                projectName: this.state.projectName,
+                commandsHistory: this.getBootstrapCommands()
+            });
             Object.assign(customizedAllFiles, customizedFiles);
-            
             this.templateDetailsCache = {
                 ...templateDetails,
                 allFiles: customizedAllFiles
