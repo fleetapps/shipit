@@ -229,6 +229,11 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         const sandboxSessionId = DeploymentManager.generateNewSessionId();
         this.initLogger(inferenceContext.agentId, sandboxSessionId, inferenceContext.userId);
         
+        // CRITICAL: Set templateDetailsCache IMMEDIATELY before any async operations
+        // This ensures WebSocket connections that happen early can access the cache
+        // The cache is set from templateInfo.templateDetails which is already available
+        this.templateDetailsCache = templateInfo.templateDetails;
+        
         // Generate a blueprint
         console.log('[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - PROGRESS: Starting blueprint generation in agent', { queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
         this.logger().info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
@@ -261,7 +266,8 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
         const packageJson = templateInfo.templateDetails?.allFiles['package.json'];
 
-        this.templateDetailsCache = templateInfo.templateDetails;
+        // Cache is already set at the start of initialize() for early WebSocket connections
+        // No need to set it again here
 
         const projectName = generateProjectName(
             blueprint?.projectName || templateInfo.templateDetails.name,
