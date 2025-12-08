@@ -144,6 +144,7 @@ export const apps = sqliteTable('apps', {
     
     // Generated Content  
     framework: text('framework'), // 'react', 'vue', 'svelte', etc.
+    templateName: text('template_name'), // Template name (e.g., 'vite-cf-DO-v2-runner')
     
     // Ownership and Context
     userId: text('user_id').references(() => users.id, { onDelete: 'cascade' }), // Null for anonymous

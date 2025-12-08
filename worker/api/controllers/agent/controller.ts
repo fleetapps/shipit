@@ -203,6 +203,27 @@ export class CodingAgentController extends BaseController {
 
             const { templateDetails, selection } = await getTemplateForQuery(env, inferenceContext, query, body.images, this.logger);
 
+            // CRITICAL: Store templateName in app record immediately (before async operations)
+            // This ensures templateName is saved even if HTTP request is canceled
+            try {
+                await appService.updateApp(agentId, {
+                    templateName: templateDetails.name,
+                });
+                this.logger.info(`[CRITICAL] ✅ Template name stored in app record immediately`, {
+                    agentId,
+                    templateName: templateDetails.name,
+                });
+                console.log('[CRITICAL] ✅ Template name stored in app record immediately', { agentId, templateName: templateDetails.name });
+            } catch (error) {
+                // Non-fatal - log but continue (saveToDatabase() will handle it later)
+                this.logger.warn(`[CRITICAL] Failed to store templateName immediately (non-fatal)`, {
+                    agentId,
+                    templateName: templateDetails.name,
+                    error: error instanceof Error ? error.message : String(error),
+                });
+                console.warn('[CRITICAL] Failed to store templateName immediately (non-fatal)', { agentId, templateName: templateDetails.name, error });
+            }
+
             const websocketUrl = `${url.protocol === 'https:' ? 'wss:' : 'ws:'}//${url.host}/api/agent/${agentId}/ws`;
             const httpStatusUrl = `${url.origin}/api/agent/${agentId}`;
 
