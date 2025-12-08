@@ -444,7 +444,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 this.logger().error('Cannot determine agentId: state not initialized and no fallback available', { 
                     connection: { id: connection.id },
                     ctx: Object.keys(ctx || {}),
-                    doId,
+                    doIdName,
                 });
                 throw new Error('Cannot determine agentId: agent state is not initialized and no agentId available from connection context or Durable Object ID');
             }
