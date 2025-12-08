@@ -227,7 +227,7 @@ export async function generateBlueprint({ env, inferenceContext, query, language
         //     reasoningEffort = undefined;
         // }
 
-        const { object: results } = await executeInference({
+        const inferenceResult = await executeInference({
             env,
             messages,
             agentActionName: "blueprint",
@@ -235,6 +235,17 @@ export async function generateBlueprint({ env, inferenceContext, query, language
             context: inferenceContext,
             stream: stream,
         });
+
+        // Handle null return from executeInference
+        if (!inferenceResult || !inferenceResult.object) {
+            logger.error("Blueprint generation returned null or invalid result", {
+                hasResult: !!inferenceResult,
+                hasObject: !!inferenceResult?.object,
+            });
+            throw new Error("Failed to generate blueprint: LLM returned null result. Please try again.");
+        }
+
+        const results = inferenceResult.object;
 
         if (results) {
             // Filter and remove any pdf files

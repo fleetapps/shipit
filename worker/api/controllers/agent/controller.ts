@@ -2,7 +2,7 @@ import { WebSocketMessageResponses } from '../../../agents/constants';
 import { BaseController } from '../baseController';
 import { generateId } from '../../../utils/idGenerator';
 import { CodeGenState } from '../../../agents/core/state';
-import { getAgentStub, getTemplateForQuery } from '../../../agents';
+import { getAgentStub, getTemplateForQuery, getAgentState } from '../../../agents';
 import { AgentConnectionData, AgentPreviewResponse, CodeGenArgs } from './types';
 import { ApiResponse, ControllerResponse } from '../types';
 import { RouteContext } from '../../types/route-context';
@@ -543,96 +543,113 @@ export class CodingAgentController extends BaseController {
                 const isInitialized = await agentInstance.isInitialized();
                 
                 if (!isInitialized) {
-                    // Agent not initialized - initialize it first using app data
-                    this.logger.info(`Agent ${agentId} not initialized, initializing from app data...`);
-                    
-                    // Get app details to retrieve original prompt and user info
-                    const appService = new AppService(env);
-                    const app = await appService.getAppDetails(agentId, context.user?.id || undefined);
-                    
-                    if (!app) {
-                        return CodingAgentController.createErrorResponse(`App not found for agent ${agentId}`, 404);
+                    // Agent not initialized - check if we can get existing state with blueprint
+                    let existingState: CodeGenState | null = null;
+                    try {
+                        existingState = await getAgentState(env, agentId);
+                        if (existingState?.blueprint) {
+                            this.logger.info(`Agent ${agentId} has existing state with blueprint, skipping initialization`);
+                            // Agent has state but isn't marked as initialized - this can happen
+                            // We'll proceed with code generation which should work with existing state
+                        }
+                    } catch (error) {
+                        this.logger.warn(`Could not retrieve existing agent state for ${agentId}:`, error);
+                        // Continue with initialization
                     }
                     
-                    // Get user for model configs (if authenticated)
-                    const user = context.user;
-                    let userModelConfigs = new Map();
-                    let inferenceContext: InferenceContext;
-                    
-                    if (user?.id) {
-                        const modelConfigService = new ModelConfigService(env);
-                        const userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
+                    // Only initialize if we don't have existing state with blueprint
+                    if (!existingState?.blueprint) {
+                        // Agent not initialized - initialize it first using app data
+                        this.logger.info(`Agent ${agentId} not initialized, initializing from app data...`);
                         
-                        for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
-                            if (mergedConfig.isUserOverride) {
-                                const modelConfig: ModelConfig = {
-                                    name: mergedConfig.name,
-                                    max_tokens: mergedConfig.max_tokens,
-                                    temperature: mergedConfig.temperature,
-                                    reasoning_effort: mergedConfig.reasoning_effort,
-                                    fallbackModel: mergedConfig.fallbackModel
-                                };
-                                userModelConfigs.set(actionKey, modelConfig);
-                            }
+                        // Get app details to retrieve original prompt and user info
+                        const appService = new AppService(env);
+                        const app = await appService.getAppDetails(agentId, context.user?.id || undefined);
+                        
+                        if (!app) {
+                            return CodingAgentController.createErrorResponse(`App not found for agent ${agentId}`, 404);
                         }
                         
-                        inferenceContext = {
-                            userModelConfigs: Object.fromEntries(userModelConfigs),
-                            agentId: agentId,
-                            userId: user.id,
-                            enableRealtimeCodeFix: false,
-                            enableFastSmartCodeFix: false,
-                        };
-                    } else {
-                        // Anonymous user - use minimal inference context
-                        // For anonymous users, we need a userId - use the agentId as a placeholder
-                        // This allows the agent to work without a real user ID
-                        const emptyModelConfigs = new Map<string, ModelConfig>();
-                        inferenceContext = {
-                            userModelConfigs: Object.fromEntries(emptyModelConfigs) as Record<string, ModelConfig>,
-                            agentId: agentId,
-                            userId: `anonymous-${agentId}`, // Use agentId as placeholder for anonymous users
-                            enableRealtimeCodeFix: false,
-                            enableFastSmartCodeFix: false,
-                        };
-                    }
-                    
-                    // Get template for the query
-                    const url = new URL(request.url);
-                    const hostname = url.hostname === 'localhost' ? `localhost:${url.port}`: getPreviewDomain(env);
-                    const { templateDetails, selection } = await getTemplateForQuery(
-                        env, 
-                        inferenceContext, 
-                        app.originalPrompt, 
-                        undefined, // No images available in fallback
-                        this.logger
-                    );
-                    
-                    // Initialize the agent (non-blocking)
-                    console.log('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - PROGRESS: Initializing agent from app data', { agentId });
-                    agentInstance.initialize({
-                        query: app.originalPrompt,
-                        language: 'typescript', // Default
-                        frameworks: app.framework ? [app.framework] : ['react'], // Use app framework or default
-                        hostname,
-                        inferenceContext,
-                        images: [], // No images in fallback
-                        onBlueprintChunk: () => {
-                            // No-op for HTTP fallback - blueprint already generated
-                        },
-                        templateInfo: { templateDetails, selection },
-                    }, 'deterministic' as any).catch((error) => {
-                        this.logger.error('Error initializing agent in HTTP fallback:', error);
-                        console.error('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - ERROR: Agent initialization failed', error);
-                    });
-                    
-                    // Wait a moment for initialization to start, then trigger generation
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    
-                    // Check if initialized now
-                    const nowInitialized = await agentInstance.isInitialized();
-                    if (!nowInitialized) {
-                        this.logger.warn(`Agent ${agentId} still not initialized after 1s, proceeding anyway...`);
+                        // Get user for model configs (if authenticated)
+                        const user = context.user;
+                        let userModelConfigs = new Map();
+                        let inferenceContext: InferenceContext;
+                        
+                        if (user?.id) {
+                            const modelConfigService = new ModelConfigService(env);
+                            const userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
+                            
+                            for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
+                                if (mergedConfig.isUserOverride) {
+                                    const modelConfig: ModelConfig = {
+                                        name: mergedConfig.name,
+                                        max_tokens: mergedConfig.max_tokens,
+                                        temperature: mergedConfig.temperature,
+                                        reasoning_effort: mergedConfig.reasoning_effort,
+                                        fallbackModel: mergedConfig.fallbackModel
+                                    };
+                                    userModelConfigs.set(actionKey, modelConfig);
+                                }
+                            }
+                            
+                            inferenceContext = {
+                                userModelConfigs: Object.fromEntries(userModelConfigs),
+                                agentId: agentId,
+                                userId: user.id,
+                                enableRealtimeCodeFix: false,
+                                enableFastSmartCodeFix: false,
+                            };
+                        } else {
+                            // Anonymous user - use minimal inference context
+                            // For anonymous users, we need a userId - use the agentId as a placeholder
+                            // This allows the agent to work without a real user ID
+                            const emptyModelConfigs = new Map<string, ModelConfig>();
+                            inferenceContext = {
+                                userModelConfigs: Object.fromEntries(emptyModelConfigs) as Record<string, ModelConfig>,
+                                agentId: agentId,
+                                userId: `anonymous-${agentId}`, // Use agentId as placeholder for anonymous users
+                                enableRealtimeCodeFix: false,
+                                enableFastSmartCodeFix: false,
+                            };
+                        }
+                        
+                        // Get template for the query
+                        const url = new URL(request.url);
+                        const hostname = url.hostname === 'localhost' ? `localhost:${url.port}`: getPreviewDomain(env);
+                        const { templateDetails, selection } = await getTemplateForQuery(
+                            env, 
+                            inferenceContext, 
+                            app.originalPrompt, 
+                            undefined, // No images available in fallback
+                            this.logger
+                        );
+                        
+                        // Initialize the agent (non-blocking)
+                        console.log('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - PROGRESS: Initializing agent from app data', { agentId });
+                        agentInstance.initialize({
+                            query: app.originalPrompt,
+                            language: 'typescript', // Default
+                            frameworks: app.framework ? [app.framework] : ['react'], // Use app framework or default
+                            hostname,
+                            inferenceContext,
+                            images: [], // No images in fallback
+                            onBlueprintChunk: () => {
+                                // No-op for HTTP fallback - blueprint already generated
+                            },
+                            templateInfo: { templateDetails, selection },
+                        }, 'deterministic' as any).catch((error) => {
+                            this.logger.error('Error initializing agent in HTTP fallback:', error);
+                            console.error('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - ERROR: Agent initialization failed', error);
+                        });
+                        
+                        // Wait a moment for initialization to start, then trigger generation
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                        
+                        // Check if initialized now
+                        const nowInitialized = await agentInstance.isInitialized();
+                        if (!nowInitialized) {
+                            this.logger.warn(`Agent ${agentId} still not initialized after 1s, proceeding anyway...`);
+                        }
                     }
                 }
 
