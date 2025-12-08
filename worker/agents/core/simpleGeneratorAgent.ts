@@ -129,7 +129,11 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
     logger(): StructuredLogger {
         if (!this._logger) {
-            this._logger = this.initLogger(this.getAgentId(), this.state.sessionId, this.state.inferenceContext.userId);
+            // Safe access during initialization - handle missing state gracefully
+            const agentId = this.getAgentId() || 'uninitialized';
+            const sessionId = this.state.sessionId || 'unknown';
+            const userId = this.state.inferenceContext?.userId || 'unknown';
+            this._logger = this.initLogger(agentId, sessionId, userId);
         }
         return this._logger;
     }
