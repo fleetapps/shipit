@@ -211,7 +211,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (response.success && response.data) {
         setUser({ ...response.data.user, isAnonymous: false } as AuthUser);
-        setToken(null); // Using cookies for authentication
+        // Store accessToken in localStorage as fallback for WebSocket connections
+        if (response.data.accessToken) {
+          localStorage.setItem('accessToken', response.data.accessToken);
+        }
+        setToken(null); // Using cookies for authentication (primary)
         setSession({
           userId: response.data.user.id,
           email: response.data.user.email,

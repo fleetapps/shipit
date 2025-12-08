@@ -297,7 +297,18 @@ export class CodingAgentController extends BaseController {
             
             // Validate WebSocket origin
             if (!validateWebSocketOrigin(request, env)) {
-                return new Response('Forbidden: Invalid origin', { status: 403 });
+                // For WebSocket, return proper WebSocket error response
+                const { 0: client, 1: server } = new WebSocketPair();
+                server.accept();
+                server.send(JSON.stringify({
+                    type: WebSocketMessageResponses.ERROR,
+                    error: 'Forbidden: Invalid origin'
+                }));
+                server.close(1008, 'Invalid origin');
+                return new Response(null, {
+                    status: 101,
+                    webSocket: client
+                });
             }
 
             // Extract user (optional - route is public, supports anonymous users)
@@ -310,10 +321,18 @@ export class CodingAgentController extends BaseController {
                     this.logger.warn(`Anonymous access denied for agent: ${chatId}`, {
                         reason: 'Agent not found or access expired (> 1 hour since creation)'
                     });
-                    return CodingAgentController.createErrorResponse(
-                        'Anonymous access expired. Please log in to continue, or reconnect within 1 hour of creation.',
-                        401
-                    );
+                    // For WebSocket, return proper WebSocket error response
+                    const { 0: client, 1: server } = new WebSocketPair();
+                    server.accept();
+                    server.send(JSON.stringify({
+                        type: WebSocketMessageResponses.ERROR,
+                        error: 'Anonymous access expired. Please log in to continue, or reconnect within 1 hour of creation.'
+                    }));
+                    server.close(1008, 'Authentication required');
+                    return new Response(null, {
+                        status: 101,
+                        webSocket: client
+                    });
                 }
                 this.logger.info(`Anonymous WebSocket connection allowed for agent: ${chatId}`);
             }
