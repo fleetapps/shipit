@@ -430,26 +430,13 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     async onConnect(connection: Connection, ctx: ConnectionContext) {
-        // Get agentId - getAgentId() now prioritizes DO ID name (which IS the agentId)
-        const agentId = this.getAgentId();
-        
-        if (!agentId || agentId.trim() === '') {
-            this.logger().error('CRITICAL: Cannot determine agentId in onConnect', {
-                connection: { id: connection.id },
-                ctx: Object.keys(ctx || {}),
-                doId: (this.ctx as any)?.id,
-                doIdName: (this.ctx as any)?.id?.name,
-                hasState: !!this.state,
-                hasInferenceContext: !!this.state?.inferenceContext,
-            });
-            throw new Error('Cannot determine agentId: Durable Object ID name is missing. This should never happen if the DO is created correctly.');
-        }
-        
-        this.logger().info(`Agent connected for agent ${agentId}`, { connection, ctx });
+        // Original pattern: Simple logging, then send state
+        // getAgentId() now prioritizes DO ID name (which IS the agentId)
+        this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
         
         // Ensure template details are loaded before sending them to the client
-        // Pass agentId explicitly to ensureTemplateDetails for DB fallback if needed
-        await this.ensureTemplateDetails(agentId);
+        // This will use state.templateName first, then fallback to DB if needed
+        await this.ensureTemplateDetails();
         
         sendToConnection(connection, 'agent_connected', {
             state: this.state,
@@ -457,54 +444,21 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         });
     }
 
-    async ensureTemplateDetails(agentIdOverride?: string) {
+    async ensureTemplateDetails() {
         if (!this.templateDetailsCache) {
-            // Get agentId - ALWAYS prioritize override if provided, even if it's empty string
-            // Only fall back to getAgentId() if override is undefined/null
-            let agentId: string;
+            // Original pattern: Use templateName from state first (primary source)
+            let templateName = this.state.templateName;
             
-            if (agentIdOverride !== undefined && agentIdOverride !== null) {
-                // Use override if provided (even if empty string - we'll validate later)
-                agentId = agentIdOverride;
-                this.logger().info(`Using agentId from override: ${agentId}`);
-            } else {
-                // Only use getAgentId() if override is not provided
-                try {
-                    agentId = this.getAgentId();
-                } catch (error) {
-                    // If getAgentId() throws, try DO ID as fallback
-                    try {
-                        const doIdName = (this.ctx as any)?.id?.name;
-                        if (doIdName && typeof doIdName === 'string' && doIdName.trim() !== '') {
-                            agentId = doIdName;
-                            this.logger().warn(`Using agentId from DO ID fallback: ${agentId}`);
-                        } else {
-                            throw new Error(`Cannot determine agentId: ${error instanceof Error ? error.message : String(error)}`);
-                        }
-                    } catch (fallbackError) {
-                        throw new Error(`Cannot determine agentId: ${error instanceof Error ? error.message : String(error)}`);
-                    }
-                }
-            }
-            
-            // CRITICAL: Validate agentId is non-empty before proceeding
-            if (!agentId || agentId.trim() === '') {
-                // Final fallback: try DO ID
-                const doIdName = (this.ctx as any)?.id?.name;
-                if (doIdName && typeof doIdName === 'string' && doIdName.trim() !== '') {
-                    agentId = doIdName;
-                    this.logger().warn(`agentId was empty, using DO ID as final fallback: ${agentId}`);
-                } else {
-                    throw new Error(`agentId is empty and cannot be determined from DO ID. Agent state may not be initialized.`);
-                }
-            }
-            
-            // Check if templateName is set in state
-            const templateName = this.state.templateName;
-            
-            // If templateName is empty, try to get it from app record as fallback
-            // This can happen if the HTTP request was canceled before state was saved
+            // Fallback: If templateName is missing from state, try to get it from DB
+            // This can happen if WebSocket connects before initialize() completes
             if (!templateName || templateName.trim() === '') {
+                // Get agentId for DB query (DO ID name is the source of truth)
+                const agentId = this.getAgentId();
+                
+                if (!agentId || agentId.trim() === '') {
+                    throw new Error(`Cannot retrieve templateName from DB: agentId is empty. Agent state may not be initialized.`);
+                }
+                
                 this.logger().warn(`Template name is empty in agent state, attempting to retrieve from app record...`, {
                     agentId,
                     hasBlueprint: !!this.state.blueprint,
@@ -515,10 +469,6 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 // Fallback: Try to get templateName from app record
                 // This is the PRIMARY source of truth if state hasn't been persisted yet
                 try {
-                    // CRITICAL: Validate agentId is non-empty before DB query
-                    if (!agentId || agentId.trim() === '') {
-                        throw new Error(`Cannot query app record: agentId is empty. DO ID: ${(this.ctx as any)?.id?.name || 'N/A'}`);
-                    }
                     
                     const userId = this.state.inferenceContext?.userId;
                     
