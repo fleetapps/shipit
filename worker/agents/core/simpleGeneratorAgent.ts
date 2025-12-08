@@ -428,9 +428,12 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         // getAgentId() now prioritizes DO ID name (which IS the agentId)
         this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
         
-        // Ensure template details are loaded before sending them to the client
-        // Cache is typically already set in initialize(), but ensureTemplateDetails() is a safety check
-        await this.ensureTemplateDetails();
+        // Only ensure template details if cache is not already set
+        // Cache is set in initialize() from templateInfo.templateDetails
+        // If cache exists, we can use it directly without checking state
+        if (!this.templateDetailsCache) {
+            await this.ensureTemplateDetails();
+        }
         
         sendToConnection(connection, 'agent_connected', {
             state: this.state,
@@ -440,10 +443,23 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
     async ensureTemplateDetails() {
         if (!this.templateDetailsCache) {
-            this.logger().info(`Loading template details for: ${this.state.templateName}`);
-            const results = await BaseSandboxService.getTemplateDetails(this.state.templateName);
+            // CRITICAL: Check if templateName exists in state before using it
+            const templateName = this.state.templateName;
+            if (!templateName || templateName.trim() === '') {
+                // If templateName is empty, agent initialization may not be complete
+                // Check if we have blueprint/query to determine if agent is initialized
+                const isInitialized = !!(this.state.blueprint && this.state.query);
+                if (!isInitialized) {
+                    throw new Error(`Agent not initialized. Template name is missing and agent state is incomplete. Please wait for agent initialization to complete before connecting via WebSocket.`);
+                }
+                // Agent appears initialized but templateName is missing - this shouldn't happen
+                throw new Error(`Template name is missing from agent state. The agent appears initialized (has blueprint and query) but templateName was not set. This may indicate the agent initialization was interrupted.`);
+            }
+            
+            this.logger().info(`Loading template details for: ${templateName}`);
+            const results = await BaseSandboxService.getTemplateDetails(templateName);
             if (!results.success || !results.templateDetails) {
-                throw new Error(`Failed to get template details for: ${this.state.templateName}`);
+                throw new Error(`Failed to get template details for: ${templateName}`);
             }
             const templateDetails = results.templateDetails;
             const customizedAllFiles = { ...templateDetails.allFiles };
