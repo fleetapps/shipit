@@ -467,16 +467,43 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
     async ensureTemplateDetails(agentIdOverride?: string) {
         if (!this.templateDetailsCache) {
-            // Get agentId - use override if provided (from connection context), otherwise try from state
+            // Get agentId - ALWAYS prioritize override if provided, even if it's empty string
+            // Only fall back to getAgentId() if override is undefined/null
             let agentId: string;
-            try {
-                agentId = agentIdOverride || this.getAgentId();
-            } catch (error) {
-                if (agentIdOverride) {
-                    agentId = agentIdOverride;
-                    this.logger().warn(`Using agentId from connection context: ${agentId} (state not initialized)`);
+            
+            if (agentIdOverride !== undefined && agentIdOverride !== null) {
+                // Use override if provided (even if empty string - we'll validate later)
+                agentId = agentIdOverride;
+                this.logger().info(`Using agentId from override: ${agentId}`);
+            } else {
+                // Only use getAgentId() if override is not provided
+                try {
+                    agentId = this.getAgentId();
+                } catch (error) {
+                    // If getAgentId() throws, try DO ID as fallback
+                    try {
+                        const doIdName = (this.ctx as any)?.id?.name;
+                        if (doIdName && typeof doIdName === 'string' && doIdName.trim() !== '') {
+                            agentId = doIdName;
+                            this.logger().warn(`Using agentId from DO ID fallback: ${agentId}`);
+                        } else {
+                            throw new Error(`Cannot determine agentId: ${error instanceof Error ? error.message : String(error)}`);
+                        }
+                    } catch (fallbackError) {
+                        throw new Error(`Cannot determine agentId: ${error instanceof Error ? error.message : String(error)}`);
+                    }
+                }
+            }
+            
+            // CRITICAL: Validate agentId is non-empty before proceeding
+            if (!agentId || agentId.trim() === '') {
+                // Final fallback: try DO ID
+                const doIdName = (this.ctx as any)?.id?.name;
+                if (doIdName && typeof doIdName === 'string' && doIdName.trim() !== '') {
+                    agentId = doIdName;
+                    this.logger().warn(`agentId was empty, using DO ID as final fallback: ${agentId}`);
                 } else {
-                    throw new Error(`Cannot determine agentId: ${error instanceof Error ? error.message : String(error)}`);
+                    throw new Error(`agentId is empty and cannot be determined from DO ID. Agent state may not be initialized.`);
                 }
             }
             
@@ -496,14 +523,23 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 // Fallback: Try to get templateName from app record
                 // This is the PRIMARY source of truth if state hasn't been persisted yet
                 try {
+                    // CRITICAL: Validate agentId is non-empty before DB query
+                    if (!agentId || agentId.trim() === '') {
+                        throw new Error(`Cannot query app record: agentId is empty. DO ID: ${(this.ctx as any)?.id?.name || 'N/A'}`);
+                    }
+                    
                     const userId = this.state.inferenceContext?.userId;
                     
                     this.logger().info(`Attempting to retrieve templateName from app record...`, {
                         agentId,
+                        agentIdLength: agentId.length,
                         userId: userId || 'null',
+                        doIdName: (this.ctx as any)?.id?.name || 'N/A',
+                        queryColumn: 'id', // We're querying by 'id' column (primary key), not 'agentId'
                     });
                     
                     // Try getAppDetails first (includes stats)
+                    // Query by 'id' column (not 'agentId') - the table uses 'id' as primary key
                     const appService = new AppService(this.env);
                     let app = await appService.getAppDetails(agentId, userId);
                     let templateNameFromApp: string | null = null;
@@ -520,10 +556,25 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                         });
                         
                         try {
+                            // CRITICAL: Validate agentId again before direct DB query
+                            if (!agentId || agentId.trim() === '') {
+                                this.logger().error(`Cannot execute direct DB query: agentId is empty`, {
+                                    agentId,
+                                    doIdName: (this.ctx as any)?.id?.name || 'N/A',
+                                });
+                                throw new Error(`agentId is empty, cannot query database`);
+                            }
+                            
+                            this.logger().info(`Executing direct DB query for templateName...`, {
+                                agentId,
+                                agentIdLength: agentId.length,
+                                queryColumn: 'id', // We're querying by 'id' column, not 'agentId'
+                            });
+                            
                             const directQuery = await appService['database']
                                 .select({ templateName: schema.apps.templateName })
                                 .from(schema.apps)
-                                .where(eq(schema.apps.id, agentId))
+                                .where(eq(schema.apps.id, agentId)) // Query by 'id' column (primary key)
                                 .get();
                             
                             if (directQuery?.templateName && directQuery.templateName.trim() !== '') {
