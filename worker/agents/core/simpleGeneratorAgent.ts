@@ -410,10 +410,28 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
     async ensureTemplateDetails() {
         if (!this.templateDetailsCache) {
-            this.logger().info(`Loading template details for: ${this.state.templateName}`);
-            const results = await BaseSandboxService.getTemplateDetails(this.state.templateName);
+            // Check if templateName is set in state
+            const templateName = this.state.templateName;
+            
+            // If templateName is empty, this indicates the agent state wasn't properly persisted
+            // This can happen if the HTTP request was canceled before state was saved
+            if (!templateName || templateName.trim() === '') {
+                // Check if agent is initialized by checking for blueprint/query
+                const isInitialized = !!(this.state.blueprint && this.state.query);
+                
+                if (!isInitialized) {
+                    throw new Error(`Agent not initialized. Template name is missing and agent state is incomplete. Please wait for agent initialization to complete before connecting via WebSocket.`);
+                }
+                
+                // Agent appears initialized but templateName is missing - state persistence issue
+                this.logger().error(`Template name is missing from agent state despite agent being initialized. This indicates the agent state was not properly persisted. Agent ID: ${this.getAgentId()}, has blueprint: ${!!this.state.blueprint}, has query: ${!!this.state.query}`);
+                throw new Error(`Template name is missing from agent state. The agent appears initialized but the template name was not persisted. This may indicate the agent initialization was interrupted before state could be saved. Please try creating a new agent session.`);
+            }
+            
+            this.logger().info(`Loading template details for: ${templateName}`);
+            const results = await BaseSandboxService.getTemplateDetails(templateName);
             if (!results.success || !results.templateDetails) {
-                throw new Error(`Failed to get template details for: ${this.state.templateName}`);
+                throw new Error(`Failed to get template details for: ${templateName}`);
             }
             
             const templateDetails = results.templateDetails;
