@@ -173,7 +173,7 @@ export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Respo
         hasResourceOwnershipCheck: !!requirement.resourceOwnershipCheck
     });
     
-    // Only perform auth if we need it or don't have user yet
+    // For authenticated/owner-only routes, require auth
     if (!user && (requirement.level === 'authenticated' || requirement.level === 'owner-only')) {
         console.log(`[ROUTE_AUTH] No user in context and auth required. Calling authMiddleware...`);
         const userSession = await authMiddleware(c.req.raw, c.env);
@@ -199,6 +199,23 @@ export async function enforceAuthRequirement(c: Context<AppEnv>) : Promise<Respo
             }
             logger.error('Error enforcing auth rate limit', error);
             return errorResponse('Internal server error', 500);
+        }
+    } else if (!user && requirement.level === 'public') {
+        // For public routes, try to validate token if present (optional - doesn't fail if no token)
+        // This allows authenticated users to access their own resources on public routes
+        console.log(`[ROUTE_AUTH] Public route - attempting optional token validation...`);
+        const userSession = await authMiddleware(c.req.raw, c.env);
+        if (userSession) {
+            console.log(`[ROUTE_AUTH] ✅ Token found and validated for public route. Setting user in context...`);
+            user = userSession.user;
+            c.set('user', user);
+            c.set('sessionId', userSession.sessionId);
+            Sentry.setUser({ id: user.id, email: user.email });
+            
+            const config = await getUserConfigurableSettings(c.env, user.id);
+            c.set('config', config);
+        } else {
+            console.log(`[ROUTE_AUTH] No token found or invalid - proceeding as anonymous user`);
         }
     }
     
