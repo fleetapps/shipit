@@ -233,6 +233,12 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         // This ensures WebSocket connections that happen early can access the cache
         // The cache is set from templateInfo.templateDetails which is already available
         this.templateDetailsCache = templateInfo.templateDetails;
+        this.logger().info('[CACHE_SET] Template details cache set immediately at start of initialize()', {
+            templateName: templateInfo.templateDetails.name,
+            hasAllFiles: !!this.templateDetailsCache.allFiles,
+            fileCount: this.templateDetailsCache.allFiles ? Object.keys(this.templateDetailsCache.allFiles).length : 0,
+            cacheSet: !!this.templateDetailsCache
+        });
         
         // Generate a blueprint
         console.log('[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - PROGRESS: Starting blueprint generation in agent', { queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
@@ -437,8 +443,21 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         // Only ensure template details if cache is not already set
         // Cache is set in initialize() from templateInfo.templateDetails
         // If cache exists, we can use it directly without checking state
+        this.logger().info('[CACHE_CHECK] Checking template details cache in onConnect()', {
+            cacheExists: !!this.templateDetailsCache,
+            cacheTemplateName: this.templateDetailsCache?.name || 'N/A',
+            stateTemplateName: this.state.templateName || 'N/A',
+            hasBlueprint: !!this.state.blueprint,
+            hasQuery: !!this.state.query
+        });
+        
         if (!this.templateDetailsCache) {
+            this.logger().warn('[CACHE_MISS] Template details cache is missing, calling ensureTemplateDetails()');
             await this.ensureTemplateDetails();
+        } else {
+            this.logger().info('[CACHE_HIT] Template details cache found, skipping ensureTemplateDetails()', {
+                templateName: this.templateDetailsCache.name
+            });
         }
         
         sendToConnection(connection, 'agent_connected', {
