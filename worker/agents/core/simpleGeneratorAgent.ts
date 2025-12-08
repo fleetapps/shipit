@@ -136,13 +136,25 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
 
     getAgentId(): string {
         // Safe access to agentId - handle case where inferenceContext is undefined
-        if (!this.state.inferenceContext) {
-            throw new Error('Agent state is not initialized: inferenceContext is missing. The agent must be initialized before use.');
+        // During initialization, state might not be ready yet, so we try fallbacks
+        if (this.state.inferenceContext?.agentId) {
+            return this.state.inferenceContext.agentId;
         }
-        if (!this.state.inferenceContext.agentId) {
-            throw new Error('Agent state is not initialized: agentId is missing from inferenceContext. The agent must be initialized before use.');
+        
+        // Fallback: Try to get agentId from Durable Object ID name
+        // This is safe to call during initialization
+        try {
+            const doIdName = (this.ctx as any)?.id?.name;
+            if (doIdName && typeof doIdName === 'string') {
+                return doIdName;
+            }
+        } catch (error) {
+            // Ignore errors accessing ctx.id
         }
-        return this.state.inferenceContext.agentId;
+        
+        // If we still don't have an agentId, return empty string
+        // This allows initialization to proceed, and the agentId will be set later
+        return '';
     }
 
     initialState: CodeGenState = {
@@ -324,7 +336,9 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     async isInitialized() {
-        return this.getAgentId() ? true : false
+        // Check if agent is initialized by checking if we have both blueprint and query
+        // Don't rely on getAgentId() as it might return empty string during initialization
+        return !!(this.state.blueprint && this.state.query && this.state.inferenceContext?.agentId);
     }
 
     async onStart(props?: Record<string, unknown> | undefined): Promise<void> {
