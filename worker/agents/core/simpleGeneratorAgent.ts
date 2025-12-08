@@ -139,25 +139,31 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     getAgentId(): string {
-        // Safe access to agentId - handle case where inferenceContext is undefined
-        // During initialization, state might not be ready yet, so we try fallbacks
+        // CRITICAL: Durable Object ID name IS the agentId - this is the source of truth
+        // The DO is created with agentId as the name via getAgentByName(env.CodeGenObject, agentId)
+        // So we ALWAYS try DO ID first, even before checking state
+        try {
+            const doIdName = (this.ctx as any)?.id?.name;
+            if (doIdName && typeof doIdName === 'string' && doIdName.trim() !== '') {
+                return doIdName;
+            }
+        } catch (error) {
+            // Ignore errors accessing ctx.id, but log for debugging
+            this.logger().warn('Failed to access DO ID name', { error: error instanceof Error ? error.message : String(error) });
+        }
+        
+        // Fallback: Try to get agentId from state (if initialized)
         if (this.state.inferenceContext?.agentId) {
             return this.state.inferenceContext.agentId;
         }
         
-        // Fallback: Try to get agentId from Durable Object ID name
-        // This is safe to call during initialization
-        try {
-            const doIdName = (this.ctx as any)?.id?.name;
-            if (doIdName && typeof doIdName === 'string') {
-                return doIdName;
-            }
-        } catch (error) {
-            // Ignore errors accessing ctx.id
-        }
-        
-        // If we still don't have an agentId, return empty string
-        // This allows initialization to proceed, and the agentId will be set later
+        // Last resort: return empty string (should never happen if DO is created correctly)
+        this.logger().error('CRITICAL: Cannot determine agentId from DO ID or state', {
+            hasDoId: !!(this.ctx as any)?.id,
+            doIdName: (this.ctx as any)?.id?.name,
+            hasState: !!this.state,
+            hasInferenceContext: !!this.state?.inferenceContext,
+        });
         return '';
     }
 
@@ -424,39 +430,25 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     async onConnect(connection: Connection, ctx: ConnectionContext) {
-        // Get agentId safely - try from state first, fallback to connection context or DO ID
-        let agentId: string;
-        try {
-            agentId = this.getAgentId();
-        } catch (error) {
-            // If state doesn't have agentId, try to get it from:
-            // 1. Connection context (if provided)
-            // 2. Durable Object ID name (from ctx or this.ctx)
-            // 3. Connection ID (if it's the agentId)
-            const ctxAgentId = (ctx as any)?.agentId;
-            // Use .name property (same as getAgentId()) - this contains the agentId
-            const doIdName = (this.ctx as any)?.id?.name;
-            const connectionId = connection.id;
-            
-            agentId = ctxAgentId || doIdName || connectionId || '';
-            
-            if (!agentId) {
-                this.logger().error('Cannot determine agentId: state not initialized and no fallback available', { 
-                    connection: { id: connection.id },
-                    ctx: Object.keys(ctx || {}),
-                    doIdName,
-                });
-                throw new Error('Cannot determine agentId: agent state is not initialized and no agentId available from connection context or Durable Object ID');
-            }
-            this.logger().warn(`Agent state not initialized, using agentId from fallback: ${agentId}`, {
-                source: ctxAgentId ? 'connectionContext' : doIdName ? 'durableObjectId' : 'connectionId',
+        // Get agentId - getAgentId() now prioritizes DO ID name (which IS the agentId)
+        const agentId = this.getAgentId();
+        
+        if (!agentId || agentId.trim() === '') {
+            this.logger().error('CRITICAL: Cannot determine agentId in onConnect', {
+                connection: { id: connection.id },
+                ctx: Object.keys(ctx || {}),
+                doId: (this.ctx as any)?.id,
+                doIdName: (this.ctx as any)?.id?.name,
+                hasState: !!this.state,
+                hasInferenceContext: !!this.state?.inferenceContext,
             });
+            throw new Error('Cannot determine agentId: Durable Object ID name is missing. This should never happen if the DO is created correctly.');
         }
         
         this.logger().info(`Agent connected for agent ${agentId}`, { connection, ctx });
         
         // Ensure template details are loaded before sending them to the client
-        // Pass agentId explicitly in case state is not initialized
+        // Pass agentId explicitly to ensureTemplateDetails for DB fallback if needed
         await this.ensureTemplateDetails(agentId);
         
         sendToConnection(connection, 'agent_connected', {
