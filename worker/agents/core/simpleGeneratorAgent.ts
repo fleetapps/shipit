@@ -424,11 +424,32 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 });
                 
                 // Fallback: Try to get templateName from app record
+                // This is the PRIMARY source of truth if state hasn't been persisted yet
                 try {
                     const appService = new AppService(this.env);
-                    const app = await appService.getAppDetails(this.getAgentId(), this.state.inferenceContext?.userId);
+                    const agentId = this.getAgentId();
+                    const userId = this.state.inferenceContext?.userId;
                     
-                    if (app?.templateName) {
+                    this.logger().info(`Attempting to retrieve templateName from app record...`, {
+                        agentId,
+                        userId: userId || 'null',
+                    });
+                    
+                    const app = await appService.getAppDetails(agentId, userId);
+                    
+                    this.logger().info(`App record lookup result:`, {
+                        agentId,
+                        appExists: !!app,
+                        templateName: app?.templateName || 'null/undefined',
+                        templateNameType: typeof app?.templateName,
+                        templateNameLength: app?.templateName?.length || 0,
+                        hasBlueprint: !!this.state.blueprint,
+                        hasQuery: !!this.state.query,
+                        appKeys: app ? Object.keys(app).join(', ') : 'N/A',
+                    });
+                    
+                    // Check if app exists and has templateName
+                    if (app && app.templateName && app.templateName.trim() !== '') {
                         this.logger().info(`✅ Retrieved templateName from app record: ${app.templateName}`, {
                             agentId: this.getAgentId(),
                         });
@@ -465,30 +486,36 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                         this.logger().info('Template details loaded and customized (from app record fallback)');
                         return this.templateDetailsCache;
                     } else {
-                        // Check if agent is initialized by checking for blueprint/query
+                        // App record doesn't have templateName - check if agent is initialized
                         const isInitialized = !!(this.state.blueprint && this.state.query);
                         
                         if (!isInitialized) {
+                            this.logger().error(`Agent not initialized and app record has no templateName. Agent ID: ${this.getAgentId()}, app exists: ${!!app}, app.templateName: ${app?.templateName || 'null'}`);
                             throw new Error(`Agent not initialized. Template name is missing and agent state is incomplete. Please wait for agent initialization to complete before connecting via WebSocket.`);
                         }
                         
                         // Agent appears initialized but templateName is missing from both state and app record
-                        this.logger().error(`Template name is missing from both agent state and app record. This indicates the agent state was not properly persisted. Agent ID: ${this.getAgentId()}, has blueprint: ${!!this.state.blueprint}, has query: ${!!this.state.query}`);
+                        this.logger().error(`Template name is missing from both agent state and app record. This indicates the agent state was not properly persisted. Agent ID: ${this.getAgentId()}, has blueprint: ${!!this.state.blueprint}, has query: ${!!this.state.query}, app exists: ${!!app}`);
                         throw new Error(`Template name is missing from agent state and app record. The agent appears initialized but the template name was not persisted. This may indicate the agent initialization was interrupted before state could be saved. Please try creating a new agent session.`);
                     }
                 } catch (error) {
-                    // If app record lookup fails, check if agent is initialized
+                    // If app record lookup fails, log the error and check if agent is initialized
+                    this.logger().error(`Failed to retrieve templateName from app record`, {
+                        agentId: this.getAgentId(),
+                        error: error instanceof Error ? error.message : String(error),
+                        errorStack: error instanceof Error ? error.stack : undefined,
+                        hasBlueprint: !!this.state.blueprint,
+                        hasQuery: !!this.state.query,
+                    });
+                    
+                    // Check if agent is initialized
                     const isInitialized = !!(this.state.blueprint && this.state.query);
                     
                     if (!isInitialized) {
                         throw new Error(`Agent not initialized. Template name is missing and agent state is incomplete. Please wait for agent initialization to complete before connecting via WebSocket.`);
                     }
                     
-                    // Log the error but continue with the original error message
-                    this.logger().error(`Failed to retrieve templateName from app record`, {
-                        agentId: this.getAgentId(),
-                        error: error instanceof Error ? error.message : String(error),
-                    });
+                    // Agent is initialized but we couldn't get templateName from app record
                     throw new Error(`Template name is missing from agent state and could not be retrieved from app record. The agent appears initialized but the template name was not persisted. This may indicate the agent initialization was interrupted before state could be saved. Please try creating a new agent session.`);
                 }
             }
