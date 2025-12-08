@@ -431,13 +431,14 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         } catch (error) {
             // If state doesn't have agentId, try to get it from:
             // 1. Connection context (if provided)
-            // 2. Durable Object ID (from ctx or this.ctx)
+            // 2. Durable Object ID name (from ctx or this.ctx)
             // 3. Connection ID (if it's the agentId)
             const ctxAgentId = (ctx as any)?.agentId;
-            const doId = (this.ctx as any)?.id?.toString();
+            // Use .name property (same as getAgentId()) - this contains the agentId
+            const doIdName = (this.ctx as any)?.id?.name;
             const connectionId = connection.id;
             
-            agentId = ctxAgentId || doId || connectionId || '';
+            agentId = ctxAgentId || doIdName || connectionId || '';
             
             if (!agentId) {
                 this.logger().error('Cannot determine agentId: state not initialized and no fallback available', { 
@@ -448,7 +449,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                 throw new Error('Cannot determine agentId: agent state is not initialized and no agentId available from connection context or Durable Object ID');
             }
             this.logger().warn(`Agent state not initialized, using agentId from fallback: ${agentId}`, {
-                source: ctxAgentId ? 'connectionContext' : doId ? 'durableObjectId' : 'connectionId',
+                source: ctxAgentId ? 'connectionContext' : doIdName ? 'durableObjectId' : 'connectionId',
             });
         }
         
