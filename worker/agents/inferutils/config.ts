@@ -71,94 +71,94 @@ export const AGENT_CONFIG: AgentConfig = {
     templateSelection: {
         name: AIModels.CLAUDE_4_SONNET, // Updated to Claude 4 Sonnet (claude-sonnet-4-20250514)
         max_tokens: 2000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH, // Fallback to Gemini if Claude fails
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST, // Fallback to Claude 3.5 if Claude 4 fails
         temperature: 0.6,
     },
     blueprint: {
         name: AIModels.CLAUDE_4_SONNET, // Updated to Claude 4 Sonnet for better structured output handling
         reasoning_effort: 'medium',
         max_tokens: 64000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH, // Keep Gemini as fallback
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST, // Fallback to Claude 3.5 if Claude 4 fails
         temperature: 0.7,
     },
     projectSetup: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'low',
         max_tokens: 10000,
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST,
     },
     phaseGeneration: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'low',
         max_tokens: 32000,
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST,
     },
     firstPhaseImplementation: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'low',
         max_tokens: 64000,
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST,
     },
     phaseImplementation: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'low',
         max_tokens: 64000,
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST,
     },
     realtimeCodeFixer: {
-        name: AIModels.DISABLED,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'low',
         max_tokens: 32000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST,
     },
     // Not used right now
     fastCodeFixer: {
-        name: AIModels.DISABLED,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: undefined,
         max_tokens: 64000,
         temperature: 0.0,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST,
     },
     conversationalResponse: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'low',
         max_tokens: 4000,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 0.5,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST,
     },
     codeReview: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'medium',
         max_tokens: 32000,
         temperature: 0.1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST,
     },
     fileRegeneration: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'low',
         max_tokens: 32000,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST,
     },
     // Not used right now
     screenshotAnalysis: {
-        name: AIModels.GEMINI_2_5_PRO,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 0.1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.CLAUDE_3_5_SONNET_LATEST,
     },
 };
 
