@@ -142,14 +142,14 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         // CRITICAL: Durable Object ID name IS the agentId - this is the source of truth
         // The DO is created with agentId as the name via getAgentByName(env.CodeGenObject, agentId)
         // So we ALWAYS try DO ID first, even before checking state
+        // NOTE: Do NOT call this.logger() here - it would cause infinite recursion since logger() calls getAgentId()
         try {
             const doIdName = (this.ctx as any)?.id?.name;
             if (doIdName && typeof doIdName === 'string' && doIdName.trim() !== '') {
                 return doIdName;
             }
         } catch (error) {
-            // Ignore errors accessing ctx.id, but log for debugging
-            this.logger().warn('Failed to access DO ID name', { error: error instanceof Error ? error.message : String(error) });
+            // Ignore errors accessing ctx.id - can't log here due to recursion risk
         }
         
         // Fallback: Try to get agentId from state (if initialized)
@@ -158,12 +158,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         }
         
         // Last resort: return empty string (should never happen if DO is created correctly)
-        this.logger().error('CRITICAL: Cannot determine agentId from DO ID or state', {
-            hasDoId: !!(this.ctx as any)?.id,
-            doIdName: (this.ctx as any)?.id?.name,
-            hasState: !!this.state,
-            hasInferenceContext: !!this.state?.inferenceContext,
-        });
+        // Can't log here - would cause infinite recursion
         return '';
     }
 
