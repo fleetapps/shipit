@@ -287,7 +287,18 @@ export class CodingAgentController extends BaseController {
         try {
             const chatId = context.pathParams.agentId; // URL param is still agentId for backward compatibility
             if (!chatId) {
-                return CodingAgentController.createErrorResponse('Missing agent ID parameter', 400);
+                // For WebSocket, return proper WebSocket error response
+                const { 0: client, 1: server } = new WebSocketPair();
+                server.accept();
+                server.send(JSON.stringify({
+                    type: WebSocketMessageResponses.ERROR,
+                    error: 'Missing agent ID parameter'
+                }));
+                server.close(1008, 'Bad request');
+                return new Response(null, {
+                    status: 101,
+                    webSocket: client
+                });
             }
 
             // Ensure the request is a WebSocket upgrade request
@@ -382,7 +393,23 @@ export class CodingAgentController extends BaseController {
             }
         } catch (error) {
             this.logger.error('Error handling WebSocket connection', error);
-            return CodingAgentController.handleError(error, 'handle WebSocket connection');
+            // For WebSocket errors, return proper WebSocket error response
+            try {
+                const { 0: client, 1: server } = new WebSocketPair();
+                server.accept();
+                server.send(JSON.stringify({
+                    type: WebSocketMessageResponses.ERROR,
+                    error: `WebSocket connection error: ${error instanceof Error ? error.message : String(error)}`
+                }));
+                server.close(1011, 'Internal server error');
+                return new Response(null, {
+                    status: 101,
+                    webSocket: client
+                });
+            } catch (wsError) {
+                // If we can't create WebSocket pair, return regular error
+                return CodingAgentController.handleError(error, 'handle WebSocket connection');
+            }
         }
     }
 
