@@ -134,7 +134,14 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         return this._logger;
     }
 
-    getAgentId() {
+    getAgentId(): string {
+        // Safe access to agentId - handle case where inferenceContext is undefined
+        if (!this.state.inferenceContext) {
+            throw new Error('Agent state is not initialized: inferenceContext is missing. The agent must be initialized before use.');
+        }
+        if (!this.state.inferenceContext.agentId) {
+            throw new Error('Agent state is not initialized: agentId is missing from inferenceContext. The agent must be initialized before use.');
+        }
         return this.state.inferenceContext.agentId;
     }
 
@@ -399,10 +406,39 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     }
 
     async onConnect(connection: Connection, ctx: ConnectionContext) {
-        this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
+        // Get agentId safely - try from state first, fallback to connection context or DO ID
+        let agentId: string;
+        try {
+            agentId = this.getAgentId();
+        } catch (error) {
+            // If state doesn't have agentId, try to get it from:
+            // 1. Connection context (if provided)
+            // 2. Durable Object ID (from ctx or this.ctx)
+            // 3. Connection ID (if it's the agentId)
+            const ctxAgentId = (ctx as any)?.agentId;
+            const doId = (this.ctx as any)?.id?.toString();
+            const connectionId = connection.id;
+            
+            agentId = ctxAgentId || doId || connectionId || '';
+            
+            if (!agentId) {
+                this.logger().error('Cannot determine agentId: state not initialized and no fallback available', { 
+                    connection: { id: connection.id },
+                    ctx: Object.keys(ctx || {}),
+                    doId,
+                });
+                throw new Error('Cannot determine agentId: agent state is not initialized and no agentId available from connection context or Durable Object ID');
+            }
+            this.logger().warn(`Agent state not initialized, using agentId from fallback: ${agentId}`, {
+                source: ctxAgentId ? 'connectionContext' : doId ? 'durableObjectId' : 'connectionId',
+            });
+        }
+        
+        this.logger().info(`Agent connected for agent ${agentId}`, { connection, ctx });
         
         // Ensure template details are loaded before sending them to the client
-        await this.ensureTemplateDetails();
+        // Pass agentId explicitly in case state is not initialized
+        await this.ensureTemplateDetails(agentId);
         
         sendToConnection(connection, 'agent_connected', {
             state: this.state,
@@ -410,8 +446,21 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         });
     }
 
-    async ensureTemplateDetails() {
+    async ensureTemplateDetails(agentIdOverride?: string) {
         if (!this.templateDetailsCache) {
+            // Get agentId - use override if provided (from connection context), otherwise try from state
+            let agentId: string;
+            try {
+                agentId = agentIdOverride || this.getAgentId();
+            } catch (error) {
+                if (agentIdOverride) {
+                    agentId = agentIdOverride;
+                    this.logger().warn(`Using agentId from connection context: ${agentId} (state not initialized)`);
+                } else {
+                    throw new Error(`Cannot determine agentId: ${error instanceof Error ? error.message : String(error)}`);
+                }
+            }
+            
             // Check if templateName is set in state
             const templateName = this.state.templateName;
             
@@ -419,15 +468,15 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             // This can happen if the HTTP request was canceled before state was saved
             if (!templateName || templateName.trim() === '') {
                 this.logger().warn(`Template name is empty in agent state, attempting to retrieve from app record...`, {
-                    agentId: this.getAgentId(),
+                    agentId,
                     hasBlueprint: !!this.state.blueprint,
                     hasQuery: !!this.state.query,
+                    hasInferenceContext: !!this.state.inferenceContext,
                 });
                 
                 // Fallback: Try to get templateName from app record
                 // This is the PRIMARY source of truth if state hasn't been persisted yet
                 try {
-                    const agentId = this.getAgentId();
                     const userId = this.state.inferenceContext?.userId;
                     
                     this.logger().info(`Attempting to retrieve templateName from app record...`, {
@@ -486,7 +535,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                     // Check if we found templateName (from either source)
                     if (templateNameFromApp && templateNameFromApp.trim() !== '') {
                         this.logger().info(`✅ Retrieved templateName from app record: ${templateNameFromApp}`, {
-                            agentId: this.getAgentId(),
+                            agentId,
                         });
                         // Update state with templateName from app record
                         this.setState({
@@ -525,22 +574,23 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                         const isInitialized = !!(this.state.blueprint && this.state.query);
                         
                         if (!isInitialized) {
-                            this.logger().error(`Agent not initialized and app record has no templateName. Agent ID: ${this.getAgentId()}, app exists: ${!!app}, app.templateName: ${app?.templateName || 'null'}`);
+                            this.logger().error(`Agent not initialized and app record has no templateName. Agent ID: ${agentId}, app exists: ${!!app}, app.templateName: ${app?.templateName || 'null'}`);
                             throw new Error(`Agent not initialized. Template name is missing and agent state is incomplete. Please wait for agent initialization to complete before connecting via WebSocket.`);
                         }
                         
                         // Agent appears initialized but templateName is missing from both state and app record
-                        this.logger().error(`Template name is missing from both agent state and app record. This indicates the agent state was not properly persisted. Agent ID: ${this.getAgentId()}, has blueprint: ${!!this.state.blueprint}, has query: ${!!this.state.query}, app exists: ${!!app}`);
+                        this.logger().error(`Template name is missing from both agent state and app record. This indicates the agent state was not properly persisted. Agent ID: ${agentId}, has blueprint: ${!!this.state.blueprint}, has query: ${!!this.state.query}, app exists: ${!!app}`);
                         throw new Error(`Template name is missing from agent state and app record. The agent appears initialized but the template name was not persisted. This may indicate the agent initialization was interrupted before state could be saved. Please try creating a new agent session.`);
                     }
                 } catch (error) {
                     // If app record lookup fails, log the error and check if agent is initialized
                     this.logger().error(`Failed to retrieve templateName from app record`, {
-                        agentId: this.getAgentId(),
+                        agentId,
                         error: error instanceof Error ? error.message : String(error),
                         errorStack: error instanceof Error ? error.stack : undefined,
                         hasBlueprint: !!this.state.blueprint,
                         hasQuery: !!this.state.query,
+                        hasInferenceContext: !!this.state.inferenceContext,
                     });
                     
                     // Check if agent is initialized
