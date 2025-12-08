@@ -620,16 +620,34 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         redeployed: boolean
     ): Array<{ filePath: string; fileContents: string }> {
         const state = this.getState();
+        const logger = this.getLog();
+        
+        logger.info(`[DEPLOYMENT] getFilesToDeploy called`, {
+            requestedFilesCount: requestedFiles?.length || 0,
+            redeployed,
+            generatedFilesMapSize: Object.keys(state.generatedFilesMap).length,
+            generatedFilesMapKeys: Object.keys(state.generatedFilesMap)
+        });
         
         // If no files requested or redeploying, use all generated files from state
         if (!requestedFiles || requestedFiles.length === 0 || redeployed) {
             requestedFiles = Object.values(state.generatedFilesMap);
+            logger.info(`[DEPLOYMENT] Using files from generatedFilesMap`, {
+                fileCount: requestedFiles.length,
+                filePaths: requestedFiles.map(f => f.filePath)
+            });
         }
 
-        return requestedFiles.map(file => ({
+        const filesToDeploy = requestedFiles.map(file => ({
             filePath: file.filePath,
             fileContents: file.fileContents
         }));
+        
+        logger.info(`[DEPLOYMENT] Files to deploy: ${filesToDeploy.length}`, {
+            filePaths: filesToDeploy.map(f => f.filePath)
+        });
+        
+        return filesToDeploy;
     }
     
     /**

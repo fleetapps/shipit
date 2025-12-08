@@ -1504,14 +1504,28 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         });
 
         // Await the already-created realtime code fixer promises
+        this.logger().info(`[FILE_GENERATION] Awaiting ${result.fixedFilePromises.length} file promises for phase: ${phase.name}`);
         const finalFiles = await Promise.allSettled(result.fixedFilePromises).then((results: PromiseSettledResult<FileOutputType>[]) => {
+            const fulfilled = results.filter(r => r.status === 'fulfilled');
+            const rejected = results.filter(r => r.status === 'rejected');
+            this.logger().info(`[FILE_GENERATION] File promises settled: ${fulfilled.length} fulfilled, ${rejected.length} rejected`);
+            if (rejected.length > 0) {
+                this.logger().warn(`[FILE_GENERATION] Some file promises were rejected:`, rejected.map(r => r.status === 'rejected' ? r.reason : 'unknown'));
+            }
             return results.map((result) => {
                 if (result.status === 'fulfilled') {
                     return result.value;
                 } else {
+                    this.logger().error(`[FILE_GENERATION] File promise rejected:`, result.status === 'rejected' ? result.reason : 'unknown');
                     return null;
                 }
             }).filter((f): f is FileOutputType => f !== null);
+        });
+    
+        this.logger().info(`[FILE_GENERATION] Final files count: ${finalFiles.length}`, {
+            phaseName: phase.name,
+            filePaths: finalFiles.map(f => f.filePath),
+            generatedFilesMapSize: Object.keys(this.state.generatedFilesMap).length
         });
     
         // Update state with completed phase
@@ -1526,7 +1540,16 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         }
     
         // Deploy generated files
+        this.logger().info(`[DEPLOYMENT] Checking if files should be deployed`, {
+            finalFilesCount: finalFiles.length,
+            phaseName: phase.name,
+            generatedFilesMapSize: Object.keys(this.state.generatedFilesMap).length
+        });
+        
         if (finalFiles.length > 0) {
+            this.logger().info(`[DEPLOYMENT] Deploying ${finalFiles.length} files to sandbox`, {
+                filePaths: finalFiles.map(f => f.filePath)
+            });
             await this.deployToSandbox(finalFiles, false, phase.name, true);
             if (postPhaseFixing) {
                 await this.applyDeterministicCodeFixes();
@@ -1534,6 +1557,11 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
                     await this.applyFastSmartCodeFixes();
                 }
             }
+        } else {
+            this.logger().warn(`[DEPLOYMENT] No files to deploy for phase: ${phase.name}`, {
+                fixedFilePromisesCount: result.fixedFilePromises.length,
+                generatedFilesMapSize: Object.keys(this.state.generatedFilesMap).length
+            });
         }
 
         // Validation complete
