@@ -43,13 +43,13 @@ export declare const oauthCallbackSchema: z.ZodObject<{
     error: z.ZodOptional<z.ZodString>;
     error_description: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    code: string;
     state: string;
+    code: string;
     error?: string | undefined;
     error_description?: string | undefined;
 }, {
-    code: string;
     state: string;
+    code: string;
     error?: string | undefined;
     error_description?: string | undefined;
 }>;

@@ -2,7 +2,7 @@ import { generateId } from '../../../utils/idGenerator';
 import { generateAppProxyToken, generateAppProxyUrl } from '../../../services/aigateway-proxy/controller';
 import { BaseAgentService } from './BaseAgentService';
 import { getSandboxService } from '../../../services/sandbox/factory';
-import { validateAndCleanBootstrapCommands } from '../../../agents/utils/common';
+import { validateAndCleanBootstrapCommands } from 'worker/agents/utils/common';
 const PER_ATTEMPT_TIMEOUT_MS = 60000; // 60 seconds per individual attempt
 const MASTER_DEPLOYMENT_TIMEOUT_MS = 300000; // 5 minutes total
 const HEALTH_CHECK_INTERVAL_MS = 30000;
@@ -109,8 +109,10 @@ export class DeploymentManager extends BaseAgentService {
             logger.warn('[commands] No valid commands to execute after filtering');
             return;
         }
+        console.log('[FLOW_STEP_7] STEP 7: Template Installation & Setup - PROGRESS: Executing setup commands', { instanceId: sandboxInstanceId, commandCount: validCommands.length });
         logger.info(`[commands] Executing ${validCommands.length} validated setup commands on instance ${sandboxInstanceId}`);
         await this.withTimeout(client.executeCommands(sandboxInstanceId, validCommands), timeoutMs, 'Command execution timed out');
+        console.log('[FLOW_STEP_7] STEP 7: Template Installation & Setup - COMPLETE: Setup commands executed successfully');
         logger.info('Setup commands executed successfully');
         // Invoke callback if provided (e.g., for package.json sync)
         if (onAfterCommands) {
@@ -335,11 +337,14 @@ export class DeploymentManager extends BaseAgentService {
         const filesToWrite = this.getFilesToDeploy(files, redeployed);
         // Write files if any
         if (filesToWrite.length > 0) {
+            console.log('[FLOW_STEP_9] STEP 9: Code Deployment to Sandbox - START: Writing files to sandbox', { instanceId: sandboxInstanceId, fileCount: filesToWrite.length });
             const writeResponse = await this.getClient().writeFiles(sandboxInstanceId, filesToWrite, commitMessage);
             if (!writeResponse || !writeResponse.success) {
+                console.error('[FLOW_STEP_9] STEP 9: Code Deployment to Sandbox - ERROR: File writing failed', { error: writeResponse?.error });
                 logger.error(`File writing failed. Error: ${writeResponse?.error}`);
                 throw new Error(`File writing failed. Error: ${writeResponse?.error}`);
             }
+            console.log('[FLOW_STEP_9] STEP 9: Code Deployment to Sandbox - COMPLETE: Files written successfully', { instanceId: sandboxInstanceId, fileCount: filesToWrite.length });
             logger.info('Files written to sandbox instance', { instanceId: sandboxInstanceId, files: filesToWrite.map(f => f.filePath) });
         }
         // Clear logs if requested
@@ -421,17 +426,25 @@ export class DeploymentManager extends BaseAgentService {
         // Create instance
         const client = this.getClient();
         const logger = this.getLog();
+        console.log('[FLOW_STEP_6] STEP 6: Sandbox Instance Creation - START: Creating sandbox container', { templateName, projectName });
         const createResponse = await client.createInstance(templateName, `v1-${projectName}`, undefined, localEnvVars);
         if (!createResponse || !createResponse.success || !createResponse.runId) {
+            console.error('[FLOW_STEP_6] STEP 6: Sandbox Instance Creation - ERROR: Failed to create sandbox instance', { error: createResponse?.error });
             throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
         }
+        console.log('[FLOW_STEP_6] STEP 6: Sandbox Instance Creation - COMPLETE: Sandbox instance created', {
+            runId: createResponse.runId,
+            previewURL: createResponse.previewURL
+        });
         logger.info(`Created sandbox instance`, {
             runId: createResponse.runId,
             previewURL: createResponse.previewURL
         });
         if (createResponse.runId && createResponse.previewURL) {
+            console.log('[FLOW_STEP_8] STEP 8: Sandbox Preview URL → GET Request - COMPLETE: Preview URL generated', { previewURL: createResponse.previewURL });
             return createResponse;
         }
+        console.error('[FLOW_STEP_8] STEP 8: Sandbox Preview URL → GET Request - ERROR: Preview URL missing from response');
         throw new Error(`Failed to create sandbox instance: ${createResponse?.error || 'Unknown error'}`);
     }
     /**

@@ -1,4 +1,4 @@
-import { WebSocketMessageResponses } from "../../../agents/constants";
+import { WebSocketMessageResponses } from "worker/agents/constants";
 /*
 * CodingAgentInterface - stub for passing to tool calls
 */

@@ -3,9 +3,9 @@ import { createObjectLogger } from '../../logger';
 import { extractTokenWithMetadata, extractRequestMetadata } from '../../utils/authUtils';
 import { captureSecurityEvent } from '../../observability/sentry';
 import { KVRateLimitStore } from './KVRateLimitStore';
-import { RateLimitExceededError, SecurityError } from '../../../shared/types/errors';
-import { isDev } from '../../utils/envs';
-import { AIModels } from '../../agents/inferutils/config.types';
+import { RateLimitExceededError, SecurityError } from 'shared/types/errors';
+import { isDev } from 'worker/utils/envs';
+import { AIModels } from 'worker/agents/inferutils/config.types';
 export class RateLimitService {
     static logger = createObjectLogger(this, 'RateLimitService');
     static buildRateLimitKey(rateLimitType, identifier) {

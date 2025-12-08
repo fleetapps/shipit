@@ -2,7 +2,7 @@
  * Error Handling Utilities
  */
 import { createLogger } from '../logger';
-import { SecurityError } from '../../shared/types/errors';
+import { SecurityError } from 'shared/types/errors';
 import { errorResponse } from '../api/responses';
 const logger = createLogger('ErrorHandling');
 /**

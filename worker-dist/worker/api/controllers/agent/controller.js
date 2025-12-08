@@ -6,9 +6,10 @@ import { ModelConfigService } from '../../../database';
 import { RateLimitService } from '../../../services/rate-limit/rateLimits';
 import { validateWebSocketOrigin } from '../../../middleware/security/websocket';
 import { createLogger } from '../../../logger';
-import { getPreviewDomain } from '../../../utils/urls';
-import { ImageType, uploadImage } from '../../../utils/images';
-import { getTemplateImportantFiles } from '../../../services/sandbox/utils';
+import { getPreviewDomain } from 'worker/utils/urls';
+import { ImageType, uploadImage } from 'worker/utils/images';
+import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
+import { AppService } from '../../../database';
 const defaultCodeGenArgs = {
     query: '',
     language: 'typescript',
@@ -68,6 +69,90 @@ export class CodingAgentController extends BaseController {
                 }
             }
             const agentId = generateId();
+            // CRITICAL LOG: Verify we reach app creation code
+            console.log('[CRITICAL] About to create app record', { agentId, userId: user?.id || 'null', hasUser: !!user });
+            this.logger.info('[CRITICAL] About to create app record', { agentId, userId: user?.id || 'null', hasUser: !!user });
+            // Create app record IMMEDIATELY so frontend can fetch it
+            // This prevents 404 errors when frontend tries to fetch app before blueprint completes
+            // CRITICAL: This MUST succeed - retry up to 3 times if it fails
+            const appService = new AppService(env);
+            const userId = user?.id || null;
+            let appCreated = false;
+            let lastError = null;
+            console.log('[CRITICAL] Starting app creation retry loop', { agentId, userId, attempt: 1 });
+            // Retry app creation up to 3 times
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                console.log(`[CRITICAL] App creation attempt ${attempt}/3`, { agentId, userId });
+                try {
+                    await appService.createApp({
+                        id: agentId,
+                        userId: userId, // Can be null for anonymous users (if route allows it)
+                        sessionToken: null,
+                        title: query.substring(0, 100), // Temporary, will be updated with blueprint title
+                        description: null,
+                        originalPrompt: query,
+                        finalPrompt: query,
+                        framework: null, // Will be updated when blueprint completes
+                        visibility: 'private',
+                        status: 'generating',
+                        createdAt: new Date(),
+                        updatedAt: new Date()
+                    });
+                    appCreated = true;
+                    this.logger.info(`[createApp] App record created immediately for agent: ${agentId} (attempt ${attempt})`, {
+                        agentId,
+                        userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                        attempt,
+                        timestamp: new Date().toISOString()
+                    });
+                    console.log('[CRITICAL] ✅ App record created successfully in database', { agentId, userId: userId || 'anonymous', attempt });
+                    console.log('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - PROGRESS: App record created in database', { agentId, userId: userId || 'anonymous', attempt });
+                    break; // Success - exit retry loop
+                }
+                catch (error) {
+                    lastError = error;
+                    const errorDetails = error instanceof Error ? {
+                        message: error.message,
+                        name: error.name,
+                        stack: error.stack?.split('\n').slice(0, 3).join('\n')
+                    } : { error: String(error) };
+                    console.error(`[CRITICAL] ❌ App creation attempt ${attempt}/3 FAILED`, { agentId, userId, error: errorDetails });
+                    this.logger.warn(`[createApp] Failed to create app record immediately for agent ${agentId} (attempt ${attempt}/3)`, {
+                        agentId,
+                        userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                        attempt,
+                        error: errorDetails,
+                        timestamp: new Date().toISOString()
+                    });
+                    // If this is the last attempt, log as error
+                    if (attempt === 3) {
+                        this.logger.error(`[createApp] CRITICAL: Failed to create app record after 3 attempts for agent ${agentId}`, {
+                            agentId,
+                            userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                            error: errorDetails,
+                            timestamp: new Date().toISOString()
+                        });
+                        console.error('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - ERROR: Failed to create app record after 3 attempts', {
+                            agentId,
+                            userId: user?.id || 'anonymous',
+                            error: errorDetails
+                        });
+                    }
+                    else {
+                        // Wait before retry (exponential backoff)
+                        await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+                    }
+                }
+            }
+            // If app creation failed after all retries, this is critical but we continue
+            // The app will be created in saveToDatabase() as a fallback
+            if (!appCreated) {
+                this.logger.error(`[createApp] CRITICAL: App record creation failed for agent ${agentId} - will retry in saveToDatabase()`, {
+                    agentId,
+                    userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                    lastError: lastError instanceof Error ? lastError.message : String(lastError)
+                });
+            }
             const modelConfigService = new ModelConfigService(env);
             // Fetch all user model configs, api keys and agent instance at once
             const [userConfigsRecord, agentInstance] = await Promise.all([
@@ -107,6 +192,7 @@ export class CodingAgentController extends BaseController {
                     return uploadImage(env, image, ImageType.UPLOADS);
                 }));
             }
+            console.log('[FLOW_STEP_1] STEP 1: User Enters Prompt → Agent Session Creation - COMPLETE: Session created, template selected', { agentId, templateName: templateDetails.name });
             writer.write({
                 message: 'Code generation started',
                 agentId: agentId,
@@ -117,6 +203,7 @@ export class CodingAgentController extends BaseController {
                     files: getTemplateImportantFiles(templateDetails),
                 }
             });
+            console.log('[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - START: Beginning blueprint generation', { agentId, queryLength: query.length });
             const agentPromise = agentInstance.initialize({
                 query,
                 language: body.language || defaultCodeGenArgs.language,
@@ -125,7 +212,18 @@ export class CodingAgentController extends BaseController {
                 inferenceContext,
                 images: uploadedImages,
                 onBlueprintChunk: (chunk) => {
-                    writer.write({ chunk });
+                    console.log(`[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - PROGRESS: Blueprint chunk received`, { chunkLength: chunk.length });
+                    console.log(`[CALLBACK_CHAIN] onBlueprintChunk() called in controller. Chunk length: ${chunk.length}, preview: ${chunk.substring(0, 100)}...`);
+                    console.log(`[CALLBACK_CHAIN] About to call writer.write({chunk})...`);
+                    try {
+                        writer.write({ chunk });
+                        console.log(`[CALLBACK_CHAIN] ✅ writer.write({chunk}) completed successfully`);
+                    }
+                    catch (writeError) {
+                        console.error(`[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - ERROR: Failed to write chunk`, writeError);
+                        console.error(`[CALLBACK_CHAIN] ❌ ERROR in writer.write({chunk}):`, writeError);
+                        throw writeError;
+                    }
                 },
                 templateInfo: { templateDetails, selection },
             }, body.agentMode || defaultCodeGenArgs.agentMode);
@@ -171,12 +269,23 @@ export class CodingAgentController extends BaseController {
             if (!validateWebSocketOrigin(request, env)) {
                 return new Response('Forbidden: Invalid origin', { status: 403 });
             }
-            // Extract user for rate limiting
-            const user = context.user;
+            // Extract user (optional - route is public, supports anonymous users)
+            const user = context.user || null;
+            // For anonymous users, verify they can access this agent (created recently)
             if (!user) {
-                return CodingAgentController.createErrorResponse('Missing user', 401);
+                const canAccess = await CodingAgentController.verifyAnonymousAccess(chatId, env);
+                if (!canAccess) {
+                    this.logger.warn(`Anonymous access denied for agent: ${chatId}`, {
+                        reason: 'Agent not found or access expired (> 1 hour since creation)'
+                    });
+                    return CodingAgentController.createErrorResponse('Anonymous access expired. Please log in to continue, or reconnect within 1 hour of creation.', 401);
+                }
+                this.logger.info(`Anonymous WebSocket connection allowed for agent: ${chatId}`);
             }
-            this.logger.info(`WebSocket connection request for chat: ${chatId}`);
+            this.logger.info(`WebSocket connection request for chat: ${chatId}`, {
+                userId: user?.id || 'anonymous',
+                isAnonymous: !user
+            });
             // Log request details for debugging
             const headers = {};
             request.headers.forEach((value, key) => {
@@ -214,6 +323,47 @@ export class CodingAgentController extends BaseController {
         catch (error) {
             this.logger.error('Error handling WebSocket connection', error);
             return CodingAgentController.handleError(error, 'handle WebSocket connection');
+        }
+    }
+    /**
+     * Verify that an anonymous user can access an agent
+     * Allows access if agent was created recently (< 1 hour ago) and belongs to anonymous user
+     */
+    static async verifyAnonymousAccess(agentId, env) {
+        try {
+            const appService = new AppService(env);
+            const app = await appService.getAppDetails(agentId, undefined);
+            if (!app) {
+                this.logger.warn(`Agent not found for anonymous access check: ${agentId}`);
+                return false; // Agent doesn't exist
+            }
+            // Check if agent belongs to anonymous user (userId is null)
+            if (app.userId) {
+                this.logger.warn(`Agent ${agentId} belongs to authenticated user, anonymous access denied`);
+                return false; // Agent belongs to an authenticated user
+            }
+            // Check if agent was created recently (within 1 hour)
+            const oneHourAgo = Date.now() - (60 * 60 * 1000);
+            const createdAt = app.createdAt?.getTime() || 0;
+            if (createdAt === 0) {
+                this.logger.warn(`Agent ${agentId} has no creation timestamp`);
+                return false; // No creation time - deny access
+            }
+            const isRecent = createdAt > oneHourAgo;
+            if (!isRecent) {
+                this.logger.info(`Anonymous access expired for agent: ${agentId}`, {
+                    createdAt: new Date(createdAt).toISOString(),
+                    hoursAgo: ((Date.now() - createdAt) / (60 * 60 * 1000)).toFixed(2)
+                });
+            }
+            return isRecent;
+        }
+        catch (error) {
+            this.logger.error('Error verifying anonymous access', {
+                agentId,
+                error: error instanceof Error ? error.message : String(error)
+            });
+            return false; // Deny on error for security
         }
     }
     /**
@@ -283,6 +433,123 @@ export class CodingAgentController extends BaseController {
             this.logger.error('Error deploying preview', error);
             const appError = CodingAgentController.handleError(error, 'deploy preview');
             return appError;
+        }
+    }
+    /**
+     * Trigger code generation via HTTP (fallback when WebSocket fails)
+     * POST /api/agent/:agentId/generate
+     */
+    static async triggerCodeGeneration(request, env, _, context) {
+        try {
+            const agentId = context.pathParams.agentId;
+            if (!agentId) {
+                return CodingAgentController.createErrorResponse('Missing agent ID parameter', 400);
+            }
+            this.logger.info(`Triggering code generation via HTTP for agent: ${agentId}`);
+            try {
+                // Get the agent instance
+                const agentInstance = await getAgentStub(env, agentId);
+                // Check if agent is initialized
+                const isInitialized = await agentInstance.isInitialized();
+                if (!isInitialized) {
+                    // Agent not initialized - initialize it first using app data
+                    this.logger.info(`Agent ${agentId} not initialized, initializing from app data...`);
+                    // Get app details to retrieve original prompt and user info
+                    const appService = new AppService(env);
+                    const app = await appService.getAppDetails(agentId, context.user?.id || undefined);
+                    if (!app) {
+                        return CodingAgentController.createErrorResponse(`App not found for agent ${agentId}`, 404);
+                    }
+                    // Get user for model configs (if authenticated)
+                    const user = context.user;
+                    let userModelConfigs = new Map();
+                    let inferenceContext;
+                    if (user?.id) {
+                        const modelConfigService = new ModelConfigService(env);
+                        const userConfigsRecord = await modelConfigService.getUserModelConfigs(user.id);
+                        for (const [actionKey, mergedConfig] of Object.entries(userConfigsRecord)) {
+                            if (mergedConfig.isUserOverride) {
+                                const modelConfig = {
+                                    name: mergedConfig.name,
+                                    max_tokens: mergedConfig.max_tokens,
+                                    temperature: mergedConfig.temperature,
+                                    reasoning_effort: mergedConfig.reasoning_effort,
+                                    fallbackModel: mergedConfig.fallbackModel
+                                };
+                                userModelConfigs.set(actionKey, modelConfig);
+                            }
+                        }
+                        inferenceContext = {
+                            userModelConfigs: Object.fromEntries(userModelConfigs),
+                            agentId: agentId,
+                            userId: user.id,
+                            enableRealtimeCodeFix: false,
+                            enableFastSmartCodeFix: false,
+                        };
+                    }
+                    else {
+                        // Anonymous user - use minimal inference context
+                        // For anonymous users, we need a userId - use the agentId as a placeholder
+                        // This allows the agent to work without a real user ID
+                        const emptyModelConfigs = new Map();
+                        inferenceContext = {
+                            userModelConfigs: Object.fromEntries(emptyModelConfigs),
+                            agentId: agentId,
+                            userId: `anonymous-${agentId}`, // Use agentId as placeholder for anonymous users
+                            enableRealtimeCodeFix: false,
+                            enableFastSmartCodeFix: false,
+                        };
+                    }
+                    // Get template for the query
+                    const url = new URL(request.url);
+                    const hostname = url.hostname === 'localhost' ? `localhost:${url.port}` : getPreviewDomain(env);
+                    const { templateDetails, selection } = await getTemplateForQuery(env, inferenceContext, app.originalPrompt, undefined, // No images available in fallback
+                    this.logger);
+                    // Initialize the agent (non-blocking)
+                    console.log('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - PROGRESS: Initializing agent from app data', { agentId });
+                    agentInstance.initialize({
+                        query: app.originalPrompt,
+                        language: 'typescript', // Default
+                        frameworks: app.framework ? [app.framework] : ['react'], // Use app framework or default
+                        hostname,
+                        inferenceContext,
+                        images: [], // No images in fallback
+                        onBlueprintChunk: () => {
+                            // No-op for HTTP fallback - blueprint already generated
+                        },
+                        templateInfo: { templateDetails, selection },
+                    }, 'deterministic').catch((error) => {
+                        this.logger.error('Error initializing agent in HTTP fallback:', error);
+                        console.error('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - ERROR: Agent initialization failed', error);
+                    });
+                    // Wait a moment for initialization to start, then trigger generation
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    // Check if initialized now
+                    const nowInitialized = await agentInstance.isInitialized();
+                    if (!nowInitialized) {
+                        this.logger.warn(`Agent ${agentId} still not initialized after 1s, proceeding anyway...`);
+                    }
+                }
+                // Trigger code generation (non-blocking - it runs in background)
+                console.log('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - START: Triggering code generation via HTTP');
+                agentInstance.generateAllFiles().catch((error) => {
+                    this.logger.error('Error during HTTP-triggered code generation:', error);
+                    console.error('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - ERROR: Code generation failed', error);
+                });
+                this.logger.info('Code generation triggered successfully via HTTP', { agentId });
+                return CodingAgentController.createSuccessResponse({
+                    message: isInitialized ? 'Code generation started' : 'Agent initialized and code generation started',
+                    agentId,
+                });
+            }
+            catch (error) {
+                this.logger.error(`Failed to trigger code generation for agent ${agentId}:`, error);
+                return CodingAgentController.createErrorResponse(`Failed to trigger code generation: ${error instanceof Error ? error.message : String(error)}`, 500);
+            }
+        }
+        catch (error) {
+            this.logger.error('Error triggering code generation', error);
+            return CodingAgentController.handleError(error, 'trigger code generation');
         }
     }
 }

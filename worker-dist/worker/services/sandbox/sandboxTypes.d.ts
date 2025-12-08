@@ -37,33 +37,33 @@ export declare const TemplateDetailsSchema: z.ZodObject<{
     dontTouchFiles: z.ZodArray<z.ZodString, "many">;
     redactedFiles: z.ZodArray<z.ZodString, "many">;
 }, "strip", z.ZodTypeAny, {
-    name: string;
     description: {
         selection: string;
         usage: string;
     };
+    name: string;
     fileTree: FileTreeNode;
     allFiles: Record<string, string>;
     deps: Record<string, string>;
     importantFiles: string[];
     dontTouchFiles: string[];
     redactedFiles: string[];
-    frameworks?: string[] | undefined;
     language?: string | undefined;
+    frameworks?: string[] | undefined;
 }, {
-    name: string;
     description: {
         selection: string;
         usage: string;
     };
+    name: string;
     fileTree: FileTreeNode;
     allFiles: Record<string, string>;
     deps: Record<string, string>;
     importantFiles: string[];
     dontTouchFiles: string[];
     redactedFiles: string[];
-    frameworks?: string[] | undefined;
     language?: string | undefined;
+    frameworks?: string[] | undefined;
 }>;
 export type TemplateDetails = z.infer<typeof TemplateDetailsSchema>;
 export declare const SimpleErrorSchema: z.ZodObject<{
@@ -72,14 +72,14 @@ export declare const SimpleErrorSchema: z.ZodObject<{
     message: z.ZodString;
     rawOutput: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    level: number;
-    message: string;
     timestamp: string;
+    message: string;
+    level: number;
     rawOutput: string;
 }, {
-    level: number;
-    message: string;
     timestamp: string;
+    message: string;
+    level: number;
     rawOutput: string;
 }>;
 export type SimpleError = z.infer<typeof SimpleErrorSchema>;
@@ -96,27 +96,27 @@ export declare const StoredErrorSchema: z.ZodObject<{
     occurrenceCount: z.ZodNumber;
     createdAt: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    level: number;
-    message: string;
     id: number;
     timestamp: string;
+    createdAt: string;
+    message: string;
+    level: number;
     rawOutput: string;
     instanceId: string;
     processId: string;
     errorHash: string;
     occurrenceCount: number;
-    createdAt: string;
 }, {
-    level: number;
-    message: string;
     id: number;
     timestamp: string;
+    createdAt: string;
+    message: string;
+    level: number;
     rawOutput: string;
     instanceId: string;
     processId: string;
     errorHash: string;
     occurrenceCount: number;
-    createdAt: string;
 }>;
 export type StoredError = z.infer<typeof StoredErrorSchema>;
 export declare const RuntimeErrorSchema: z.ZodObject<{
@@ -125,14 +125,14 @@ export declare const RuntimeErrorSchema: z.ZodObject<{
     message: z.ZodString;
     rawOutput: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    level: number;
-    message: string;
     timestamp: string;
+    message: string;
+    level: number;
     rawOutput: string;
 }, {
-    level: number;
-    message: string;
     timestamp: string;
+    message: string;
+    level: number;
     rawOutput: string;
 }>;
 export type RuntimeError = z.infer<typeof RuntimeErrorSchema>;
@@ -152,51 +152,51 @@ export declare const InstanceDetailsSchema: z.ZodObject<{
         message: z.ZodString;
         rawOutput: z.ZodString;
     }, "strip", z.ZodTypeAny, {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     }, {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     }>, "many">>;
     processId: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    directory: string;
-    runId: string;
     templateName: string;
+    runId: string;
+    directory: string;
     startTime: string | Date;
     uptime: number;
     serviceDirectory: string;
     fileTree?: FileTreeNode | undefined;
-    processId?: string | undefined;
     previewURL?: string | undefined;
     tunnelURL?: string | undefined;
     runtimeErrors?: {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     }[] | undefined;
+    processId?: string | undefined;
 }, {
-    directory: string;
-    runId: string;
     templateName: string;
+    runId: string;
+    directory: string;
     startTime: string | Date;
     uptime: number;
     serviceDirectory: string;
     fileTree?: FileTreeNode | undefined;
-    processId?: string | undefined;
     previewURL?: string | undefined;
     tunnelURL?: string | undefined;
     runtimeErrors?: {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     }[] | undefined;
+    processId?: string | undefined;
 }>;
 export type InstanceDetails = z.infer<typeof InstanceDetailsSchema>;
 export declare const CommandExecutionResultSchema: z.ZodObject<{
@@ -206,15 +206,15 @@ export declare const CommandExecutionResultSchema: z.ZodObject<{
     error: z.ZodOptional<z.ZodString>;
     exitCode: z.ZodOptional<z.ZodNumber>;
 }, "strip", z.ZodTypeAny, {
-    command: string;
     success: boolean;
     output: string;
+    command: string;
     error?: string | undefined;
     exitCode?: number | undefined;
 }, {
-    command: string;
     success: boolean;
     output: string;
+    command: string;
     error?: string | undefined;
     exitCode?: number | undefined;
 }>;
@@ -234,21 +234,21 @@ export declare const TemplateInfoSchema: z.ZodObject<{
         usage: string;
     }>;
 }, "strip", z.ZodTypeAny, {
-    name: string;
     description: {
         selection: string;
         usage: string;
     };
-    frameworks?: string[] | undefined;
+    name: string;
     language?: string | undefined;
+    frameworks?: string[] | undefined;
 }, {
-    name: string;
     description: {
         selection: string;
         usage: string;
     };
-    frameworks?: string[] | undefined;
+    name: string;
     language?: string | undefined;
+    frameworks?: string[] | undefined;
 }>;
 export type TemplateInfo = z.infer<typeof TemplateInfoSchema>;
 export declare const TemplateListResponseSchema: z.ZodObject<{
@@ -268,49 +268,49 @@ export declare const TemplateListResponseSchema: z.ZodObject<{
             usage: string;
         }>;
     }, "strip", z.ZodTypeAny, {
-        name: string;
         description: {
             selection: string;
             usage: string;
         };
-        frameworks?: string[] | undefined;
+        name: string;
         language?: string | undefined;
+        frameworks?: string[] | undefined;
     }, {
-        name: string;
         description: {
             selection: string;
             usage: string;
         };
-        frameworks?: string[] | undefined;
+        name: string;
         language?: string | undefined;
+        frameworks?: string[] | undefined;
     }>, "many">;
     count: z.ZodNumber;
     error: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     success: boolean;
+    count: number;
     templates: {
-        name: string;
         description: {
             selection: string;
             usage: string;
         };
-        frameworks?: string[] | undefined;
+        name: string;
         language?: string | undefined;
+        frameworks?: string[] | undefined;
     }[];
-    count: number;
     error?: string | undefined;
 }, {
     success: boolean;
+    count: number;
     templates: {
-        name: string;
         description: {
             selection: string;
             usage: string;
         };
-        frameworks?: string[] | undefined;
+        name: string;
         language?: string | undefined;
+        frameworks?: string[] | undefined;
     }[];
-    count: number;
     error?: string | undefined;
 }>;
 export type TemplateListResponse = z.infer<typeof TemplateListResponseSchema>;
@@ -337,70 +337,70 @@ export declare const TemplateDetailsResponseSchema: z.ZodObject<{
         dontTouchFiles: z.ZodArray<z.ZodString, "many">;
         redactedFiles: z.ZodArray<z.ZodString, "many">;
     }, "strip", z.ZodTypeAny, {
-        name: string;
         description: {
             selection: string;
             usage: string;
         };
+        name: string;
         fileTree: FileTreeNode;
         allFiles: Record<string, string>;
         deps: Record<string, string>;
         importantFiles: string[];
         dontTouchFiles: string[];
         redactedFiles: string[];
-        frameworks?: string[] | undefined;
         language?: string | undefined;
+        frameworks?: string[] | undefined;
     }, {
-        name: string;
         description: {
             selection: string;
             usage: string;
         };
+        name: string;
         fileTree: FileTreeNode;
         allFiles: Record<string, string>;
         deps: Record<string, string>;
         importantFiles: string[];
         dontTouchFiles: string[];
         redactedFiles: string[];
-        frameworks?: string[] | undefined;
         language?: string | undefined;
+        frameworks?: string[] | undefined;
     }>>;
     error: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     success: boolean;
     error?: string | undefined;
     templateDetails?: {
-        name: string;
         description: {
             selection: string;
             usage: string;
         };
+        name: string;
         fileTree: FileTreeNode;
         allFiles: Record<string, string>;
         deps: Record<string, string>;
         importantFiles: string[];
         dontTouchFiles: string[];
         redactedFiles: string[];
-        frameworks?: string[] | undefined;
         language?: string | undefined;
+        frameworks?: string[] | undefined;
     } | undefined;
 }, {
     success: boolean;
     error?: string | undefined;
     templateDetails?: {
-        name: string;
         description: {
             selection: string;
             usage: string;
         };
+        name: string;
         fileTree: FileTreeNode;
         allFiles: Record<string, string>;
         deps: Record<string, string>;
         importantFiles: string[];
         dontTouchFiles: string[];
         redactedFiles: string[];
-        frameworks?: string[] | undefined;
         language?: string | undefined;
+        frameworks?: string[] | undefined;
     } | undefined;
 }>;
 export type TemplateDetailsResponse = z.infer<typeof TemplateDetailsResponseSchema>;
@@ -503,18 +503,18 @@ export declare const BootstrapResponseSchema: z.ZodObject<{
     success: boolean;
     error?: string | undefined;
     message?: string | undefined;
-    processId?: string | undefined;
     runId?: string | undefined;
     previewURL?: string | undefined;
     tunnelURL?: string | undefined;
+    processId?: string | undefined;
 }, {
     success: boolean;
     error?: string | undefined;
     message?: string | undefined;
-    processId?: string | undefined;
     runId?: string | undefined;
     previewURL?: string | undefined;
     tunnelURL?: string | undefined;
+    processId?: string | undefined;
 }>;
 export type BootstrapResponse = z.infer<typeof BootstrapResponseSchema>;
 export declare const BootstrapStatusResponseSchema: z.ZodObject<{
@@ -532,18 +532,18 @@ export declare const BootstrapStatusResponseSchema: z.ZodObject<{
     isHealthy: boolean;
     error?: string | undefined;
     message?: string | undefined;
-    processId?: string | undefined;
     previewURL?: string | undefined;
     tunnelURL?: string | undefined;
+    processId?: string | undefined;
 }, {
     success: boolean;
     pending: boolean;
     isHealthy: boolean;
     error?: string | undefined;
     message?: string | undefined;
-    processId?: string | undefined;
     previewURL?: string | undefined;
     tunnelURL?: string | undefined;
+    processId?: string | undefined;
 }>;
 export type BootstrapStatusResponse = z.infer<typeof BootstrapStatusResponseSchema>;
 export declare const ListInstancesResponseSchema: z.ZodObject<{
@@ -564,51 +564,51 @@ export declare const ListInstancesResponseSchema: z.ZodObject<{
             message: z.ZodString;
             rawOutput: z.ZodString;
         }, "strip", z.ZodTypeAny, {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }, {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }>, "many">>;
         processId: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
-        directory: string;
-        runId: string;
         templateName: string;
+        runId: string;
+        directory: string;
         startTime: string | Date;
         uptime: number;
         serviceDirectory: string;
         fileTree?: FileTreeNode | undefined;
-        processId?: string | undefined;
         previewURL?: string | undefined;
         tunnelURL?: string | undefined;
         runtimeErrors?: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }[] | undefined;
+        processId?: string | undefined;
     }, {
-        directory: string;
-        runId: string;
         templateName: string;
+        runId: string;
+        directory: string;
         startTime: string | Date;
         uptime: number;
         serviceDirectory: string;
         fileTree?: FileTreeNode | undefined;
-        processId?: string | undefined;
         previewURL?: string | undefined;
         tunnelURL?: string | undefined;
         runtimeErrors?: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }[] | undefined;
+        processId?: string | undefined;
     }>, "many">;
     count: z.ZodNumber;
     error: z.ZodOptional<z.ZodString>;
@@ -616,44 +616,44 @@ export declare const ListInstancesResponseSchema: z.ZodObject<{
     success: boolean;
     count: number;
     instances: {
-        directory: string;
-        runId: string;
         templateName: string;
+        runId: string;
+        directory: string;
         startTime: string | Date;
         uptime: number;
         serviceDirectory: string;
         fileTree?: FileTreeNode | undefined;
-        processId?: string | undefined;
         previewURL?: string | undefined;
         tunnelURL?: string | undefined;
         runtimeErrors?: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }[] | undefined;
+        processId?: string | undefined;
     }[];
     error?: string | undefined;
 }, {
     success: boolean;
     count: number;
     instances: {
-        directory: string;
-        runId: string;
         templateName: string;
+        runId: string;
+        directory: string;
         startTime: string | Date;
         uptime: number;
         serviceDirectory: string;
         fileTree?: FileTreeNode | undefined;
-        processId?: string | undefined;
         previewURL?: string | undefined;
         tunnelURL?: string | undefined;
         runtimeErrors?: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }[] | undefined;
+        processId?: string | undefined;
     }[];
     error?: string | undefined;
 }>;
@@ -676,94 +676,94 @@ export declare const GetInstanceResponseSchema: z.ZodObject<{
             message: z.ZodString;
             rawOutput: z.ZodString;
         }, "strip", z.ZodTypeAny, {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }, {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }>, "many">>;
         processId: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
-        directory: string;
-        runId: string;
         templateName: string;
+        runId: string;
+        directory: string;
         startTime: string | Date;
         uptime: number;
         serviceDirectory: string;
         fileTree?: FileTreeNode | undefined;
-        processId?: string | undefined;
         previewURL?: string | undefined;
         tunnelURL?: string | undefined;
         runtimeErrors?: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }[] | undefined;
+        processId?: string | undefined;
     }, {
-        directory: string;
-        runId: string;
         templateName: string;
+        runId: string;
+        directory: string;
         startTime: string | Date;
         uptime: number;
         serviceDirectory: string;
         fileTree?: FileTreeNode | undefined;
-        processId?: string | undefined;
         previewURL?: string | undefined;
         tunnelURL?: string | undefined;
         runtimeErrors?: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }[] | undefined;
+        processId?: string | undefined;
     }>>;
     error: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     success: boolean;
     error?: string | undefined;
     instance?: {
-        directory: string;
-        runId: string;
         templateName: string;
+        runId: string;
+        directory: string;
         startTime: string | Date;
         uptime: number;
         serviceDirectory: string;
         fileTree?: FileTreeNode | undefined;
-        processId?: string | undefined;
         previewURL?: string | undefined;
         tunnelURL?: string | undefined;
         runtimeErrors?: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }[] | undefined;
+        processId?: string | undefined;
     } | undefined;
 }, {
     success: boolean;
     error?: string | undefined;
     instance?: {
-        directory: string;
-        runId: string;
         templateName: string;
+        runId: string;
+        directory: string;
         startTime: string | Date;
         uptime: number;
         serviceDirectory: string;
         fileTree?: FileTreeNode | undefined;
-        processId?: string | undefined;
         previewURL?: string | undefined;
         tunnelURL?: string | undefined;
         runtimeErrors?: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }[] | undefined;
+        processId?: string | undefined;
     } | undefined;
 }>;
 export type GetInstanceResponse = z.infer<typeof GetInstanceResponseSchema>;
@@ -848,20 +848,20 @@ export declare const WriteFilesResponseSchema: z.ZodObject<{
         success: z.ZodBoolean;
         error: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
-        file: string;
         success: boolean;
+        file: string;
         error?: string | undefined;
     }, {
-        file: string;
         success: boolean;
+        file: string;
         error?: string | undefined;
     }>, "many">;
     error: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
     success: boolean;
     results: {
-        file: string;
         success: boolean;
+        file: string;
         error?: string | undefined;
     }[];
     error?: string | undefined;
@@ -869,8 +869,8 @@ export declare const WriteFilesResponseSchema: z.ZodObject<{
 }, {
     success: boolean;
     results: {
-        file: string;
         success: boolean;
+        file: string;
         error?: string | undefined;
     }[];
     error?: string | undefined;
@@ -926,15 +926,15 @@ export declare const ExecuteCommandsResponseSchema: z.ZodObject<{
         error: z.ZodOptional<z.ZodString>;
         exitCode: z.ZodOptional<z.ZodNumber>;
     }, "strip", z.ZodTypeAny, {
-        command: string;
         success: boolean;
         output: string;
+        command: string;
         error?: string | undefined;
         exitCode?: number | undefined;
     }, {
-        command: string;
         success: boolean;
         output: string;
+        command: string;
         error?: string | undefined;
         exitCode?: number | undefined;
     }>, "many">;
@@ -943,9 +943,9 @@ export declare const ExecuteCommandsResponseSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     success: boolean;
     results: {
-        command: string;
         success: boolean;
         output: string;
+        command: string;
         error?: string | undefined;
         exitCode?: number | undefined;
     }[];
@@ -954,9 +954,9 @@ export declare const ExecuteCommandsResponseSchema: z.ZodObject<{
 }, {
     success: boolean;
     results: {
-        command: string;
         success: boolean;
         output: string;
+        command: string;
         error?: string | undefined;
         exitCode?: number | undefined;
     }[];
@@ -972,14 +972,14 @@ export declare const RuntimeErrorResponseSchema: z.ZodObject<{
         message: z.ZodString;
         rawOutput: z.ZodString;
     }, "strip", z.ZodTypeAny, {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     }, {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     }>, "many">;
     hasErrors: z.ZodBoolean;
@@ -987,9 +987,9 @@ export declare const RuntimeErrorResponseSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     success: boolean;
     errors: {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     }[];
     hasErrors: boolean;
@@ -997,9 +997,9 @@ export declare const RuntimeErrorResponseSchema: z.ZodObject<{
 }, {
     success: boolean;
     errors: {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     }[];
     hasErrors: boolean;
@@ -1053,8 +1053,8 @@ export declare const FixCodeResponseSchema: z.ZodObject<{
     }[];
     error?: string | undefined;
     message?: string | undefined;
-    failed?: string[] | undefined;
     commands?: string[] | undefined;
+    failed?: string[] | undefined;
     applied?: string[] | undefined;
 }, {
     success: boolean;
@@ -1066,8 +1066,8 @@ export declare const FixCodeResponseSchema: z.ZodObject<{
     }[];
     error?: string | undefined;
     message?: string | undefined;
-    failed?: string[] | undefined;
     commands?: string[] | undefined;
+    failed?: string[] | undefined;
     applied?: string[] | undefined;
 }>;
 export type FixCodeResponse = z.infer<typeof FixCodeResponseSchema>;
@@ -1122,32 +1122,32 @@ export declare const GenerateTemplateRequestSchema: z.ZodObject<{
         styling: z.ZodOptional<z.ZodEnum<["tailwind", "css", "scss"]>>;
         features: z.ZodOptional<z.ZodArray<z.ZodString, "many">>;
     }, "strip", z.ZodTypeAny, {
-        language?: "javascript" | "typescript" | undefined;
         framework?: string | undefined;
-        styling?: "tailwind" | "css" | "scss" | undefined;
+        language?: "typescript" | "javascript" | undefined;
+        styling?: "css" | "tailwind" | "scss" | undefined;
         features?: string[] | undefined;
     }, {
-        language?: "javascript" | "typescript" | undefined;
         framework?: string | undefined;
-        styling?: "tailwind" | "css" | "scss" | undefined;
+        language?: "typescript" | "javascript" | undefined;
+        styling?: "css" | "tailwind" | "scss" | undefined;
         features?: string[] | undefined;
     }>>;
 }, "strip", z.ZodTypeAny, {
     templateName: string;
     prompt: string;
     options?: {
-        language?: "javascript" | "typescript" | undefined;
         framework?: string | undefined;
-        styling?: "tailwind" | "css" | "scss" | undefined;
+        language?: "typescript" | "javascript" | undefined;
+        styling?: "css" | "tailwind" | "scss" | undefined;
         features?: string[] | undefined;
     } | undefined;
 }, {
     templateName: string;
     prompt: string;
     options?: {
-        language?: "javascript" | "typescript" | undefined;
         framework?: string | undefined;
-        styling?: "tailwind" | "css" | "scss" | undefined;
+        language?: "typescript" | "javascript" | undefined;
+        styling?: "css" | "tailwind" | "scss" | undefined;
         features?: string[] | undefined;
     } | undefined;
 }>;
@@ -1189,7 +1189,7 @@ export declare const CodeIssueSchema: z.ZodObject<{
     message: string;
     filePath: string;
     line: number;
-    severity: "info" | "error" | "warning";
+    severity: "error" | "warning" | "info";
     source?: string | undefined;
     column?: number | undefined;
     ruleId?: string | undefined;
@@ -1197,7 +1197,7 @@ export declare const CodeIssueSchema: z.ZodObject<{
     message: string;
     filePath: string;
     line: number;
-    severity: "info" | "error" | "warning";
+    severity: "error" | "warning" | "info";
     source?: string | undefined;
     column?: number | undefined;
     ruleId?: string | undefined;
@@ -1216,7 +1216,7 @@ export declare const CodeIssueResponseSchema: z.ZodObject<{
         message: string;
         filePath: string;
         line: number;
-        severity: "info" | "error" | "warning";
+        severity: "error" | "warning" | "info";
         source?: string | undefined;
         column?: number | undefined;
         ruleId?: string | undefined;
@@ -1224,7 +1224,7 @@ export declare const CodeIssueResponseSchema: z.ZodObject<{
         message: string;
         filePath: string;
         line: number;
-        severity: "info" | "error" | "warning";
+        severity: "error" | "warning" | "info";
         source?: string | undefined;
         column?: number | undefined;
         ruleId?: string | undefined;
@@ -1248,7 +1248,7 @@ export declare const CodeIssueResponseSchema: z.ZodObject<{
         message: string;
         filePath: string;
         line: number;
-        severity: "info" | "error" | "warning";
+        severity: "error" | "warning" | "info";
         source?: string | undefined;
         column?: number | undefined;
         ruleId?: string | undefined;
@@ -1264,7 +1264,7 @@ export declare const CodeIssueResponseSchema: z.ZodObject<{
         message: string;
         filePath: string;
         line: number;
-        severity: "info" | "error" | "warning";
+        severity: "error" | "warning" | "info";
         source?: string | undefined;
         column?: number | undefined;
         ruleId?: string | undefined;
@@ -1292,7 +1292,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1300,7 +1300,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1324,7 +1324,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1340,7 +1340,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1365,7 +1365,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1373,7 +1373,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1397,7 +1397,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1413,7 +1413,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1433,7 +1433,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1450,7 +1450,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1470,7 +1470,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1487,7 +1487,7 @@ export declare const StaticAnalysisResponseSchema: z.ZodObject<{
             message: string;
             filePath: string;
             line: number;
-            severity: "info" | "error" | "warning";
+            severity: "error" | "warning" | "info";
             source?: string | undefined;
             column?: number | undefined;
             ruleId?: string | undefined;
@@ -1506,11 +1506,11 @@ export declare const DeploymentCredentialsSchema: z.ZodObject<{
     apiToken: z.ZodOptional<z.ZodString>;
     accountId: z.ZodOptional<z.ZodString>;
 }, "strip", z.ZodTypeAny, {
-    apiToken?: string | undefined;
     accountId?: string | undefined;
+    apiToken?: string | undefined;
 }, {
-    apiToken?: string | undefined;
     accountId?: string | undefined;
+    apiToken?: string | undefined;
 }>;
 export type DeploymentCredentials = z.infer<typeof DeploymentCredentialsSchema>;
 export declare const DeploymentResultSchema: z.ZodObject<{
@@ -1523,17 +1523,17 @@ export declare const DeploymentResultSchema: z.ZodObject<{
 }, "strip", z.ZodTypeAny, {
     message: string;
     success: boolean;
+    deploymentId?: string | undefined;
     error?: string | undefined;
     output?: string | undefined;
     deployedUrl?: string | undefined;
-    deploymentId?: string | undefined;
 }, {
     message: string;
     success: boolean;
+    deploymentId?: string | undefined;
     error?: string | undefined;
     output?: string | undefined;
     deployedUrl?: string | undefined;
-    deploymentId?: string | undefined;
 }>;
 export type DeploymentResult = z.infer<typeof DeploymentResultSchema>;
 export declare const WebhookEventBaseSchema: z.ZodObject<{
@@ -1566,14 +1566,14 @@ export declare const WebhookRuntimeErrorEventSchema: z.ZodObject<{
             message: z.ZodString;
             rawOutput: z.ZodString;
         }, "strip", z.ZodTypeAny, {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }, {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }>;
         instanceInfo: z.ZodObject<{
@@ -1588,9 +1588,9 @@ export declare const WebhookRuntimeErrorEventSchema: z.ZodObject<{
         }>;
     }, "strip", z.ZodTypeAny, {
         error: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         };
         runId: string;
@@ -1600,9 +1600,9 @@ export declare const WebhookRuntimeErrorEventSchema: z.ZodObject<{
         };
     }, {
         error: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         };
         runId: string;
@@ -1612,11 +1612,13 @@ export declare const WebhookRuntimeErrorEventSchema: z.ZodObject<{
         };
     }>;
 }, "strip", z.ZodTypeAny, {
+    timestamp: string;
+    instanceId: string;
     payload: {
         error: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         };
         runId: string;
@@ -1625,16 +1627,16 @@ export declare const WebhookRuntimeErrorEventSchema: z.ZodObject<{
             serviceDirectory?: string | undefined;
         };
     };
-    timestamp: string;
-    instanceId: string;
     eventType: "runtime_error";
     agentId?: string | undefined;
 }, {
+    timestamp: string | Date;
+    instanceId: string;
     payload: {
         error: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         };
         runId: string;
@@ -1643,8 +1645,6 @@ export declare const WebhookRuntimeErrorEventSchema: z.ZodObject<{
             serviceDirectory?: string | undefined;
         };
     };
-    timestamp: string | Date;
-    instanceId: string;
     eventType: "runtime_error";
     agentId?: string | undefined;
 }>;
@@ -1672,25 +1672,25 @@ export declare const WebhookBuildStatusEventSchema: z.ZodObject<{
         buildErrors?: string[] | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
+    timestamp: string;
+    instanceId: string;
     payload: {
         status: "completed" | "failed" | "started";
         duration?: number | undefined;
         buildOutput?: string | undefined;
         buildErrors?: string[] | undefined;
     };
-    timestamp: string;
-    instanceId: string;
     eventType: "build_status";
     agentId?: string | undefined;
 }, {
+    timestamp: string | Date;
+    instanceId: string;
     payload: {
         status: "completed" | "failed" | "started";
         duration?: number | undefined;
         buildOutput?: string | undefined;
         buildErrors?: string[] | undefined;
     };
-    timestamp: string | Date;
-    instanceId: string;
     eventType: "build_status";
     agentId?: string | undefined;
 }>;
@@ -1709,39 +1709,39 @@ export declare const WebhookDeploymentStatusEventSchema: z.ZodObject<{
         error: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         status: "completed" | "failed" | "started";
+        deploymentId?: string | undefined;
         error?: string | undefined;
         deployedUrl?: string | undefined;
-        deploymentId?: string | undefined;
         deploymentType?: "preview" | "cloudflare_workers" | undefined;
     }, {
         status: "completed" | "failed" | "started";
+        deploymentId?: string | undefined;
         error?: string | undefined;
         deployedUrl?: string | undefined;
-        deploymentId?: string | undefined;
         deploymentType?: "preview" | "cloudflare_workers" | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
-    payload: {
-        status: "completed" | "failed" | "started";
-        error?: string | undefined;
-        deployedUrl?: string | undefined;
-        deploymentId?: string | undefined;
-        deploymentType?: "preview" | "cloudflare_workers" | undefined;
-    };
     timestamp: string;
     instanceId: string;
+    payload: {
+        status: "completed" | "failed" | "started";
+        deploymentId?: string | undefined;
+        error?: string | undefined;
+        deployedUrl?: string | undefined;
+        deploymentType?: "preview" | "cloudflare_workers" | undefined;
+    };
     eventType: "deployment_status";
     agentId?: string | undefined;
 }, {
-    payload: {
-        status: "completed" | "failed" | "started";
-        error?: string | undefined;
-        deployedUrl?: string | undefined;
-        deploymentId?: string | undefined;
-        deploymentType?: "preview" | "cloudflare_workers" | undefined;
-    };
     timestamp: string | Date;
     instanceId: string;
+    payload: {
+        status: "completed" | "failed" | "started";
+        deploymentId?: string | undefined;
+        error?: string | undefined;
+        deployedUrl?: string | undefined;
+        deploymentType?: "preview" | "cloudflare_workers" | undefined;
+    };
     eventType: "deployment_status";
     agentId?: string | undefined;
 }>;
@@ -1762,42 +1762,42 @@ export declare const WebhookInstanceHealthEventSchema: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         status: "healthy" | "unhealthy" | "shutting_down";
         message?: string | undefined;
+        lastActivity?: string | Date | undefined;
         uptime?: number | undefined;
         memoryUsage?: number | undefined;
         cpuUsage?: number | undefined;
-        lastActivity?: string | Date | undefined;
     }, {
         status: "healthy" | "unhealthy" | "shutting_down";
         message?: string | undefined;
+        lastActivity?: string | Date | undefined;
         uptime?: number | undefined;
         memoryUsage?: number | undefined;
         cpuUsage?: number | undefined;
-        lastActivity?: string | Date | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
+    timestamp: string;
+    instanceId: string;
     payload: {
         status: "healthy" | "unhealthy" | "shutting_down";
         message?: string | undefined;
+        lastActivity?: string | Date | undefined;
         uptime?: number | undefined;
         memoryUsage?: number | undefined;
         cpuUsage?: number | undefined;
-        lastActivity?: string | Date | undefined;
     };
-    timestamp: string;
-    instanceId: string;
     eventType: "instance_health";
     agentId?: string | undefined;
 }, {
+    timestamp: string | Date;
+    instanceId: string;
     payload: {
         status: "healthy" | "unhealthy" | "shutting_down";
         message?: string | undefined;
+        lastActivity?: string | Date | undefined;
         uptime?: number | undefined;
         memoryUsage?: number | undefined;
         cpuUsage?: number | undefined;
-        lastActivity?: string | Date | undefined;
     };
-    timestamp: string | Date;
-    instanceId: string;
     eventType: "instance_health";
     agentId?: string | undefined;
 }>;
@@ -1818,42 +1818,42 @@ export declare const WebhookCommandExecutionEventSchema: z.ZodObject<{
     }, "strip", z.ZodTypeAny, {
         status: "completed" | "failed" | "started";
         command: string;
-        error?: string | undefined;
         duration?: number | undefined;
+        error?: string | undefined;
         output?: string | undefined;
         exitCode?: number | undefined;
     }, {
         status: "completed" | "failed" | "started";
         command: string;
-        error?: string | undefined;
         duration?: number | undefined;
+        error?: string | undefined;
         output?: string | undefined;
         exitCode?: number | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
+    timestamp: string;
+    instanceId: string;
     payload: {
         status: "completed" | "failed" | "started";
         command: string;
-        error?: string | undefined;
         duration?: number | undefined;
+        error?: string | undefined;
         output?: string | undefined;
         exitCode?: number | undefined;
     };
-    timestamp: string;
-    instanceId: string;
     eventType: "command_execution";
     agentId?: string | undefined;
 }, {
+    timestamp: string | Date;
+    instanceId: string;
     payload: {
         status: "completed" | "failed" | "started";
         command: string;
-        error?: string | undefined;
         duration?: number | undefined;
+        error?: string | undefined;
         output?: string | undefined;
         exitCode?: number | undefined;
     };
-    timestamp: string | Date;
-    instanceId: string;
     eventType: "command_execution";
     agentId?: string | undefined;
 }>;
@@ -1872,14 +1872,14 @@ export declare const WebhookEventSchema: z.ZodDiscriminatedUnion<"eventType", [z
             message: z.ZodString;
             rawOutput: z.ZodString;
         }, "strip", z.ZodTypeAny, {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }, {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         }>;
         instanceInfo: z.ZodObject<{
@@ -1894,9 +1894,9 @@ export declare const WebhookEventSchema: z.ZodDiscriminatedUnion<"eventType", [z
         }>;
     }, "strip", z.ZodTypeAny, {
         error: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         };
         runId: string;
@@ -1906,9 +1906,9 @@ export declare const WebhookEventSchema: z.ZodDiscriminatedUnion<"eventType", [z
         };
     }, {
         error: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         };
         runId: string;
@@ -1918,11 +1918,13 @@ export declare const WebhookEventSchema: z.ZodDiscriminatedUnion<"eventType", [z
         };
     }>;
 }, "strip", z.ZodTypeAny, {
+    timestamp: string;
+    instanceId: string;
     payload: {
         error: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         };
         runId: string;
@@ -1931,16 +1933,16 @@ export declare const WebhookEventSchema: z.ZodDiscriminatedUnion<"eventType", [z
             serviceDirectory?: string | undefined;
         };
     };
-    timestamp: string;
-    instanceId: string;
     eventType: "runtime_error";
     agentId?: string | undefined;
 }, {
+    timestamp: string | Date;
+    instanceId: string;
     payload: {
         error: {
-            level: number;
-            message: string;
             timestamp: string;
+            message: string;
+            level: number;
             rawOutput: string;
         };
         runId: string;
@@ -1949,8 +1951,6 @@ export declare const WebhookEventSchema: z.ZodDiscriminatedUnion<"eventType", [z
             serviceDirectory?: string | undefined;
         };
     };
-    timestamp: string | Date;
-    instanceId: string;
     eventType: "runtime_error";
     agentId?: string | undefined;
 }>, z.ZodObject<{
@@ -1976,25 +1976,25 @@ export declare const WebhookEventSchema: z.ZodDiscriminatedUnion<"eventType", [z
         buildErrors?: string[] | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
+    timestamp: string;
+    instanceId: string;
     payload: {
         status: "completed" | "failed" | "started";
         duration?: number | undefined;
         buildOutput?: string | undefined;
         buildErrors?: string[] | undefined;
     };
-    timestamp: string;
-    instanceId: string;
     eventType: "build_status";
     agentId?: string | undefined;
 }, {
+    timestamp: string | Date;
+    instanceId: string;
     payload: {
         status: "completed" | "failed" | "started";
         duration?: number | undefined;
         buildOutput?: string | undefined;
         buildErrors?: string[] | undefined;
     };
-    timestamp: string | Date;
-    instanceId: string;
     eventType: "build_status";
     agentId?: string | undefined;
 }>, z.ZodObject<{
@@ -2011,39 +2011,39 @@ export declare const WebhookEventSchema: z.ZodDiscriminatedUnion<"eventType", [z
         error: z.ZodOptional<z.ZodString>;
     }, "strip", z.ZodTypeAny, {
         status: "completed" | "failed" | "started";
+        deploymentId?: string | undefined;
         error?: string | undefined;
         deployedUrl?: string | undefined;
-        deploymentId?: string | undefined;
         deploymentType?: "preview" | "cloudflare_workers" | undefined;
     }, {
         status: "completed" | "failed" | "started";
+        deploymentId?: string | undefined;
         error?: string | undefined;
         deployedUrl?: string | undefined;
-        deploymentId?: string | undefined;
         deploymentType?: "preview" | "cloudflare_workers" | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
-    payload: {
-        status: "completed" | "failed" | "started";
-        error?: string | undefined;
-        deployedUrl?: string | undefined;
-        deploymentId?: string | undefined;
-        deploymentType?: "preview" | "cloudflare_workers" | undefined;
-    };
     timestamp: string;
     instanceId: string;
+    payload: {
+        status: "completed" | "failed" | "started";
+        deploymentId?: string | undefined;
+        error?: string | undefined;
+        deployedUrl?: string | undefined;
+        deploymentType?: "preview" | "cloudflare_workers" | undefined;
+    };
     eventType: "deployment_status";
     agentId?: string | undefined;
 }, {
-    payload: {
-        status: "completed" | "failed" | "started";
-        error?: string | undefined;
-        deployedUrl?: string | undefined;
-        deploymentId?: string | undefined;
-        deploymentType?: "preview" | "cloudflare_workers" | undefined;
-    };
     timestamp: string | Date;
     instanceId: string;
+    payload: {
+        status: "completed" | "failed" | "started";
+        deploymentId?: string | undefined;
+        error?: string | undefined;
+        deployedUrl?: string | undefined;
+        deploymentType?: "preview" | "cloudflare_workers" | undefined;
+    };
     eventType: "deployment_status";
     agentId?: string | undefined;
 }>, z.ZodObject<{
@@ -2062,42 +2062,42 @@ export declare const WebhookEventSchema: z.ZodDiscriminatedUnion<"eventType", [z
     }, "strip", z.ZodTypeAny, {
         status: "healthy" | "unhealthy" | "shutting_down";
         message?: string | undefined;
+        lastActivity?: string | Date | undefined;
         uptime?: number | undefined;
         memoryUsage?: number | undefined;
         cpuUsage?: number | undefined;
-        lastActivity?: string | Date | undefined;
     }, {
         status: "healthy" | "unhealthy" | "shutting_down";
         message?: string | undefined;
+        lastActivity?: string | Date | undefined;
         uptime?: number | undefined;
         memoryUsage?: number | undefined;
         cpuUsage?: number | undefined;
-        lastActivity?: string | Date | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
+    timestamp: string;
+    instanceId: string;
     payload: {
         status: "healthy" | "unhealthy" | "shutting_down";
         message?: string | undefined;
+        lastActivity?: string | Date | undefined;
         uptime?: number | undefined;
         memoryUsage?: number | undefined;
         cpuUsage?: number | undefined;
-        lastActivity?: string | Date | undefined;
     };
-    timestamp: string;
-    instanceId: string;
     eventType: "instance_health";
     agentId?: string | undefined;
 }, {
+    timestamp: string | Date;
+    instanceId: string;
     payload: {
         status: "healthy" | "unhealthy" | "shutting_down";
         message?: string | undefined;
+        lastActivity?: string | Date | undefined;
         uptime?: number | undefined;
         memoryUsage?: number | undefined;
         cpuUsage?: number | undefined;
-        lastActivity?: string | Date | undefined;
     };
-    timestamp: string | Date;
-    instanceId: string;
     eventType: "instance_health";
     agentId?: string | undefined;
 }>, z.ZodObject<{
@@ -2116,42 +2116,42 @@ export declare const WebhookEventSchema: z.ZodDiscriminatedUnion<"eventType", [z
     }, "strip", z.ZodTypeAny, {
         status: "completed" | "failed" | "started";
         command: string;
-        error?: string | undefined;
         duration?: number | undefined;
+        error?: string | undefined;
         output?: string | undefined;
         exitCode?: number | undefined;
     }, {
         status: "completed" | "failed" | "started";
         command: string;
-        error?: string | undefined;
         duration?: number | undefined;
+        error?: string | undefined;
         output?: string | undefined;
         exitCode?: number | undefined;
     }>;
 }, "strip", z.ZodTypeAny, {
+    timestamp: string;
+    instanceId: string;
     payload: {
         status: "completed" | "failed" | "started";
         command: string;
-        error?: string | undefined;
         duration?: number | undefined;
+        error?: string | undefined;
         output?: string | undefined;
         exitCode?: number | undefined;
     };
-    timestamp: string;
-    instanceId: string;
     eventType: "command_execution";
     agentId?: string | undefined;
 }, {
+    timestamp: string | Date;
+    instanceId: string;
     payload: {
         status: "completed" | "failed" | "started";
         command: string;
-        error?: string | undefined;
         duration?: number | undefined;
+        error?: string | undefined;
         output?: string | undefined;
         exitCode?: number | undefined;
     };
-    timestamp: string | Date;
-    instanceId: string;
     eventType: "command_execution";
     agentId?: string | undefined;
 }>]>;
@@ -2173,14 +2173,14 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
                 message: z.ZodString;
                 rawOutput: z.ZodString;
             }, "strip", z.ZodTypeAny, {
-                level: number;
-                message: string;
                 timestamp: string;
+                message: string;
+                level: number;
                 rawOutput: string;
             }, {
-                level: number;
-                message: string;
                 timestamp: string;
+                message: string;
+                level: number;
                 rawOutput: string;
             }>;
             instanceInfo: z.ZodObject<{
@@ -2195,9 +2195,9 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
             }>;
         }, "strip", z.ZodTypeAny, {
             error: {
-                level: number;
-                message: string;
                 timestamp: string;
+                message: string;
+                level: number;
                 rawOutput: string;
             };
             runId: string;
@@ -2207,9 +2207,9 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
             };
         }, {
             error: {
-                level: number;
-                message: string;
                 timestamp: string;
+                message: string;
+                level: number;
                 rawOutput: string;
             };
             runId: string;
@@ -2219,11 +2219,13 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
             };
         }>;
     }, "strip", z.ZodTypeAny, {
+        timestamp: string;
+        instanceId: string;
         payload: {
             error: {
-                level: number;
-                message: string;
                 timestamp: string;
+                message: string;
+                level: number;
                 rawOutput: string;
             };
             runId: string;
@@ -2232,16 +2234,16 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
                 serviceDirectory?: string | undefined;
             };
         };
-        timestamp: string;
-        instanceId: string;
         eventType: "runtime_error";
         agentId?: string | undefined;
     }, {
+        timestamp: string | Date;
+        instanceId: string;
         payload: {
             error: {
-                level: number;
-                message: string;
                 timestamp: string;
+                message: string;
+                level: number;
                 rawOutput: string;
             };
             runId: string;
@@ -2250,8 +2252,6 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
                 serviceDirectory?: string | undefined;
             };
         };
-        timestamp: string | Date;
-        instanceId: string;
         eventType: "runtime_error";
         agentId?: string | undefined;
     }>, z.ZodObject<{
@@ -2277,25 +2277,25 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
             buildErrors?: string[] | undefined;
         }>;
     }, "strip", z.ZodTypeAny, {
+        timestamp: string;
+        instanceId: string;
         payload: {
             status: "completed" | "failed" | "started";
             duration?: number | undefined;
             buildOutput?: string | undefined;
             buildErrors?: string[] | undefined;
         };
-        timestamp: string;
-        instanceId: string;
         eventType: "build_status";
         agentId?: string | undefined;
     }, {
+        timestamp: string | Date;
+        instanceId: string;
         payload: {
             status: "completed" | "failed" | "started";
             duration?: number | undefined;
             buildOutput?: string | undefined;
             buildErrors?: string[] | undefined;
         };
-        timestamp: string | Date;
-        instanceId: string;
         eventType: "build_status";
         agentId?: string | undefined;
     }>, z.ZodObject<{
@@ -2312,39 +2312,39 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
             error: z.ZodOptional<z.ZodString>;
         }, "strip", z.ZodTypeAny, {
             status: "completed" | "failed" | "started";
+            deploymentId?: string | undefined;
             error?: string | undefined;
             deployedUrl?: string | undefined;
-            deploymentId?: string | undefined;
             deploymentType?: "preview" | "cloudflare_workers" | undefined;
         }, {
             status: "completed" | "failed" | "started";
+            deploymentId?: string | undefined;
             error?: string | undefined;
             deployedUrl?: string | undefined;
-            deploymentId?: string | undefined;
             deploymentType?: "preview" | "cloudflare_workers" | undefined;
         }>;
     }, "strip", z.ZodTypeAny, {
-        payload: {
-            status: "completed" | "failed" | "started";
-            error?: string | undefined;
-            deployedUrl?: string | undefined;
-            deploymentId?: string | undefined;
-            deploymentType?: "preview" | "cloudflare_workers" | undefined;
-        };
         timestamp: string;
         instanceId: string;
+        payload: {
+            status: "completed" | "failed" | "started";
+            deploymentId?: string | undefined;
+            error?: string | undefined;
+            deployedUrl?: string | undefined;
+            deploymentType?: "preview" | "cloudflare_workers" | undefined;
+        };
         eventType: "deployment_status";
         agentId?: string | undefined;
     }, {
-        payload: {
-            status: "completed" | "failed" | "started";
-            error?: string | undefined;
-            deployedUrl?: string | undefined;
-            deploymentId?: string | undefined;
-            deploymentType?: "preview" | "cloudflare_workers" | undefined;
-        };
         timestamp: string | Date;
         instanceId: string;
+        payload: {
+            status: "completed" | "failed" | "started";
+            deploymentId?: string | undefined;
+            error?: string | undefined;
+            deployedUrl?: string | undefined;
+            deploymentType?: "preview" | "cloudflare_workers" | undefined;
+        };
         eventType: "deployment_status";
         agentId?: string | undefined;
     }>, z.ZodObject<{
@@ -2363,42 +2363,42 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
         }, "strip", z.ZodTypeAny, {
             status: "healthy" | "unhealthy" | "shutting_down";
             message?: string | undefined;
+            lastActivity?: string | Date | undefined;
             uptime?: number | undefined;
             memoryUsage?: number | undefined;
             cpuUsage?: number | undefined;
-            lastActivity?: string | Date | undefined;
         }, {
             status: "healthy" | "unhealthy" | "shutting_down";
             message?: string | undefined;
+            lastActivity?: string | Date | undefined;
             uptime?: number | undefined;
             memoryUsage?: number | undefined;
             cpuUsage?: number | undefined;
-            lastActivity?: string | Date | undefined;
         }>;
     }, "strip", z.ZodTypeAny, {
+        timestamp: string;
+        instanceId: string;
         payload: {
             status: "healthy" | "unhealthy" | "shutting_down";
             message?: string | undefined;
+            lastActivity?: string | Date | undefined;
             uptime?: number | undefined;
             memoryUsage?: number | undefined;
             cpuUsage?: number | undefined;
-            lastActivity?: string | Date | undefined;
         };
-        timestamp: string;
-        instanceId: string;
         eventType: "instance_health";
         agentId?: string | undefined;
     }, {
+        timestamp: string | Date;
+        instanceId: string;
         payload: {
             status: "healthy" | "unhealthy" | "shutting_down";
             message?: string | undefined;
+            lastActivity?: string | Date | undefined;
             uptime?: number | undefined;
             memoryUsage?: number | undefined;
             cpuUsage?: number | undefined;
-            lastActivity?: string | Date | undefined;
         };
-        timestamp: string | Date;
-        instanceId: string;
         eventType: "instance_health";
         agentId?: string | undefined;
     }>, z.ZodObject<{
@@ -2417,53 +2417,55 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
         }, "strip", z.ZodTypeAny, {
             status: "completed" | "failed" | "started";
             command: string;
-            error?: string | undefined;
             duration?: number | undefined;
+            error?: string | undefined;
             output?: string | undefined;
             exitCode?: number | undefined;
         }, {
             status: "completed" | "failed" | "started";
             command: string;
-            error?: string | undefined;
             duration?: number | undefined;
+            error?: string | undefined;
             output?: string | undefined;
             exitCode?: number | undefined;
         }>;
     }, "strip", z.ZodTypeAny, {
+        timestamp: string;
+        instanceId: string;
         payload: {
             status: "completed" | "failed" | "started";
             command: string;
-            error?: string | undefined;
             duration?: number | undefined;
+            error?: string | undefined;
             output?: string | undefined;
             exitCode?: number | undefined;
         };
-        timestamp: string;
-        instanceId: string;
         eventType: "command_execution";
         agentId?: string | undefined;
     }, {
+        timestamp: string | Date;
+        instanceId: string;
         payload: {
             status: "completed" | "failed" | "started";
             command: string;
-            error?: string | undefined;
             duration?: number | undefined;
+            error?: string | undefined;
             output?: string | undefined;
             exitCode?: number | undefined;
         };
-        timestamp: string | Date;
-        instanceId: string;
         eventType: "command_execution";
         agentId?: string | undefined;
     }>]>;
 }, "strip", z.ZodTypeAny, {
     timestamp: string | Date;
     event: {
+        timestamp: string;
+        instanceId: string;
         payload: {
             error: {
-                level: number;
-                message: string;
                 timestamp: string;
+                message: string;
+                level: number;
                 rawOutput: string;
             };
             runId: string;
@@ -2472,57 +2474,55 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
                 serviceDirectory?: string | undefined;
             };
         };
-        timestamp: string;
-        instanceId: string;
         eventType: "runtime_error";
         agentId?: string | undefined;
     } | {
+        timestamp: string;
+        instanceId: string;
         payload: {
             status: "completed" | "failed" | "started";
             duration?: number | undefined;
             buildOutput?: string | undefined;
             buildErrors?: string[] | undefined;
         };
-        timestamp: string;
-        instanceId: string;
         eventType: "build_status";
         agentId?: string | undefined;
     } | {
-        payload: {
-            status: "completed" | "failed" | "started";
-            error?: string | undefined;
-            deployedUrl?: string | undefined;
-            deploymentId?: string | undefined;
-            deploymentType?: "preview" | "cloudflare_workers" | undefined;
-        };
         timestamp: string;
         instanceId: string;
+        payload: {
+            status: "completed" | "failed" | "started";
+            deploymentId?: string | undefined;
+            error?: string | undefined;
+            deployedUrl?: string | undefined;
+            deploymentType?: "preview" | "cloudflare_workers" | undefined;
+        };
         eventType: "deployment_status";
         agentId?: string | undefined;
     } | {
+        timestamp: string;
+        instanceId: string;
         payload: {
             status: "healthy" | "unhealthy" | "shutting_down";
             message?: string | undefined;
+            lastActivity?: string | Date | undefined;
             uptime?: number | undefined;
             memoryUsage?: number | undefined;
             cpuUsage?: number | undefined;
-            lastActivity?: string | Date | undefined;
         };
-        timestamp: string;
-        instanceId: string;
         eventType: "instance_health";
         agentId?: string | undefined;
     } | {
+        timestamp: string;
+        instanceId: string;
         payload: {
             status: "completed" | "failed" | "started";
             command: string;
-            error?: string | undefined;
             duration?: number | undefined;
+            error?: string | undefined;
             output?: string | undefined;
             exitCode?: number | undefined;
         };
-        timestamp: string;
-        instanceId: string;
         eventType: "command_execution";
         agentId?: string | undefined;
     };
@@ -2530,11 +2530,13 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
 }, {
     timestamp: string | Date;
     event: {
+        timestamp: string | Date;
+        instanceId: string;
         payload: {
             error: {
-                level: number;
-                message: string;
                 timestamp: string;
+                message: string;
+                level: number;
                 rawOutput: string;
             };
             runId: string;
@@ -2543,57 +2545,55 @@ export declare const WebhookPayloadSchema: z.ZodObject<{
                 serviceDirectory?: string | undefined;
             };
         };
-        timestamp: string | Date;
-        instanceId: string;
         eventType: "runtime_error";
         agentId?: string | undefined;
     } | {
+        timestamp: string | Date;
+        instanceId: string;
         payload: {
             status: "completed" | "failed" | "started";
             duration?: number | undefined;
             buildOutput?: string | undefined;
             buildErrors?: string[] | undefined;
         };
-        timestamp: string | Date;
-        instanceId: string;
         eventType: "build_status";
         agentId?: string | undefined;
     } | {
-        payload: {
-            status: "completed" | "failed" | "started";
-            error?: string | undefined;
-            deployedUrl?: string | undefined;
-            deploymentId?: string | undefined;
-            deploymentType?: "preview" | "cloudflare_workers" | undefined;
-        };
         timestamp: string | Date;
         instanceId: string;
+        payload: {
+            status: "completed" | "failed" | "started";
+            deploymentId?: string | undefined;
+            error?: string | undefined;
+            deployedUrl?: string | undefined;
+            deploymentType?: "preview" | "cloudflare_workers" | undefined;
+        };
         eventType: "deployment_status";
         agentId?: string | undefined;
     } | {
+        timestamp: string | Date;
+        instanceId: string;
         payload: {
             status: "healthy" | "unhealthy" | "shutting_down";
             message?: string | undefined;
+            lastActivity?: string | Date | undefined;
             uptime?: number | undefined;
             memoryUsage?: number | undefined;
             cpuUsage?: number | undefined;
-            lastActivity?: string | Date | undefined;
         };
-        timestamp: string | Date;
-        instanceId: string;
         eventType: "instance_health";
         agentId?: string | undefined;
     } | {
+        timestamp: string | Date;
+        instanceId: string;
         payload: {
             status: "completed" | "failed" | "started";
             command: string;
-            error?: string | undefined;
             duration?: number | undefined;
+            error?: string | undefined;
             output?: string | undefined;
             exitCode?: number | undefined;
         };
-        timestamp: string | Date;
-        instanceId: string;
         eventType: "command_execution";
         agentId?: string | undefined;
     };
@@ -2608,14 +2608,14 @@ export declare const RunnerServiceWebhookPayloadSchema: z.ZodObject<{
         message: z.ZodString;
         rawOutput: z.ZodString;
     }, "strip", z.ZodTypeAny, {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     }, {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     }>;
     instanceInfo: z.ZodObject<{
@@ -2630,9 +2630,9 @@ export declare const RunnerServiceWebhookPayloadSchema: z.ZodObject<{
     }>;
 }, "strip", z.ZodTypeAny, {
     error: {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     };
     runId: string;
@@ -2642,9 +2642,9 @@ export declare const RunnerServiceWebhookPayloadSchema: z.ZodObject<{
     };
 }, {
     error: {
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     };
     runId: string;

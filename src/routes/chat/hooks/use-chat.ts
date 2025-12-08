@@ -73,6 +73,8 @@ export function useChat({
 	const shouldReconnectRef = useRef(true);
 	// Track the latest connection attempt to avoid handling stale socket events
 	const connectAttemptIdRef = useRef(0);
+	// Track if HTTP fallback has already been triggered to prevent duplicate calls
+	const httpFallbackTriggered = useRef<Set<string>>(new Set());
 	const [chatId, setChatId] = useState<string>();
 	const [messages, setMessages] = useState<ChatMessage[]>([
 		createAIMessage('main', 'Thinking...', true),
@@ -247,7 +249,8 @@ export function useChat({
 
 			// Check common cookie names in order of preference (matching server-side)
 			// Also check for session cookie which is used for authentication
-			const cookieNames = ['accessToken', 'auth_token', 'jwt', 'token', 'session'];
+			// Note: accessToken is HttpOnly, so check accessTokenReadable first (non-HttpOnly fallback)
+			const cookieNames = ['accessTokenReadable', 'accessToken', 'auth_token', 'jwt', 'token', 'session'];
 			for (const cookieName of cookieNames) {
 				if (cookies[cookieName]) {
 					logger.debug('🔐 Found auth token in cookie:', cookieName);
@@ -426,7 +429,12 @@ export function useChat({
 				const agentIdMatch = wsUrl.match(/\/api\/agent\/([^/]+)\/ws/);
 				const agentId = agentIdMatch ? agentIdMatch[1] : (chatId || urlChatId);
 				
-				if (!disableGenerate && urlChatId === 'new' && agentId) {
+				// CRITICAL: Prevent duplicate HTTP fallback triggers for the same agentId
+				// This prevents multiple LLM calls when WebSocket fails multiple times
+				if (!disableGenerate && urlChatId === 'new' && agentId && !httpFallbackTriggered.current.has(agentId)) {
+					// Mark this agentId as having triggered HTTP fallback
+					httpFallbackTriggered.current.add(agentId);
+					
 					console.log('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - START: WebSocket failed, using HTTP fallback', { agentId });
 					logger.info('🔄 WebSocket failed permanently, triggering code generation via HTTP fallback', { agentId });
 					
@@ -441,14 +449,21 @@ export function useChat({
 							} else {
 								console.error('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - ERROR: Failed to start code generation via HTTP');
 								logger.error('❌ Failed to trigger code generation via HTTP fallback:', response.error);
+								// Remove from set so user can retry
+								httpFallbackTriggered.current.delete(agentId);
 								sendMessage(createAIMessage('code_generation_failed', `❌ Failed to start code generation:\n\n${response.error?.message || 'Unknown error'}\n\n🔄 Please refresh the page to try again.`));
 							}
 						})
 						.catch((error) => {
 							console.error('[FLOW_STEP_5] STEP 5: Code Generation → HTTP Fallback - ERROR: Exception during HTTP fallback', error);
 							logger.error('❌ Exception triggering code generation via HTTP fallback:', error);
+							// Remove from set so user can retry
+							httpFallbackTriggered.current.delete(agentId);
 							sendMessage(createAIMessage('code_generation_failed', `❌ Failed to start code generation:\n\n${error instanceof Error ? error.message : 'Unknown error'}\n\n🔄 Please refresh the page to try again.`));
 						});
+				} else if (agentId && httpFallbackTriggered.current.has(agentId)) {
+					// HTTP fallback already triggered for this agentId - log but don't trigger again
+					logger.debug('⚠️ HTTP fallback already triggered for this agentId, skipping duplicate call', { agentId });
 				}
 				
 				return;

@@ -1,5 +1,5 @@
 import { applyUnifiedDiff } from '../../output-formats/diff-formats';
-import { getTemplateFiles, getTemplateImportantFiles } from '../../../services/sandbox/utils';
+import { getTemplateFiles, getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 /**
  * File processing utilities
  * Handles content cleaning, diff application, and file metadata

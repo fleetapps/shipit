@@ -2,7 +2,7 @@ import { getAgentByName } from 'agents';
 import { generateId } from '../utils/idGenerator';
 import { SandboxSdkClient } from '../services/sandbox/sandboxSdkClient';
 import { selectTemplate } from './planning/templateSelector';
-import { BaseSandboxService } from '../services/sandbox/BaseSandboxService';
+import { BaseSandboxService } from 'worker/services/sandbox/BaseSandboxService';
 export async function getAgentStub(env, agentId) {
     return getAgentByName(env.CodeGenObject, agentId);
 }

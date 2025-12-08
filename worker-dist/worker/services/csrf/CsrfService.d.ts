@@ -11,9 +11,18 @@ export declare class CsrfService {
      */
     static generateToken(): string;
     /**
-     * Set CSRF token cookie with timestamp
+     * Extract root domain from hostname for cross-subdomain cookie sharing
+     * Example: anything.fleet.ke -> .fleet.ke
      */
-    static setTokenCookie(response: Response, token: string, maxAge?: number): void;
+    private static extractRootDomain;
+    /**
+     * Set CSRF token cookie with timestamp
+     * @param response - Response object to set cookie on
+     * @param token - CSRF token value
+     * @param maxAge - Cookie max age in seconds (default: 7200 = 2 hours)
+     * @param request - Optional request object to extract domain from (for cross-subdomain cookie sharing)
+     */
+    static setTokenCookie(response: Response, token: string, maxAge?: number, request?: Request): void;
     /**
      * Extract CSRF token from cookies with validation
      */
@@ -24,6 +33,8 @@ export declare class CsrfService {
     static getTokenFromHeader(request: Request): string | null;
     /**
      * Validate CSRF token (double-submit cookie pattern)
+     * HACKY FIX: Accept header token even if cookie is missing (for in-memory fallback)
+     * This ensures CSRF always works when frontend sends token from in-memory
      */
     static validateToken(request: Request): boolean;
     /**
@@ -36,8 +47,10 @@ export declare class CsrfService {
     static getOrGenerateToken(request: Request, forceNew?: boolean): string;
     /**
      * Rotate CSRF token (generate new token and invalidate old one)
+     * @param response - Response object to set cookie on
+     * @param request - Optional request object to extract domain from
      */
-    static rotateToken(response: Response): string;
+    static rotateToken(response: Response, request?: Request): string;
     /**
      * Clear CSRF token cookie
      */

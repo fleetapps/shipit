@@ -7,7 +7,7 @@ import { UserService } from '../../../database/services/UserService';
 import { ApiKeyService } from '../../../database/services/ApiKeyService';
 import { generateApiKey } from '../../../utils/cryptoUtils';
 import { loginSchema, registerSchema, oauthProviderSchema } from './authSchemas';
-import { SecurityError } from '../../../../shared/types/errors';
+import { SecurityError } from 'shared/types/errors';
 import { formatAuthResponse, mapUserResponse, setSecureAuthCookies, clearAuthCookies, extractSessionId } from '../../../utils/authUtils';
 import { authMiddleware } from '../../../middleware/auth/auth';
 import { CsrfService } from '../../../services/csrf/CsrfService';
@@ -53,10 +53,10 @@ export class AuthController extends BaseController {
             setSecureAuthCookies(response, {
                 accessToken: result.accessToken,
                 accessTokenExpiry: SessionService.config.sessionTTL
-            });
+            }, request);
             // Rotate CSRF token on successful registration if configured
             if (CsrfService.defaults.rotateOnAuth) {
-                CsrfService.rotateToken(response);
+                CsrfService.rotateToken(response, request);
             }
             return response;
         }
@@ -91,10 +91,10 @@ export class AuthController extends BaseController {
             setSecureAuthCookies(response, {
                 accessToken: result.accessToken,
                 accessTokenExpiry: SessionService.config.sessionTTL
-            });
+            }, request);
             // Rotate CSRF token on successful login if configured
             if (CsrfService.defaults.rotateOnAuth) {
-                CsrfService.rotateToken(response);
+                CsrfService.rotateToken(response, request);
             }
             return response;
         }
@@ -256,7 +256,7 @@ export class AuthController extends BaseController {
             });
             setSecureAuthCookies(response, {
                 accessToken: result.accessToken,
-            });
+            }, request);
             return response;
         }
         catch (error) {
@@ -446,7 +446,7 @@ export class AuthController extends BaseController {
             setSecureAuthCookies(response, {
                 accessToken: result.accessToken,
                 accessTokenExpiry: SessionService.config.sessionTTL
-            });
+            }, request);
             return response;
         }
         catch (error) {
@@ -489,7 +489,12 @@ export class AuthController extends BaseController {
      */
     static async getCsrfToken(request, _env, _ctx, _routeContext) {
         try {
+            // Force generation of new token to ensure it's always fresh
             const token = CsrfService.getOrGenerateToken(request, false);
+            // Validate token is not empty
+            if (!token || token.trim().length === 0) {
+                throw new Error('Generated CSRF token is empty');
+            }
             const response = AuthController.createSuccessResponse({
                 token,
                 headerName: CsrfService.defaults.headerName,
@@ -497,10 +502,18 @@ export class AuthController extends BaseController {
             });
             // Set the token in cookie with proper expiration
             const maxAge = Math.floor(CsrfService.defaults.tokenTTL / 1000);
-            CsrfService.setTokenCookie(response, token, maxAge);
+            CsrfService.setTokenCookie(response, token, maxAge, request);
+            // Debug: Log cookie setting for troubleshooting
+            const url = new URL(request.url);
+            AuthController.logger.debug('CSRF token generated and cookie set', {
+                tokenLength: token.length,
+                hostname: url.hostname,
+                path: url.pathname
+            });
             return response;
         }
         catch (error) {
+            AuthController.logger.error('Error generating CSRF token:', error);
             return AuthController.handleError(error, 'get CSRF token');
         }
     }
@@ -529,7 +542,7 @@ export class AuthController extends BaseController {
             });
             // Set CSRF token cookie with proper expiration
             const maxAge = Math.floor(CsrfService.defaults.tokenTTL / 1000);
-            CsrfService.setTokenCookie(response, csrfToken, maxAge);
+            CsrfService.setTokenCookie(response, csrfToken, maxAge, request);
             return response;
         }
         catch (error) {

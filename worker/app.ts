@@ -94,7 +94,12 @@ export function createApp(env: Env): Hono<AppEnv> {
 
     // Add not found route to redirect to ASSETS
     app.notFound((c) => {
-        return c.env.ASSETS.fetch(c.req.raw);
+        // Safety check: ASSETS binding might not be available in all environments
+        if (c.env.ASSETS && typeof c.env.ASSETS.fetch === 'function') {
+            return c.env.ASSETS.fetch(c.req.raw);
+        }
+        // Fallback: Return 404 if ASSETS binding is not available
+        return new Response('Not Found', { status: 404 });
     });
     return app;
 }

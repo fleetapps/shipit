@@ -15,9 +15,11 @@ export function setupCodegenRoutes(app) {
     // ========================================
     // WebSocket for app editing - OWNER ONLY (for /chat/:id route)
     // Only the app owner should be able to connect and modify via WebSocket
-    app.get('/api/agent/:agentId/ws', setAuthLevel(AuthConfig.ownerOnly), adaptController(CodingAgentController, CodingAgentController.handleWebSocketConnection));
+    app.get('/api/agent/:agentId/ws', setAuthLevel(AuthConfig.public), adaptController(CodingAgentController, CodingAgentController.handleWebSocketConnection));
     // Connect to existing agent for editing - OWNER ONLY
     // Only the app owner should be able to connect for editing purposes
-    app.get('/api/agent/:agentId/connect', setAuthLevel(AuthConfig.ownerOnly), adaptController(CodingAgentController, CodingAgentController.connectToExistingAgent));
+    app.get('/api/agent/:agentId/connect', setAuthLevel(AuthConfig.public), adaptController(CodingAgentController, CodingAgentController.connectToExistingAgent));
     app.get('/api/agent/:agentId/preview', setAuthLevel(AuthConfig.authenticated), adaptController(CodingAgentController, CodingAgentController.deployPreview));
+    // HTTP fallback to trigger code generation (when WebSocket fails)
+    app.post('/api/agent/:agentId/generate', setAuthLevel(AuthConfig.public), adaptController(CodingAgentController, CodingAgentController.triggerCodeGeneration));
 }

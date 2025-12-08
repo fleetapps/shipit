@@ -27,12 +27,12 @@ import { looksLikeCommand, validateAndCleanBootstrapCommands } from '../utils/co
 import { customizePackageJson, customizeTemplateFiles, generateBootstrapScript, generateProjectName } from '../utils/templateCustomizer';
 import { generateBlueprint } from '../planning/blueprint';
 import { AppService } from '../../database';
-import { RateLimitExceededError } from '../../../shared/types/errors';
+import { RateLimitExceededError } from 'shared/types/errors';
 import { CodingAgentInterface } from '../services/implementations/CodingAgent';
-import { ImageType, uploadImage } from '../../utils/images';
+import { ImageType, uploadImage } from 'worker/utils/images';
 import { DeepCodeDebugger } from '../assistants/codeDebugger';
 import { StateMigration } from './stateMigration';
-import { generateNanoId } from '../../utils/idGenerator';
+import { generateNanoId } from 'worker/utils/idGenerator';
 import { updatePackageJson } from '../utils/packageSyncer';
 import { IdGenerator } from '../utils/idGenerator';
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
@@ -144,6 +144,7 @@ export class SimpleCodeGeneratorAgent extends Agent {
         const sandboxSessionId = DeploymentManager.generateNewSessionId();
         this.initLogger(inferenceContext.agentId, sandboxSessionId, inferenceContext.userId);
         // Generate a blueprint
+        console.log('[FLOW_STEP_2] STEP 2: Blueprint Generation → HTTP Stream - PROGRESS: Starting blueprint generation in agent', { queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
         this.logger().info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
         this.logger().info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
         const blueprint = await generateBlueprint({
@@ -158,8 +159,16 @@ export class SimpleCodeGeneratorAgent extends Agent {
             stream: {
                 chunk_size: 256,
                 onChunk: (chunk) => {
-                    // initArgs.writer.write({chunk});
-                    initArgs.onBlueprintChunk(chunk);
+                    console.log(`[CALLBACK_CHAIN] stream.onChunk() called in simpleGeneratorAgent. Chunk length: ${chunk.length}, preview: ${chunk.substring(0, 100)}...`);
+                    console.log(`[CALLBACK_CHAIN] About to call initArgs.onBlueprintChunk(chunk)...`);
+                    try {
+                        initArgs.onBlueprintChunk(chunk);
+                        console.log(`[CALLBACK_CHAIN] ✅ initArgs.onBlueprintChunk(chunk) completed successfully`);
+                    }
+                    catch (callbackError) {
+                        console.error(`[CALLBACK_CHAIN] ❌ ERROR in initArgs.onBlueprintChunk(chunk):`, callbackError);
+                        throw callbackError;
+                    }
                 }
             }
         });
@@ -444,10 +453,36 @@ export class SimpleCodeGeneratorAgent extends Agent {
         this.setConversationState(conversationState);
     }
     async saveToDatabase() {
-        this.logger().info(`Blueprint generated successfully for agent ${this.getAgentId()}`);
-        // Save the app to database (authenticated users only)
-        const appService = new AppService(this.env);
-        await appService.createApp({
+        const startTime = Date.now();
+        const agentId = this.getAgentId();
+        const userId = this.state.inferenceContext.userId || null;
+        // Entry log
+        this.logger().info(`Blueprint generated successfully for agent ${agentId}`);
+        this.logger().info('[saveToDatabase] Starting database save operation', {
+            operation: 'saveToDatabase',
+            agentId,
+            userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+            blueprintTitle: this.state.blueprint?.title?.substring(0, 50) || 'undefined',
+            blueprintDescription: this.state.blueprint?.description?.substring(0, 50) || 'undefined',
+            queryLength: this.state.query?.length || 0,
+            framework: this.state.blueprint?.frameworks?.[0] || 'undefined',
+            timestamp: new Date().toISOString(),
+        });
+        // Context validation
+        this.logger().debug('[saveToDatabase] Validating agent context', {
+            agentId,
+            userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+            validation: {
+                hasAgentId: !!agentId,
+                hasInferenceContext: !!this.state.inferenceContext,
+                hasBlueprint: !!this.state.blueprint,
+                hasQuery: !!this.state.query,
+                blueprintTitleLength: this.state.blueprint?.title?.length || 0,
+                blueprintDescriptionLength: this.state.blueprint?.description?.length || 0,
+            }
+        });
+        // Prepare app data
+        const appData = {
             id: this.state.inferenceContext.agentId,
             userId: this.state.inferenceContext.userId,
             sessionToken: null,
@@ -460,13 +495,100 @@ export class SimpleCodeGeneratorAgent extends Agent {
             status: 'generating',
             createdAt: new Date(),
             updatedAt: new Date()
+        };
+        this.logger().debug('[saveToDatabase] Prepared app data', {
+            agentId,
+            userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+            appData: {
+                id: appData.id,
+                title: appData.title?.substring(0, 50),
+                description: appData.description?.substring(0, 50),
+                status: appData.status,
+                visibility: appData.visibility,
+                framework: appData.framework,
+                hasOriginalPrompt: !!appData.originalPrompt,
+                originalPromptLength: appData.originalPrompt?.length || 0,
+            }
         });
-        this.logger().info(`App saved successfully to database for agent ${this.state.inferenceContext.agentId}`, {
-            agentId: this.state.inferenceContext.agentId,
-            userId: this.state.inferenceContext.userId,
-            visibility: 'private'
-        });
-        this.logger().info(`Agent initialized successfully for agent ${this.state.inferenceContext.agentId}`);
+        // Update the app record with blueprint data (app should already exist from early creation)
+        try {
+            const appService = new AppService(this.env);
+            this.logger().debug('[saveToDatabase] AppService created, updating app with blueprint data', {
+                agentId,
+                userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                timestamp: new Date().toISOString(),
+            });
+            // Try to update first (app should exist from early creation)
+            const updateSuccess = await appService.updateApp(agentId, {
+                title: appData.title,
+                description: appData.description,
+                framework: appData.framework,
+                finalPrompt: appData.finalPrompt,
+                // Keep status as 'generating' - it will be updated when code generation completes
+            });
+            if (!updateSuccess) {
+                // If update failed, app might not exist (early creation failed), so try create
+                this.logger().warn('[saveToDatabase] Update failed, app record may not exist, attempting create', {
+                    agentId,
+                    userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                });
+                await appService.createApp(appData);
+                this.logger().info('[saveToDatabase] App record created (fallback after update failed)', {
+                    agentId,
+                });
+            }
+            const duration = Date.now() - startTime;
+            // Success log
+            this.logger().info(`App updated successfully in database for agent ${agentId}`, {
+                agentId: agentId,
+                userId: userId,
+                visibility: 'private'
+            });
+            this.logger().info('[saveToDatabase] App updated successfully in database', {
+                operation: 'saveToDatabase',
+                agentId,
+                userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                title: appData.title?.substring(0, 50),
+                status: appData.status,
+                visibility: appData.visibility,
+                duration,
+            });
+            this.logger().info(`Agent initialized successfully for agent ${agentId}`);
+        }
+        catch (error) {
+            const duration = Date.now() - startTime;
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errorStack = error instanceof Error ? error.stack : undefined;
+            const errorName = error instanceof Error ? error.name : 'UnknownError';
+            // Comprehensive error log
+            this.logger().error('[saveToDatabase] Failed to save app to database', {
+                operation: 'saveToDatabase',
+                agentId,
+                userId: userId ? `${userId.substring(0, 8)}...` : 'null',
+                error: {
+                    type: errorName,
+                    message: errorMessage,
+                    stack: errorStack?.split('\n').slice(0, 10).join('\n'), // First 10 lines
+                },
+                context: {
+                    blueprintTitle: this.state.blueprint?.title?.substring(0, 50),
+                    queryLength: this.state.query?.length || 0,
+                    framework: this.state.blueprint?.frameworks?.[0],
+                    hasBlueprint: !!this.state.blueprint,
+                },
+                appData: {
+                    id: appData.id,
+                    title: appData.title?.substring(0, 50),
+                    status: appData.status,
+                    visibility: appData.visibility,
+                },
+                duration,
+                timestamp: new Date().toISOString(),
+                fatal: false, // Not fatal - agent can continue
+            });
+            // Re-throw to maintain existing error propagation behavior
+            throw error;
+        }
     }
     getPreviewUrlCache() {
         return this.previewUrlCache;
@@ -739,6 +861,28 @@ export class SimpleCodeGeneratorAgent extends Agent {
         finally {
             // Clear abort controller after generation completes
             this.clearAbortController();
+            // Ensure preview is deployed if we have files but no preview URL
+            if (this.state.generatedFilesMap && Object.keys(this.state.generatedFilesMap).length > 0) {
+                if (!this.previewUrlCache) {
+                    if (this.state.sandboxInstanceId) {
+                        // Sandbox exists but no preview URL cached - redeploy to get preview URL
+                        this.logger().info('Code generation completed, sandbox exists but no preview URL cached, redeploying to get preview URL...');
+                    }
+                    else {
+                        // No sandbox instance - deploy initial preview
+                        this.logger().info('Code generation completed but no preview exists, deploying preview...');
+                    }
+                    try {
+                        const previewResult = await this.deployToSandbox([], false, 'Final preview deployment', true);
+                        if (previewResult?.previewURL) {
+                            this.previewUrlCache = previewResult.previewURL;
+                        }
+                    }
+                    catch (error) {
+                        this.logger().error('Failed to deploy preview after generation:', error);
+                    }
+                }
+            }
             const appService = new AppService(this.env);
             await appService.updateApp(this.getAgentId(), {
                 status: 'completed',
@@ -747,6 +891,7 @@ export class SimpleCodeGeneratorAgent extends Agent {
             this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
                 message: "Code generation and review process completed.",
                 instanceId: this.state.sandboxInstanceId,
+                previewURL: this.previewUrlCache || undefined,
             });
         }
     }
@@ -1526,6 +1671,10 @@ export class SimpleCodeGeneratorAgent extends Agent {
                 this.broadcast(WebSocketMessageResponses.DEPLOYMENT_STARTED, data);
             },
             onCompleted: (data) => {
+                // Store preview URL in cache when deployment completes
+                if (data.previewURL) {
+                    this.previewUrlCache = data.previewURL;
+                }
                 this.broadcast(WebSocketMessageResponses.DEPLOYMENT_COMPLETED, data);
             },
             onError: (data) => {
@@ -1536,6 +1685,10 @@ export class SimpleCodeGeneratorAgent extends Agent {
                 await this.syncPackageJsonFromSandbox();
             }
         });
+        // Store preview URL in cache if deployment succeeded
+        if (result?.previewURL) {
+            this.previewUrlCache = result.previewURL;
+        }
         return result;
     }
     /**

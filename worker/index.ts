@@ -162,7 +162,19 @@ const worker = {
 			
 			// Serve static assets for all non-API routes from the ASSETS binding.
 			if (!pathname.startsWith('/api/')) {
-				return env.ASSETS.fetch(request);
+				// Safety check: ASSETS binding might not be available in all environments
+				if (env.ASSETS && typeof env.ASSETS.fetch === 'function') {
+					return env.ASSETS.fetch(request);
+				}
+				// Fallback: Return 404 if ASSETS binding is not available
+				logger.warn('ASSETS binding not available, returning 404 for non-API route', {
+					pathname,
+					url: request.url
+				});
+				return new Response('Static assets not available. Please ensure assets are properly deployed.', { 
+					status: 404,
+					headers: { 'Content-Type': 'text/plain' }
+				});
 			}
 			// AI Gateway proxy for generated apps
 			if (pathname.startsWith('/api/proxy/openai')) {

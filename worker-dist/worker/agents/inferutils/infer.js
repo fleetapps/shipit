@@ -3,13 +3,13 @@ import { createAssistantMessage, createUserMessage } from './common';
 import { AIModels } from './config.types';
 import { AGENT_CONFIG } from './config';
 import { createLogger } from '../../logger';
-import { RateLimitExceededError, SecurityError } from '../../../shared/types/errors';
+import { RateLimitExceededError, SecurityError } from 'shared/types/errors';
 const logger = createLogger('InferenceUtils');
 const responseRegenerationPrompts = `
 The response you provided was either in an incorrect/unparsable format or was incomplete.
 Please provide a valid response that matches the expected output format exactly.
 `;
-export async function executeInference({ env, messages, temperature, maxTokens, retryLimit = 5, // Increased retry limit for better reliability
+export async function executeInference({ env, messages, temperature, maxTokens, retryLimit = 1, // Reduced retry limit to save tokens
 stream, tools, reasoning_effort, schema, agentActionName, format, modelName, modelConfig, context }) {
     let conf;
     if (modelConfig) {

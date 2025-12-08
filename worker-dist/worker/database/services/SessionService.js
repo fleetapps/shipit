@@ -2,7 +2,7 @@
  * Session Service for managing user sessions in D1
  * Provides session creation, validation, and cleanup
  */
-import { SecurityError, SecurityErrorType } from '../../../shared/types/errors';
+import { SecurityError, SecurityErrorType } from 'shared/types/errors';
 import * as schema from '../schema';
 import { eq, and, lt, gt, desc, ne } from 'drizzle-orm';
 import { createLogger } from '../../logger';

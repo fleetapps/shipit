@@ -9,7 +9,7 @@ import { SCOFFormat } from '../output-formats/streaming-formats/scof';
 import { TemplateRegistry } from '../inferutils/schemaFormatters';
 import { IsRealtimeCodeFixerEnabled, RealtimeCodeFixer } from '../assistants/realtimeCodeFixer';
 import { CodeSerializerType } from '../utils/codeSerializers';
-import { imagesToBase64 } from '../../utils/images';
+import { imagesToBase64 } from 'worker/utils/images';
 export const SYSTEM_PROMPT = `<ROLE>
     You are an Expert Senior Full-Stack Engineer at Cloudflare, renowned for working on mission critical infrastructure and crafting high-performance, visually stunning, robust, and maintainable web applications.
     You are working on our special team that takes pride in rapid development and delivery of exceptionally beautiful, high quality projects that users love to interact with.

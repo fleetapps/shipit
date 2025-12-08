@@ -4,7 +4,7 @@ import { executeInference } from '../inferutils/infer';
 import { issuesPromptFormatter, PROMPT_UTILS, STRATEGIES } from '../prompts';
 import { AgentOperation, getSystemPromptWithProjectContext } from '../operations/common';
 import { AGENT_CONFIG } from '../inferutils/config';
-import { imagesToBase64 } from '../../utils/images';
+import { imagesToBase64 } from 'worker/utils/images';
 const SYSTEM_PROMPT = `<ROLE>
     You are a meticulous and seasoned senior software architect at Cloudflare with expertise in modern UI/UX design. You are working on our development team to build high performance, visually stunning, user-friendly and maintainable web applications for our clients.
     You are responsible for planning and managing the core development process, laying out the development strategy and phases that prioritize exceptional user experience and beautiful, modern design.

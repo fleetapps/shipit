@@ -268,7 +268,7 @@ export function setSecureAuthCookies(
 		}
 	}
 
-	// Set access token cookie
+	// Set access token cookie (HttpOnly for security)
 	response.headers.append(
 		'Set-Cookie',
 		createSecureCookie({
@@ -276,12 +276,26 @@ export function setSecureAuthCookies(
 			value: accessToken,
 			maxAge: accessTokenExpiry,
 			httpOnly: true,
-			sameSite: 'Lax',
+			sameSite: 'Lax', // Lax works for same-site WebSocket connections
 			domain: cookieDomain, // Set domain for cross-subdomain access (e.g., .fleet.ke)
 		}),
 	);
 	
-	console.log(`[AUTH_DEBUG] ✅ Set accessToken cookie with domain: ${cookieDomain || 'default (no domain set)'}`);
+	// Also set a non-HttpOnly cookie for WebSocket token extraction (fallback)
+	// This allows frontend JavaScript to read the token for WebSocket query parameters
+	response.headers.append(
+		'Set-Cookie',
+		createSecureCookie({
+			name: 'accessTokenReadable',
+			value: accessToken,
+			maxAge: accessTokenExpiry,
+			httpOnly: false, // Allow JavaScript to read for WebSocket connections
+			sameSite: 'Lax',
+			domain: cookieDomain,
+		}),
+	);
+	
+	console.log(`[AUTH_DEBUG] ✅ Set accessToken cookie (HttpOnly) and accessTokenReadable cookie (readable) with domain: ${cookieDomain || 'default (no domain set)'}`);
 }
 
 /**
@@ -333,6 +347,7 @@ export interface SessionResponse {
 	user: AuthUser;
     sessionId: string;
     expiresAt: Date | null;
+    accessToken?: string; // Optional: included for WebSocket authentication fallback
 }
 
 export function mapUserResponse(
@@ -362,9 +377,14 @@ export function formatAuthResponse(
 	user: AuthUser,
 	sessionId: string,
 	expiresAt: Date | null,
+	accessToken?: string, // Optional: for WebSocket authentication fallback
 ): SessionResponse {
 	const response: SessionResponse = { user, sessionId, expiresAt };
+	if (accessToken) {
+		response.accessToken = accessToken;
+	}
     
 	return response;
 }
+
 

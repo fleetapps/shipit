@@ -4,11 +4,11 @@ import { WebSocketMessageResponses } from "../constants";
 import { AgentOperation, getSystemPromptWithProjectContext } from "../operations/common";
 import { IdGenerator } from '../utils/idGenerator';
 // import { MAX_LLM_MESSAGES } from '../constants';
-import { RateLimitExceededError, SecurityError } from '../../../shared/types/errors';
+import { RateLimitExceededError, SecurityError } from 'shared/types/errors';
 import { buildTools } from "../tools/customTools";
 import { PROMPT_UTILS } from "../prompts";
 import { CodeSerializerType } from "../utils/codeSerializers";
-import { downloadR2Image, imagesToBase64, imageToBase64 } from "../../utils/images";
+import { downloadR2Image, imagesToBase64, imageToBase64 } from "worker/utils/images";
 import { AbortError } from "../inferutils/core";
 // Constants
 const CHUNK_SIZE = 64;

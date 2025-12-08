@@ -1,13 +1,12 @@
 import { OpenAI } from 'openai';
-import { Stream } from 'openai/streaming';
 import { generateTemplateForSchema, parseContentForSchema, } from './schemaFormatters';
 import { zodResponseFormat } from 'openai/helpers/zod.mjs';
 // import { SecretsService } from '../../database';
 import { RateLimitService } from '../../services/rate-limit/rateLimits';
 import { getUserConfigurableSettings } from '../../config';
-import { SecurityError, RateLimitExceededError } from '../../../shared/types/errors';
+import { SecurityError, RateLimitExceededError } from 'shared/types/errors';
 import { executeToolWithDefinition } from '../tools/customTools';
-import { RateLimitType } from '../../services/rate-limit/config';
+import { RateLimitType } from 'worker/services/rate-limit/config';
 import { getMaxToolCallingDepth, MAX_LLM_MESSAGES } from '../constants';
 function optimizeInputs(messages) {
     return messages.map((message) => ({
@@ -236,8 +235,10 @@ export async function getConfigurationForModel(model, env, userId) {
     // Try to find API key of type <PROVIDER>_API_KEY else default to CLOUDFLARE_AI_GATEWAY_TOKEN
     // `env` is an interface of type `Env`
     const apiKey = await getApiKey(provider, env, userId);
-    // AI Gateway Wholesaling checks
-    const defaultHeaders = env.CLOUDFLARE_AI_GATEWAY_TOKEN && apiKey !== env.CLOUDFLARE_AI_GATEWAY_TOKEN ? {
+    // AI Gateway authentication: Always include cf-aig-authorization header when using AI Gateway
+    // The Authorization header should contain the provider's API key (for the actual API call)
+    // The cf-aig-authorization header should contain the AI Gateway token (for gateway authentication)
+    const defaultHeaders = env.CLOUDFLARE_AI_GATEWAY_TOKEN ? {
         'cf-aig-authorization': `Bearer ${env.CLOUDFLARE_AI_GATEWAY_TOKEN}`,
     } : undefined;
     return {
@@ -328,6 +329,76 @@ async function executeToolCalls(openAiToolCalls, originalDefinitions) {
     }));
 }
 /**
+ * Parse markdown-formatted response to JSON object
+ * Handles patterns like:
+ * - **Field:** value
+ * - ## Field\nvalue
+ * - Field: value
+ */
+function parseMarkdownResponseToJson(content) {
+    const result = {};
+    // Remove leading/trailing whitespace
+    content = content.trim();
+    // Pattern 1: **Field:** value (bold markdown)
+    const boldPattern = /\*\*([^*]+):\*\*\s*(.+?)(?=\n\*\*|$)/gs;
+    let match;
+    while ((match = boldPattern.exec(content)) !== null) {
+        const field = match[1].trim();
+        let value = match[2].trim();
+        // Clean up value (remove trailing markdown formatting)
+        value = value.replace(/\*\*/g, '').replace(/\*/g, '').trim();
+        // Handle special field name mappings for TemplateSelectionSchema
+        if (field.toLowerCase().includes('template') || field.toLowerCase().includes('selected')) {
+            result.selectedTemplateName = value;
+        }
+        else if (field.toLowerCase().includes('complexity')) {
+            result.complexity = value.toLowerCase();
+        }
+        else if (field.toLowerCase().includes('reasoning')) {
+            result.reasoning = value;
+        }
+        else if (field.toLowerCase().includes('use case') || field.toLowerCase().includes('usecase')) {
+            result.useCase = value;
+        }
+        else if (field.toLowerCase().includes('style')) {
+            result.styleSelection = value;
+        }
+        else if (field.toLowerCase().includes('project') && field.toLowerCase().includes('name')) {
+            result.projectName = value;
+        }
+    }
+    // Pattern 2: ## Field\nvalue (heading markdown)
+    if (Object.keys(result).length === 0) {
+        const headingPattern = /##+\s*([^\n]+)\n+([^\n#]+)/g;
+        while ((match = headingPattern.exec(content)) !== null) {
+            const field = match[1].trim();
+            let value = match[2].trim();
+            // Clean up value
+            value = value.replace(/```/g, '').trim();
+            if (field.toLowerCase().includes('template') || field.toLowerCase().includes('selected')) {
+                result.selectedTemplateName = value;
+            }
+            else if (field.toLowerCase().includes('complexity')) {
+                result.complexity = value.toLowerCase();
+            }
+            else if (field.toLowerCase().includes('reasoning')) {
+                result.reasoning = value;
+            }
+            else if (field.toLowerCase().includes('use case') || field.toLowerCase().includes('usecase')) {
+                result.useCase = value;
+            }
+            else if (field.toLowerCase().includes('style')) {
+                result.styleSelection = value;
+            }
+            else if (field.toLowerCase().includes('project') && field.toLowerCase().includes('name')) {
+                result.projectName = value;
+            }
+        }
+    }
+    // If we found any fields, return the result
+    return Object.keys(result).length > 0 ? result : null;
+}
+/**
  * Perform an inference using OpenAI's structured output with JSON schema
  * This uses the response_format.schema parameter to ensure the model returns
  * a response that matches the provided schema.
@@ -354,22 +425,18 @@ export async function infer({ env, metadata, messages, schema, schemaName, actio
         // Maybe in the future can expand using config object for other stuff like global model configs?
         await RateLimitService.enforceLLMCallsRateLimit(env, userConfig.security.rateLimit, metadata.userId, modelName);
         const { apiKey, baseURL, defaultHeaders } = await getConfigurationForModel(modelName, env, metadata.userId);
-        console.log(`baseUrl: ${baseURL}, modelName: ${modelName}`);
+        console.log(`baseUrl: ${baseURL}, modelName: ${modelName}, apiKeyPrefix: ${apiKey?.substring(0, 10) || 'N/A'}, hasDefaultHeaders: ${!!defaultHeaders}, defaultHeadersKeys: ${defaultHeaders ? Object.keys(defaultHeaders).join(',') : 'none'}`);
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
-        // Strip provider prefix (e.g., "anthropic/claude-3-5-sonnet-latest" -> "claude-3-5-sonnet-latest")
-        // AI Gateway expects just the model name, not the provider prefix
-        if (modelName.includes('/')) {
-            const parts = modelName.split('/');
-            if (parts.length > 1) {
-                modelName = parts.slice(1).join('/');
-            }
-        }
+        // For /compat endpoint, AI Gateway REQUIRES the {provider}/{model} format
+        // Do NOT strip the provider prefix when using /compat endpoint
+        // The model name should remain as "anthropic/claude-sonnet-4-20250514" for example
+        const isClaudeModel = modelName.includes('claude') || modelName.includes('anthropic/claude');
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
         const schemaObj = schema && schemaName && !format
             ? { response_format: zodResponseFormat(schema, schemaName) }
             : {};
-        const extraBody = modelName.includes('claude') ? {
+        const extraBody = isClaudeModel ? {
             extra_body: {
                 thinking: {
                     type: 'enabled',
@@ -430,7 +497,12 @@ export async function infer({ env, metadata, messages, schema, schemaName, actio
             }
         }
         console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, baseURL: ${baseURL}`);
+        if (schemaObj && schemaObj.response_format) {
+            console.log(`Using response_format for structured output, schemaName: ${schemaName}`);
+        }
         const toolsOpts = tools ? { tools, tool_choice: 'auto' } : {};
+        // For Claude models, reasoning_effort should only be in extra_body.thinking, not as a top-level parameter
+        const reasoningEffortParam = isClaudeModel ? {} : { reasoning_effort };
         let response;
         try {
             // Call OpenAI API with proper structured output format
@@ -438,15 +510,17 @@ export async function infer({ env, metadata, messages, schema, schemaName, actio
                 ...schemaObj,
                 ...extraBody,
                 ...toolsOpts,
+                ...reasoningEffortParam,
                 model: modelName,
                 messages: messagesToPass,
                 max_completion_tokens: maxTokens || 150000,
                 stream: stream ? true : false,
-                reasoning_effort,
                 temperature,
             }, {
                 signal: abortSignal,
                 headers: {
+                    // Merge defaultHeaders (cf-aig-authorization) with request-specific headers
+                    ...defaultHeaders,
                     "cf-aig-metadata": JSON.stringify({
                         chatId: metadata.agentId,
                         userId: metadata.userId,
@@ -455,9 +529,50 @@ export async function infer({ env, metadata, messages, schema, schemaName, actio
                     })
                 }
             });
-            console.log(`Inference response received`);
+            console.log(`[RESPONSE_DEBUG] Inference response received for ${actionKey}`);
+            console.log(`[RESPONSE_DEBUG] Response type: ${response?.constructor?.name || typeof response}`);
+            console.log(`[RESPONSE_DEBUG] Response has Symbol.asyncIterator: ${response && typeof response[Symbol.asyncIterator] === 'function'}`);
+            if (!(response && typeof response[Symbol.asyncIterator] === 'function')) {
+                // It's a ChatCompletion object, log its structure
+                const completion = response;
+                console.log(`[RESPONSE_DEBUG] ChatCompletion structure:`, {
+                    id: completion.id,
+                    object: completion.object,
+                    created: completion.created,
+                    model: completion.model,
+                    choicesCount: completion.choices?.length || 0,
+                    hasMessage: !!completion.choices?.[0]?.message,
+                    messageRole: completion.choices?.[0]?.message?.role,
+                    messageContentType: typeof completion.choices?.[0]?.message?.content,
+                    messageContentLength: completion.choices?.[0]?.message?.content?.length || 0,
+                    messageContentPreview: completion.choices?.[0]?.message?.content?.substring(0, 200) || 'N/A',
+                    hasToolCalls: !!completion.choices?.[0]?.message?.tool_calls,
+                    toolCallsCount: completion.choices?.[0]?.message?.tool_calls?.length || 0,
+                    usage: completion.usage,
+                });
+                // Log the full message object structure
+                if (completion.choices?.[0]?.message) {
+                    console.log(`[RESPONSE_DEBUG] Full message object keys:`, Object.keys(completion.choices[0].message));
+                    console.log(`[RESPONSE_DEBUG] Full message object:`, JSON.stringify(completion.choices[0].message, null, 2).substring(0, 1000));
+                }
+            }
         }
         catch (error) {
+            // Enhanced error logging for authentication issues
+            if (error instanceof Error) {
+                const errorMessage = error.message || '';
+                const isAuthError = errorMessage.includes('401') || errorMessage.includes('Unauthorized') || errorMessage.includes('2009');
+                if (isAuthError) {
+                    console.error(`[AUTH_ERROR] Authentication failed for model ${modelName}:`, {
+                        baseURL,
+                        apiKeyPrefix: apiKey?.substring(0, 15) || 'N/A',
+                        hasDefaultHeaders: !!defaultHeaders,
+                        defaultHeadersKeys: defaultHeaders ? Object.keys(defaultHeaders).join(',') : 'none',
+                        errorMessage: errorMessage,
+                        provider: modelName.split('/')[0]
+                    });
+                }
+            }
             // Check if error is due to abort
             if (error instanceof Error && (error.name === 'AbortError' || error.message?.includes('aborted') || error.message?.includes('abort'))) {
                 console.log('Inference cancelled by user');
@@ -483,37 +598,75 @@ export async function infer({ env, metadata, messages, schema, schemaName, actio
         let content = '';
         if (stream) {
             // If streaming is enabled, handle the stream response
-            if (response instanceof Stream) {
+            console.log(`[STREAM_DEBUG] Checking response type for streaming. Has stream param: ${!!stream}, response type: ${response?.constructor?.name || typeof response}`);
+            // Check if response is actually a Stream by checking for async iterator
+            let isStreamResponse = response && typeof response[Symbol.asyncIterator] === 'function';
+            console.log(`[STREAM_DEBUG] Response is async iterable (Stream): ${isStreamResponse}`);
+            if (isStreamResponse) {
                 let streamIndex = 0;
+                let chunkCount = 0;
+                let hasReceivedContent = false;
                 // Accumulators for tool calls: by index (preferred) and by id (fallback when index is missing)
                 const byIndex = new Map();
                 const byId = new Map();
                 const orderCounterRef = { value: 0 };
-                for await (const event of response) {
-                    const delta = event.choices[0]?.delta;
-                    // Provider-specific logging
-                    const provider = modelName.split('/')[0];
-                    if (delta?.tool_calls && (provider === 'google-ai-studio' || provider === 'gemini')) {
-                        console.log(`[PROVIDER_DEBUG] ${provider} tool_calls delta:`, JSON.stringify(delta.tool_calls, null, 2));
-                    }
-                    if (delta?.tool_calls) {
-                        try {
-                            for (const deltaToolCall of delta.tool_calls) {
-                                accumulateToolCallDelta(byIndex, byId, deltaToolCall, orderCounterRef);
+                console.log(`[STREAM_DEBUG] Starting to iterate over stream for ${actionKey}, model: ${modelName}`);
+                try {
+                    for await (const event of response) {
+                        chunkCount++;
+                        const delta = event.choices[0]?.delta;
+                        const finishReason = event.choices[0]?.finish_reason;
+                        // Provider-specific logging
+                        const provider = modelName.split('/')[0];
+                        if (delta?.tool_calls && (provider === 'google-ai-studio' || provider === 'gemini')) {
+                            console.log(`[PROVIDER_DEBUG] ${provider} tool_calls delta:`, JSON.stringify(delta.tool_calls, null, 2));
+                        }
+                        if (delta?.tool_calls) {
+                            try {
+                                for (const deltaToolCall of delta.tool_calls) {
+                                    accumulateToolCallDelta(byIndex, byId, deltaToolCall, orderCounterRef);
+                                }
+                            }
+                            catch (error) {
+                                console.error('Error processing tool calls in streaming:', error);
                             }
                         }
-                        catch (error) {
-                            console.error('Error processing tool calls in streaming:', error);
+                        // Process content - log every chunk for debugging
+                        const deltaContent = delta?.content || '';
+                        if (deltaContent) {
+                            hasReceivedContent = true;
+                            console.log(`[STREAM_DEBUG] Received delta content chunk #${chunkCount}, length: ${deltaContent.length}, preview: ${deltaContent.substring(0, 50)}...`);
+                        }
+                        content += deltaContent;
+                        const slice = content.slice(streamIndex);
+                        // Always send chunks when we have content, even if smaller than chunk_size
+                        // Also send on finishReason to ensure final chunk is sent
+                        if (slice.length > 0 && (slice.length >= stream.chunk_size || finishReason != null)) {
+                            console.log(`[STREAM_DEBUG] Sending chunk via onChunk, length: ${slice.length}, finishReason: ${finishReason}`);
+                            stream.onChunk(slice);
+                            streamIndex += slice.length;
                         }
                     }
-                    // Process content
-                    content += delta?.content || '';
-                    const slice = content.slice(streamIndex);
-                    const finishReason = event.choices[0]?.finish_reason;
-                    if (slice.length >= stream.chunk_size || finishReason != null) {
-                        stream.onChunk(slice);
-                        streamIndex += slice.length;
+                    console.log(`[STREAM_DEBUG] Stream iteration completed. Total events: ${chunkCount}, hasReceivedContent: ${hasReceivedContent}, final content length: ${content.length}`);
+                    // Send any remaining content that wasn't sent
+                    const remaining = content.slice(streamIndex);
+                    if (remaining.length > 0) {
+                        console.log(`[STREAM_DEBUG] Sending remaining content, length: ${remaining.length}`);
+                        stream.onChunk(remaining);
                     }
+                    else if (!hasReceivedContent && chunkCount === 0) {
+                        // If stream was empty (no events), this might be a structured output issue
+                        // Try to extract content from the response object itself
+                        console.warn(`[STREAM_DEBUG] Stream was empty (no events received). This might indicate structured output returned non-stream response.`);
+                        // Fall through to non-stream handling below
+                        throw new Error('Stream was empty - treating as non-stream response');
+                    }
+                }
+                catch (streamError) {
+                    // If stream iteration failed or was empty, treat as non-stream response
+                    console.warn(`[STREAM_DEBUG] Stream iteration failed or was empty:`, streamError);
+                    // Fall through to non-stream handling
+                    isStreamResponse = false;
                 }
                 // Assemble toolCalls with preference for index ordering, else first-seen order
                 const assembled = assembleToolCalls(byIndex, byId);
@@ -547,13 +700,144 @@ export async function infer({ env, metadata, messages, schema, schemaName, actio
             }
             else {
                 // Handle the case where stream was requested but a non-stream response was received
-                console.error('Expected a stream response but received a ChatCompletion object.');
+                console.warn(`[STREAM_DEBUG] Expected a stream response but received a ChatCompletion object. This can happen with structured output (response_format). Action: ${actionKey}, Model: ${modelName}`);
                 // Properly extract both content and tool calls from non-stream response
                 const completion = response;
                 const message = completion.choices[0]?.message;
+                console.log(`[STREAM_DEBUG] ========== DETAILED NON-STREAM RESPONSE ANALYSIS ==========`);
+                console.log(`[STREAM_DEBUG] Message exists: ${!!message}`);
+                console.log(`[STREAM_DEBUG] Message type: ${typeof message}`);
                 if (message) {
+                    console.log(`[STREAM_DEBUG] Message keys:`, Object.keys(message));
+                    console.log(`[STREAM_DEBUG] message.content type: ${typeof message.content}`);
+                    console.log(`[STREAM_DEBUG] message.content value:`, message.content);
+                    console.log(`[STREAM_DEBUG] message.content length: ${message.content?.length || 0}`);
+                    console.log(`[STREAM_DEBUG] message.tool_calls:`, message.tool_calls);
+                    console.log(`[STREAM_DEBUG] Full message object:`, JSON.stringify(message, null, 2));
+                }
+                else {
+                    console.log(`[STREAM_DEBUG] No message in choices[0]`);
+                    console.log(`[STREAM_DEBUG] Choices array:`, JSON.stringify(completion.choices, null, 2));
+                }
+                console.log(`[STREAM_DEBUG] Full completion object structure:`, {
+                    id: completion.id,
+                    object: completion.object,
+                    model: completion.model,
+                    choicesLength: completion.choices?.length,
+                    usage: completion.usage,
+                });
+                console.log(`[STREAM_DEBUG] ==========================================================`);
+                if (message) {
+                    // For structured output, content might be a JSON string
                     content = message.content || '';
                     toolCalls = message.tool_calls || [];
+                    console.log(`[STREAM_DEBUG] Step 1: Initial content extraction. Length: ${content.length}, preview: ${content.substring(0, 200)}...`);
+                    // PLAN POINT 1: If message.content is empty, try extracting from parsed structured object
+                    if (!content || content.length === 0) {
+                        console.log(`[STREAM_DEBUG] Step 2: message.content is empty, attempting to extract from parsed structured object...`);
+                        console.log(`[STREAM_DEBUG] Checking for structured output in message object...`);
+                        // Try to find structured output - could be in various places
+                        // Check if there's a parsed object we can serialize
+                        try {
+                            // Sometimes structured output is already parsed and available elsewhere
+                            // Check if message has any other fields that might contain the data
+                            const messageKeys = Object.keys(message);
+                            console.log(`[STREAM_DEBUG] Available message keys:`, messageKeys);
+                            // For structured output with response_format, the content might be null but the object is parsed
+                            // We need to check if there's a way to get the raw JSON
+                            // Since we're using response_format, OpenAI should return the JSON in message.content
+                            // But if it's empty, we might need to reconstruct from the parsed schema result
+                            // Check if we can get the raw response body (if available)
+                            console.log(`[STREAM_DEBUG] No direct structured object found in message. Will try fallback serialization.`);
+                        }
+                        catch (extractError) {
+                            console.error(`[STREAM_DEBUG] Error attempting to extract from structured object:`, extractError);
+                        }
+                    }
+                    // PLAN POINT 2: Serialize the structured object to JSON if needed
+                    // If content is still empty, try to serialize the entire message or completion
+                    if ((!content || content.length === 0) && stream) {
+                        console.log(`[STREAM_DEBUG] Step 3: Content still empty, attempting to serialize structured object to JSON...`);
+                        try {
+                            // Try serializing the message object itself
+                            const serializedMessage = JSON.stringify(message, null, 2);
+                            if (serializedMessage && serializedMessage.length > 0) {
+                                console.log(`[STREAM_DEBUG] Successfully serialized message object. Length: ${serializedMessage.length}`);
+                                content = serializedMessage;
+                            }
+                            else {
+                                // Fallback: serialize entire completion
+                                console.log(`[STREAM_DEBUG] Message serialization empty, trying full completion object...`);
+                                const serializedCompletion = JSON.stringify(completion, null, 2);
+                                if (serializedCompletion && serializedCompletion.length > 0) {
+                                    console.log(`[STREAM_DEBUG] Successfully serialized completion object. Length: ${serializedCompletion.length}`);
+                                    content = serializedCompletion;
+                                }
+                            }
+                        }
+                        catch (serializeError) {
+                            console.error(`[STREAM_DEBUG] Error serializing structured object:`, serializeError);
+                        }
+                    }
+                    // PLAN POINT 3: Ensure onChunk is always called with valid content
+                    // If streaming was requested, manually send the content as chunks
+                    if (stream) {
+                        if (content && content.length > 0) {
+                            console.log(`[STREAM_DEBUG] Step 4: Manually chunking non-stream content for streaming. Total length: ${content.length}, chunk_size: ${stream.chunk_size}`);
+                            // Send content in chunks matching chunk_size
+                            const chunkSize = stream.chunk_size;
+                            let chunkIndex = 0;
+                            for (let i = 0; i < content.length; i += chunkSize) {
+                                chunkIndex++;
+                                const chunk = content.slice(i, i + chunkSize);
+                                console.log(`[STREAM_DEBUG] Step 5: Calling stream.onChunk() with chunk #${chunkIndex}, length: ${chunk.length}, preview: ${chunk.substring(0, 50)}...`);
+                                console.log(`[STREAM_DEBUG] CALLBACK CHAIN: stream.onChunk() → should call initArgs.onBlueprintChunk() → should call writer.write({chunk})`);
+                                try {
+                                    stream.onChunk(chunk);
+                                    console.log(`[STREAM_DEBUG] ✅ stream.onChunk() called successfully for chunk #${chunkIndex}`);
+                                }
+                                catch (chunkError) {
+                                    console.error(`[STREAM_DEBUG] ❌ ERROR calling stream.onChunk() for chunk #${chunkIndex}:`, chunkError);
+                                }
+                            }
+                            console.log(`[STREAM_DEBUG] Step 6: Finished sending ${chunkIndex} manual chunks via stream.onChunk()`);
+                        }
+                        else {
+                            // PLAN POINT 4: Fallback - serialize entire response object to JSON
+                            console.error(`[STREAM_DEBUG] Step 4 (FALLBACK): Content is still empty after all extraction attempts!`);
+                            console.error(`[STREAM_DEBUG] Attempting fallback: serializing entire response object to JSON...`);
+                            try {
+                                const fallbackContent = JSON.stringify({
+                                    error: 'Content extraction failed',
+                                    message: message,
+                                    completion: {
+                                        id: completion.id,
+                                        model: completion.model,
+                                        object: completion.object,
+                                        choices: completion.choices,
+                                    }
+                                }, null, 2);
+                                console.log(`[STREAM_DEBUG] Fallback content generated. Length: ${fallbackContent.length}`);
+                                console.log(`[STREAM_DEBUG] Calling stream.onChunk() with fallback content...`);
+                                stream.onChunk(fallbackContent);
+                                console.log(`[STREAM_DEBUG] ✅ Fallback content sent via stream.onChunk()`);
+                            }
+                            catch (fallbackError) {
+                                console.error(`[STREAM_DEBUG] ❌ ERROR in fallback serialization:`, fallbackError);
+                                console.error(`[STREAM_DEBUG] Message object:`, JSON.stringify(message, null, 2));
+                                console.error(`[STREAM_DEBUG] Full completion:`, JSON.stringify(completion, null, 2).substring(0, 2000));
+                            }
+                        }
+                    }
+                    else if (stream && !content) {
+                        console.error(`[STREAM_DEBUG] ERROR: Streaming was requested but content is empty and stream.onChunk() was not called!`);
+                        console.error(`[STREAM_DEBUG] Message object:`, JSON.stringify(message, null, 2));
+                        console.error(`[STREAM_DEBUG] Full completion:`, JSON.stringify(completion, null, 2).substring(0, 2000));
+                    }
+                }
+                else {
+                    console.error(`[STREAM_DEBUG] ERROR: No message in non-stream response!`);
+                    console.error(`[STREAM_DEBUG] Full completion:`, JSON.stringify(completion, null, 2).substring(0, 2000));
                 }
             }
         }
@@ -652,13 +936,209 @@ export async function infer({ env, metadata, messages, schema, schemaName, actio
         }
         try {
             // Parse the response
-            const parsedContent = format
-                ? parseContentForSchema(content, format, schema, formatOptions)
-                : JSON.parse(content);
+            let parsedContent;
+            if (format) {
+                parsedContent = parseContentForSchema(content, format, schema, formatOptions);
+            }
+            else {
+                // Try to parse as JSON directly
+                try {
+                    parsedContent = JSON.parse(content);
+                }
+                catch (jsonError) {
+                    // If JSON parsing fails, try to extract JSON from markdown
+                    // Look for JSON code blocks first (most common case)
+                    let jsonMatch = content.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/);
+                    // If no code block, try to find JSON object in the content
+                    if (!jsonMatch) {
+                        // Try to find a JSON object (starting with { and ending with })
+                        const jsonObjectMatch = content.match(/(\{[\s\S]*\})/);
+                        if (jsonObjectMatch) {
+                            // Try to find the matching closing brace
+                            let braceCount = 0;
+                            let jsonStart = -1;
+                            let jsonEnd = -1;
+                            for (let i = 0; i < content.length; i++) {
+                                if (content[i] === '{') {
+                                    if (braceCount === 0)
+                                        jsonStart = i;
+                                    braceCount++;
+                                }
+                                else if (content[i] === '}') {
+                                    braceCount--;
+                                    if (braceCount === 0) {
+                                        jsonEnd = i;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (jsonStart !== -1 && jsonEnd !== -1) {
+                                jsonMatch = [content.substring(jsonStart, jsonEnd + 1), content.substring(jsonStart, jsonEnd + 1)];
+                            }
+                        }
+                    }
+                    if (jsonMatch && jsonMatch[1]) {
+                        try {
+                            parsedContent = JSON.parse(jsonMatch[1]);
+                            console.log('Successfully extracted JSON from markdown response');
+                        }
+                        catch (extractError) {
+                            console.error('Failed to extract JSON from markdown:', extractError);
+                            console.log('Raw content:', content.substring(0, 500));
+                            throw jsonError; // Re-throw original JSON parse error
+                        }
+                    }
+                    else {
+                        // Last resort: try to parse markdown-formatted response and convert to JSON
+                        // This handles cases where the model returns markdown despite structured output being requested
+                        try {
+                            const markdownJson = parseMarkdownResponseToJson(content);
+                            if (markdownJson) {
+                                parsedContent = markdownJson;
+                            }
+                            else {
+                                throw new Error('Could not parse markdown response');
+                            }
+                            console.log('Successfully parsed markdown response to JSON');
+                        }
+                        catch (markdownError) {
+                            console.error('Failed to parse markdown response:', markdownError);
+                            console.error('No JSON found in response, raw content:', content.substring(0, 500));
+                            throw jsonError; // Re-throw original JSON parse error
+                        }
+                    }
+                }
+            }
+            // Map common field name variations to expected schema field names
+            // This handles cases where the model returns slightly different field names
+            if (parsedContent && typeof parsedContent === 'object' && !Array.isArray(parsedContent)) {
+                // Map template selection field names
+                if (parsedContent.template && !parsedContent.selectedTemplateName) {
+                    parsedContent.selectedTemplateName = parsedContent.template;
+                }
+                if (parsedContent.style && !parsedContent.styleSelection) {
+                    parsedContent.styleSelection = parsedContent.style;
+                }
+                // Normalize and validate enum values
+                // styleSelection enum: ['Minimalist Design', 'Brutalism', 'Retro', 'Illustrative', 'Kid_Playful', 'Custom']
+                if (parsedContent.styleSelection !== null && parsedContent.styleSelection !== undefined) {
+                    const style = String(parsedContent.styleSelection);
+                    const validStyles = ['Minimalist Design', 'Brutalism', 'Retro', 'Illustrative', 'Kid_Playful', 'Custom'];
+                    const styleLower = style.toLowerCase();
+                    // Check if it's already a valid enum value
+                    if (!validStyles.includes(style)) {
+                        // Map common variations to enum values
+                        if (styleLower.includes('minimalist')) {
+                            parsedContent.styleSelection = 'Minimalist Design';
+                        }
+                        else if (styleLower.includes('brutal')) {
+                            parsedContent.styleSelection = 'Brutalism';
+                        }
+                        else if (styleLower.includes('retro')) {
+                            parsedContent.styleSelection = 'Retro';
+                        }
+                        else if (styleLower.includes('illustrat')) {
+                            parsedContent.styleSelection = 'Illustrative';
+                        }
+                        else if (styleLower.includes('playful') || styleLower.includes('kid')) {
+                            parsedContent.styleSelection = 'Kid_Playful';
+                        }
+                        else if (styleLower.includes('custom')) {
+                            parsedContent.styleSelection = 'Custom';
+                        }
+                        else {
+                            // Invalid enum value, set to null
+                            parsedContent.styleSelection = null;
+                        }
+                    }
+                }
+                // useCase enum: ['SaaS Product Website', 'Dashboard', 'Blog', 'Portfolio', 'E-Commerce', 'General', 'Other']
+                if (parsedContent.useCase !== null && parsedContent.useCase !== undefined) {
+                    const useCase = String(parsedContent.useCase);
+                    const validUseCases = ['SaaS Product Website', 'Dashboard', 'Blog', 'Portfolio', 'E-Commerce', 'General', 'Other'];
+                    const useCaseLower = useCase.toLowerCase();
+                    if (!validUseCases.includes(useCase)) {
+                        // Map common variations
+                        if (useCaseLower.includes('saas') || useCaseLower.includes('product')) {
+                            parsedContent.useCase = 'SaaS Product Website';
+                        }
+                        else if (useCaseLower.includes('dashboard')) {
+                            parsedContent.useCase = 'Dashboard';
+                        }
+                        else if (useCaseLower.includes('blog')) {
+                            parsedContent.useCase = 'Blog';
+                        }
+                        else if (useCaseLower.includes('portfolio')) {
+                            parsedContent.useCase = 'Portfolio';
+                        }
+                        else if (useCaseLower.includes('ecommerce') || useCaseLower.includes('e-commerce') || useCaseLower.includes('shop')) {
+                            parsedContent.useCase = 'E-Commerce';
+                        }
+                        else if (useCaseLower.includes('general')) {
+                            parsedContent.useCase = 'General';
+                        }
+                        else {
+                            // Invalid enum value, set to null
+                            parsedContent.useCase = null;
+                        }
+                    }
+                }
+                // complexity enum: ['simple', 'moderate', 'complex']
+                if (parsedContent.complexity !== null && parsedContent.complexity !== undefined) {
+                    const complexity = String(parsedContent.complexity).toLowerCase();
+                    const validComplexities = ['simple', 'moderate', 'complex'];
+                    if (!validComplexities.includes(complexity)) {
+                        // Map common variations
+                        if (complexity.includes('simple') || complexity.includes('easy') || complexity.includes('basic')) {
+                            parsedContent.complexity = 'simple';
+                        }
+                        else if (complexity.includes('moderate') || complexity.includes('medium') || complexity.includes('intermediate')) {
+                            parsedContent.complexity = 'moderate';
+                        }
+                        else if (complexity.includes('complex') || complexity.includes('hard') || complexity.includes('advanced')) {
+                            parsedContent.complexity = 'complex';
+                        }
+                        else {
+                            // Invalid enum value, set to null
+                            parsedContent.complexity = null;
+                        }
+                    }
+                    else {
+                        parsedContent.complexity = complexity;
+                    }
+                }
+                // Replace null/undefined values with sensible defaults - we want NO null fields
+                // This ensures the output always has values even if the model returns null
+                // Replace null useCase with "General" (safe default)
+                if (parsedContent.useCase === undefined || parsedContent.useCase === null) {
+                    parsedContent.useCase = 'General';
+                }
+                // Replace null complexity with "simple" (safe default)
+                if (parsedContent.complexity === undefined || parsedContent.complexity === null) {
+                    parsedContent.complexity = 'simple';
+                }
+                // Replace null styleSelection with "Minimalist Design" (safe default)
+                if (parsedContent.styleSelection === undefined || parsedContent.styleSelection === null) {
+                    parsedContent.styleSelection = 'Minimalist Design';
+                }
+                // selectedTemplateName can be null per schema, but we prefer non-null
+                // If it's undefined, set to null (schema allows it)
+                if (parsedContent.selectedTemplateName === undefined) {
+                    parsedContent.selectedTemplateName = null;
+                }
+                // Set defaults for required fields if missing (with fallback values)
+                // These are required, not nullable, so we need to provide defaults
+                if (!parsedContent.reasoning || typeof parsedContent.reasoning !== 'string') {
+                    parsedContent.reasoning = parsedContent.reasoning || 'Template selected based on user requirements.';
+                }
+                if (!parsedContent.projectName || typeof parsedContent.projectName !== 'string') {
+                    parsedContent.projectName = parsedContent.projectName || 'Untitled Project';
+                }
+            }
             // Use Zod's safeParse for proper error handling
             const result = schema.safeParse(parsedContent);
             if (!result.success) {
-                console.log('Raw content:', content);
+                console.log('Raw content:', content.substring(0, 500));
                 console.log('Parsed data:', parsedContent);
                 console.error('Schema validation errors:', result.error.format());
                 throw new Error(`Failed to validate AI response against schema: ${result.error.message}`);

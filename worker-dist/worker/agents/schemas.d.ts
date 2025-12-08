@@ -7,15 +7,15 @@ export declare const TemplateSelectionSchema: z.ZodObject<{
     styleSelection: z.ZodNullable<z.ZodEnum<["Minimalist Design", "Brutalism", "Retro", "Illustrative", "Kid_Playful", "Custom"]>>;
     projectName: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    reasoning: string;
     selectedTemplateName: string | null;
+    reasoning: string;
     useCase: "SaaS Product Website" | "Dashboard" | "Blog" | "Portfolio" | "E-Commerce" | "General" | "Other" | null;
     complexity: "simple" | "moderate" | "complex" | null;
     styleSelection: "Minimalist Design" | "Brutalism" | "Retro" | "Illustrative" | "Kid_Playful" | "Custom" | null;
     projectName: string;
 }, {
-    reasoning: string;
     selectedTemplateName: string | null;
+    reasoning: string;
     useCase: "SaaS Product Website" | "Dashboard" | "Blog" | "Portfolio" | "E-Commerce" | "General" | "Other" | null;
     complexity: "simple" | "moderate" | "complex" | null;
     styleSelection: "Minimalist Design" | "Brutalism" | "Retro" | "Illustrative" | "Kid_Playful" | "Custom" | null;
@@ -65,8 +65,8 @@ export declare const PhaseConceptSchema: z.ZodObject<{
     }>, "many">;
     lastPhase: z.ZodBoolean;
 }, "strip", z.ZodTypeAny, {
-    name: string;
     description: string;
+    name: string;
     files: {
         path: string;
         purpose: string;
@@ -74,8 +74,8 @@ export declare const PhaseConceptSchema: z.ZodObject<{
     }[];
     lastPhase: boolean;
 }, {
-    name: string;
     description: string;
+    name: string;
     files: {
         path: string;
         purpose: string;
@@ -101,11 +101,11 @@ export declare const PhaseConceptLiteSchema: z.ZodObject<Omit<{
     }>, "many">;
     lastPhase: z.ZodBoolean;
 }, "files" | "lastPhase">, "strip", z.ZodTypeAny, {
-    name: string;
     description: string;
+    name: string;
 }, {
-    name: string;
     description: string;
+    name: string;
 }>;
 /**
  * Schema for file generation output
@@ -117,15 +117,15 @@ export declare const FileGenerationOutput: z.ZodObject<{
 } & {
     format: z.ZodEnum<["full_content", "unified_diff"]>;
 }, "strip", z.ZodTypeAny, {
-    format: "full_content" | "unified_diff";
     filePath: string;
     fileContents: string;
     filePurpose: string;
+    format: "full_content" | "unified_diff";
 }, {
-    format: "full_content" | "unified_diff";
     filePath: string;
     fileContents: string;
     filePurpose: string;
+    format: "full_content" | "unified_diff";
 }>;
 export declare const PhaseConceptGenerationSchema: z.ZodObject<{
     name: z.ZodString;
@@ -147,8 +147,8 @@ export declare const PhaseConceptGenerationSchema: z.ZodObject<{
 } & {
     installCommands: z.ZodArray<z.ZodString, "many">;
 }, "strip", z.ZodTypeAny, {
-    name: string;
     description: string;
+    name: string;
     files: {
         path: string;
         purpose: string;
@@ -157,8 +157,8 @@ export declare const PhaseConceptGenerationSchema: z.ZodObject<{
     lastPhase: boolean;
     installCommands: string[];
 }, {
-    name: string;
     description: string;
+    name: string;
     files: {
         path: string;
         purpose: string;
@@ -189,16 +189,16 @@ export declare const PhaseImplementationSchema: z.ZodObject<{
         fileContents: string;
         filePurpose: string;
     }[];
-    deploymentNeeded: boolean;
     commands: string[];
+    deploymentNeeded: boolean;
 }, {
     files: {
         filePath: string;
         fileContents: string;
         filePurpose: string;
     }[];
-    deploymentNeeded: boolean;
     commands: string[];
+    deploymentNeeded: boolean;
 }>;
 /**
  * Schema for code documentation fetch output
@@ -207,11 +207,11 @@ export declare const DocumentationOutput: z.ZodObject<{
     content: z.ZodString;
     source: z.ZodString;
 }, "strip", z.ZodTypeAny, {
-    content: string;
     source: string;
+    content: string;
 }, {
-    content: string;
     source: string;
+    content: string;
 }>;
 /**
  * Schema for code review output
@@ -268,11 +268,11 @@ export declare const BlueprintSchema: z.ZodObject<{
         name: z.ZodString;
         description: z.ZodString;
     }, "strip", z.ZodTypeAny, {
-        name: string;
         description: string;
+        name: string;
     }, {
-        name: string;
         description: string;
+        name: string;
     }>, "many">;
     userFlow: z.ZodObject<{
         uiLayout: z.ZodString;
@@ -325,8 +325,8 @@ export declare const BlueprintSchema: z.ZodObject<{
         }>, "many">;
         lastPhase: z.ZodBoolean;
     }, "strip", z.ZodTypeAny, {
-        name: string;
         description: string;
+        name: string;
         files: {
             path: string;
             purpose: string;
@@ -334,8 +334,8 @@ export declare const BlueprintSchema: z.ZodObject<{
         }[];
         lastPhase: boolean;
     }, {
-        name: string;
         description: string;
+        name: string;
         files: {
             path: string;
             purpose: string;
@@ -344,14 +344,15 @@ export declare const BlueprintSchema: z.ZodObject<{
         lastPhase: boolean;
     }>;
 }, "strip", z.ZodTypeAny, {
-    projectName: string;
-    description: string;
     title: string;
+    description: string;
+    frameworks: string[];
+    projectName: string;
     detailedDescription: string;
     colorPalette: string[];
     views: {
-        name: string;
         description: string;
+        name: string;
     }[];
     userFlow: {
         uiLayout: string;
@@ -363,14 +364,13 @@ export declare const BlueprintSchema: z.ZodObject<{
         dataFlow: string;
     };
     pitfalls: string[];
-    frameworks: string[];
     implementationRoadmap: {
         description: string;
         phase: string;
     }[];
     initialPhase: {
-        name: string;
         description: string;
+        name: string;
         files: {
             path: string;
             purpose: string;
@@ -379,14 +379,15 @@ export declare const BlueprintSchema: z.ZodObject<{
         lastPhase: boolean;
     };
 }, {
-    projectName: string;
-    description: string;
     title: string;
+    description: string;
+    frameworks: string[];
+    projectName: string;
     detailedDescription: string;
     colorPalette: string[];
     views: {
-        name: string;
         description: string;
+        name: string;
     }[];
     userFlow: {
         uiLayout: string;
@@ -398,14 +399,13 @@ export declare const BlueprintSchema: z.ZodObject<{
         dataFlow: string;
     };
     pitfalls: string[];
-    frameworks: string[];
     implementationRoadmap: {
         description: string;
         phase: string;
     }[];
     initialPhase: {
-        name: string;
         description: string;
+        name: string;
         files: {
             path: string;
             purpose: string;
@@ -424,11 +424,11 @@ export declare const BlueprintSchemaLite: z.ZodObject<Omit<{
         name: z.ZodString;
         description: z.ZodString;
     }, "strip", z.ZodTypeAny, {
-        name: string;
         description: string;
+        name: string;
     }, {
-        name: string;
         description: string;
+        name: string;
     }>, "many">;
     userFlow: z.ZodObject<{
         uiLayout: z.ZodString;
@@ -481,8 +481,8 @@ export declare const BlueprintSchemaLite: z.ZodObject<Omit<{
         }>, "many">;
         lastPhase: z.ZodBoolean;
     }, "strip", z.ZodTypeAny, {
-        name: string;
         description: string;
+        name: string;
         files: {
             path: string;
             purpose: string;
@@ -490,8 +490,8 @@ export declare const BlueprintSchemaLite: z.ZodObject<Omit<{
         }[];
         lastPhase: boolean;
     }, {
-        name: string;
         description: string;
+        name: string;
         files: {
             path: string;
             purpose: string;
@@ -500,14 +500,15 @@ export declare const BlueprintSchemaLite: z.ZodObject<Omit<{
         lastPhase: boolean;
     }>;
 }, "initialPhase">, "strip", z.ZodTypeAny, {
-    projectName: string;
-    description: string;
     title: string;
+    description: string;
+    frameworks: string[];
+    projectName: string;
     detailedDescription: string;
     colorPalette: string[];
     views: {
-        name: string;
         description: string;
+        name: string;
     }[];
     userFlow: {
         uiLayout: string;
@@ -519,20 +520,20 @@ export declare const BlueprintSchemaLite: z.ZodObject<Omit<{
         dataFlow: string;
     };
     pitfalls: string[];
-    frameworks: string[];
     implementationRoadmap: {
         description: string;
         phase: string;
     }[];
 }, {
-    projectName: string;
-    description: string;
     title: string;
+    description: string;
+    frameworks: string[];
+    projectName: string;
     detailedDescription: string;
     colorPalette: string[];
     views: {
-        name: string;
         description: string;
+        name: string;
     }[];
     userFlow: {
         uiLayout: string;
@@ -544,7 +545,6 @@ export declare const BlueprintSchemaLite: z.ZodObject<Omit<{
         dataFlow: string;
     };
     pitfalls: string[];
-    frameworks: string[];
     implementationRoadmap: {
         description: string;
         phase: string;
@@ -573,16 +573,16 @@ export declare const ScreenshotAnalysisSchema: z.ZodObject<{
     }>;
 }, "strip", z.ZodTypeAny, {
     issues: string[];
-    hasIssues: boolean;
     suggestions: string[];
+    hasIssues: boolean;
     uiCompliance: {
         matchesBlueprint: boolean;
         deviations: string[];
     };
 }, {
     issues: string[];
-    hasIssues: boolean;
     suggestions: string[];
+    hasIssues: boolean;
     uiCompliance: {
         matchesBlueprint: boolean;
         deviations: string[];

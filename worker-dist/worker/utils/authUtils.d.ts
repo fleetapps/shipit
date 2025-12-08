@@ -64,11 +64,14 @@ export interface CookieOptions {
 export declare function createSecureCookie(options: CookieOptions): string;
 /**
  * Set auth cookies with proper security settings
+ * @param response - Response object to set cookies on
+ * @param tokens - Token data
+ * @param request - Optional request object to extract domain from (for cross-subdomain cookie sharing)
  */
 export declare function setSecureAuthCookies(response: Response, tokens: {
     accessToken: string;
     accessTokenExpiry?: number;
-}): void;
+}, request?: Request): void;
 /**
  * Extract request metadata for security analysis
  */

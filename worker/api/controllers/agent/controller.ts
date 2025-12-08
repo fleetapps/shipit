@@ -526,6 +526,19 @@ export class CodingAgentController extends BaseController {
                 // Get the agent instance
                 const agentInstance = await getAgentStub(env, agentId);
                 
+                // CRITICAL: Check if code generation is already in progress to prevent duplicate LLM calls
+                // Note: Durable Object stub methods return Promises, so we need to await
+                if (typeof agentInstance.isCodeGenerating === 'function') {
+                    const isGenerating = await agentInstance.isCodeGenerating();
+                    if (isGenerating) {
+                        this.logger.warn(`Code generation already in progress for agent ${agentId}, skipping duplicate trigger`);
+                        return CodingAgentController.createSuccessResponse({
+                            message: 'Code generation already in progress',
+                            agentId,
+                        });
+                    }
+                }
+                
                 // Check if agent is initialized
                 const isInitialized = await agentInstance.isInitialized();
                 

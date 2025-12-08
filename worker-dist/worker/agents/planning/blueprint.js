@@ -6,8 +6,8 @@ import { createLogger } from '../../logger';
 import { createSystemMessage, createUserMessage, createMultiModalUserMessage } from '../inferutils/common';
 import { TemplateRegistry } from '../inferutils/schemaFormatters';
 import z from 'zod';
-import { imagesToBase64 } from '../../utils/images';
-import { getTemplateImportantFiles } from '../../services/sandbox/utils';
+import { imagesToBase64 } from 'worker/utils/images';
+import { getTemplateImportantFiles } from 'worker/services/sandbox/utils';
 const logger = createLogger('Blueprint');
 const SYSTEM_PROMPT = `<ROLE>
     You are a meticulous and forward-thinking Senior Software Architect and Product Manager at Cloudflare with extensive expertise in modern UI/UX design and visual excellence. 

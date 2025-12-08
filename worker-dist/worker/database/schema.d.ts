@@ -267,7 +267,7 @@ export declare const users: import("drizzle-orm/sqlite-core").SQLiteTableWithCol
             tableName: "users";
             dataType: "string";
             columnType: "SQLiteText";
-            data: "system" | "light" | "dark";
+            data: "light" | "dark" | "system";
             driverParam: string;
             notNull: false;
             hasDefault: true;
@@ -1080,7 +1080,7 @@ export declare const apps: import("drizzle-orm/sqlite-core").SQLiteTableWithColu
             tableName: "apps";
             dataType: "string";
             columnType: "SQLiteText";
-            data: "completed" | "generating";
+            data: "generating" | "completed";
             driverParam: string;
             notNull: true;
             hasDefault: true;
@@ -2313,7 +2313,7 @@ export declare const authAttempts: import("drizzle-orm/sqlite-core").SQLiteTable
             tableName: "auth_attempts";
             dataType: "string";
             columnType: "SQLiteText";
-            data: "login" | "register" | "oauth_google" | "oauth_github" | "refresh" | "reset_password";
+            data: "refresh" | "login" | "register" | "oauth_google" | "oauth_github" | "reset_password";
             driverParam: string;
             notNull: true;
             hasDefault: false;

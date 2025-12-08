@@ -8,7 +8,7 @@ import { generateId } from '../../utils/idGenerator';
 import { ResourceProvisioner } from './resourceProvisioner';
 import { TemplateParser } from './templateParser';
 import { getPreviewDomain } from '../../utils/urls';
-import { isDev } from '../../utils/envs';
+import { isDev } from 'worker/utils/envs';
 import { FileTreeBuilder } from './fileTreeBuilder';
 // Export the Sandbox class in your Worker
 export { Sandbox as UserAppSandboxService, Sandbox as DeployerService } from "@cloudflare/sandbox";
@@ -766,11 +766,18 @@ export class SandboxSdkClient extends BaseSandboxService {
                 this.logger.info('Starting cloudflared tunnel for local development', { instanceId });
                 tunnelUrlPromise = this.startCloudflaredTunnel(instanceId, allocatedPort);
             }
+            console.log('[FLOW_STEP_7] STEP 7: Template Installation & Setup - START: Installing dependencies', { instanceId, projectName });
             this.logger.info('Installing dependencies', { instanceId });
             const [installResult, tunnelURL] = await Promise.all([
                 this.executeCommand(instanceId, `bun install`, { timeout: 40000 }),
                 tunnelUrlPromise
             ]);
+            if (installResult.exitCode === 0) {
+                console.log('[FLOW_STEP_7] STEP 7: Template Installation & Setup - COMPLETE: Dependencies installed successfully');
+            }
+            else {
+                console.error('[FLOW_STEP_7] STEP 7: Template Installation & Setup - ERROR: Dependency installation failed', { exitCode: installResult.exitCode, stderr: installResult.stderr });
+            }
             this.logger.info('Dependencies installed', { instanceId, tunnelURL });
             if (installResult.exitCode === 0) {
                 // Try to start development server in background
@@ -779,9 +786,12 @@ export class SandboxSdkClient extends BaseSandboxService {
                         await this.setLocalEnvVars(instanceId, localEnvVars);
                     }
                     // Start dev server on allocated port
+                    console.log('[FLOW_STEP_7] STEP 7: Template Installation & Setup - PROGRESS: Starting dev server', { instanceId, port: allocatedPort });
                     const processId = await this.startDevServer(instanceId, allocatedPort);
+                    console.log('[FLOW_STEP_7] STEP 7: Template Installation & Setup - COMPLETE: Dev server started', { instanceId, processId, port: allocatedPort });
                     this.logger.info('Instance created successfully', { instanceId, processId, port: allocatedPort });
                     // Expose the same port for preview URL
+                    console.log('[FLOW_STEP_8] STEP 8: Sandbox Preview URL → GET Request - START: Exposing port for preview URL', { port: allocatedPort });
                     const previewResult = await sandbox.exposePort(allocatedPort, { hostname: getPreviewDomain(env) });
                     let previewURL = previewResult.url;
                     if (!isDev(env)) {
@@ -795,15 +805,18 @@ export class SandboxSdkClient extends BaseSandboxService {
                         this.logger.info('Using tunnel url instead for preview as configured', { instanceId, tunnelURL });
                         previewURL = tunnelURL;
                     }
+                    console.log('[FLOW_STEP_8] STEP 8: Sandbox Preview URL → GET Request - COMPLETE: Preview URL exposed', { instanceId, previewURL });
                     this.logger.info('Preview URL exposed', { instanceId, previewURL });
                     return { previewURL, tunnelURL, processId, allocatedPort };
                 }
                 catch (error) {
+                    console.error('[FLOW_STEP_7] STEP 7: Template Installation & Setup - ERROR: Failed to start dev server', error);
                     this.logger.warn('Failed to start dev server', error);
                     return undefined;
                 }
             }
             else {
+                console.error('[FLOW_STEP_7] STEP 7: Template Installation & Setup - ERROR: Failed to install dependencies', { stderr: installResult.stderr, exitCode: installResult.exitCode });
                 this.logger.warn('Failed to install dependencies', installResult.stderr);
             }
         }

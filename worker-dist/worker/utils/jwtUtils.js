@@ -1,7 +1,7 @@
 import { jwtVerify, SignJWT } from 'jose';
-import { SecurityError, SecurityErrorType } from '../../shared/types/errors';
+import { SecurityError, SecurityErrorType } from 'shared/types/errors';
 import { createLogger } from '../logger';
-import { SessionService } from '../database/services/SessionService';
+import { SessionService } from 'worker/database/services/SessionService';
 const logger = createLogger('JWTUtils');
 export class JWTUtils {
     static instance = null;

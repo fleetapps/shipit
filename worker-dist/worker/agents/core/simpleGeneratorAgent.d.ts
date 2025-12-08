@@ -78,19 +78,19 @@ export declare class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     setState(state: CodeGenState): void;
     onConnect(connection: Connection, ctx: ConnectionContext): void;
     ensureTemplateDetails(): Promise<{
-        name: string;
         description: {
             selection: string;
             usage: string;
         };
+        name: string;
         fileTree: import("../../services/sandbox/sandboxTypes").FileTreeNode;
         allFiles: Record<string, string>;
         deps: Record<string, string>;
         importantFiles: string[];
         dontTouchFiles: string[];
         redactedFiles: string[];
-        frameworks?: string[] | undefined;
         language?: string | undefined;
+        frameworks?: string[] | undefined;
     }>;
     private getTemplateDetails;
     /**
@@ -195,9 +195,9 @@ export declare class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
     } | null;
     getWebSockets(): WebSocket[];
     fetchRuntimeErrors(clear?: boolean): Promise<{
-        level: number;
-        message: string;
         timestamp: string;
+        message: string;
+        level: number;
         rawOutput: string;
     }[]>;
     /**

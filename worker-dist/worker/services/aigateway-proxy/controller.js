@@ -3,9 +3,9 @@ import { eq } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/d1';
 import { apps } from '../../database/schema';
 import { jwtVerify, SignJWT } from 'jose';
-import { isDev } from '../../utils/envs';
+import { isDev } from 'worker/utils/envs';
 import { RateLimitService } from '../rate-limit/rateLimits';
-import { getUserConfigurableSettings } from '../../config';
+import { getUserConfigurableSettings } from 'worker/config';
 export async function proxyToAiGateway(request, env, _ctx) {
     console.log(`[AI Proxy] Received request: ${request.method} ${request.url}`);
     if (!env.AI_PROXY_JWT_SECRET) {

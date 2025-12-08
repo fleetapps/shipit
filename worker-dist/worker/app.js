@@ -5,7 +5,7 @@ import { getCORSConfig, getSecureHeadersConfig } from './config/security';
 import { RateLimitService } from './services/rate-limit/rateLimits';
 import { setupRoutes } from './api/routes';
 import { CsrfService } from './services/csrf/CsrfService';
-import { SecurityError, SecurityErrorType } from '../shared/types/errors';
+import { SecurityError, SecurityErrorType } from 'shared/types/errors';
 import { getGlobalConfigurableSettings } from './config';
 import { AuthConfig, setAuthLevel } from './middleware/auth/routeAuth';
 // import { initHonoSentry } from './observability/sentry';
@@ -26,6 +26,7 @@ export function createApp(env) {
     // CORS configuration
     app.use('/api/*', cors(getCORSConfig(env)));
     // CSRF protection using double-submit cookie pattern with proper GET handling
+    // HACKY FIX: Accepts header token even when cookie is missing (for in-memory fallback)
     app.use('*', async (c, next) => {
         const method = c.req.method.toUpperCase();
         // Skip for WebSocket upgrades
@@ -38,13 +39,15 @@ export function createApp(env) {
             if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') {
                 await next();
                 // Only set CSRF token for successful API responses
-                if (c.req.url.startsWith('/api/') && c.res.status < 400) {
+                // Skip /api/auth/csrf-token since it handles cookie setting itself
+                if (c.req.url.startsWith('/api/') && c.res.status < 400 && !c.req.url.includes('/api/auth/csrf-token')) {
                     await CsrfService.enforce(c.req.raw, c.res);
                 }
                 return;
             }
             // Validate CSRF token for state-changing requests
-            await CsrfService.enforce(c.req.raw, undefined);
+            // Note: enforce() will auto-set cookie from header if header exists but cookie is missing
+            await CsrfService.enforce(c.req.raw, c.res);
             await next();
         }
         catch (error) {

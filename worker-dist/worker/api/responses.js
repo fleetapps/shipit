@@ -1,7 +1,7 @@
 /**
  * Standardized API response utilities
  */
-import { SecurityError } from '../../shared/types/errors';
+import { SecurityError } from 'shared/types/errors';
 /**
  * Creates a success response with standard format
  */

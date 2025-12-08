@@ -2,7 +2,7 @@ import { BaseController } from '../baseController';
 import { getAgentStubLightweight } from '../../../agents';
 import { AppService } from '../../../database/services/AppService';
 import { createLogger } from '../../../logger';
-import { buildUserWorkerUrl, buildGitCloneUrl } from '../../../utils/urls';
+import { buildUserWorkerUrl, buildGitCloneUrl } from 'worker/utils/urls';
 import { JWTUtils } from '../../../utils/jwtUtils';
 export class AppViewController extends BaseController {
     static logger = createLogger('AppViewController');
