@@ -14,19 +14,25 @@ export function getSystemPromptWithProjectContext(
 ): Message[] {
     const { query, blueprint, templateDetails, dependencies, allFiles, commandsHistory } = context;
 
+    // Ensure templateDetails is defined (should always be set from state)
+    if (!templateDetails) {
+        throw new Error('templateDetails is required in GenerationContext but was undefined');
+    }
+
     const messages = [
         createSystemMessage(generalSystemPromptBuilder(systemPrompt, {
             query,
             blueprint,
-            templateDetails,
-            dependencies,
-        })), 
+            blueprintMarkdown: context.blueprintMarkdown, // Pass blueprint markdown as fallback
+            templateDetails: templateDetails,
+            dependencies: dependencies || {},
+        })),
         createUserMessage(
             USER_PROMPT_FORMATTER.PROJECT_CONTEXT(
                 context.getCompletedPhases(),
-                allFiles, 
+                allFiles || context.allFiles || [], 
                 context.getFileTree(),
-                commandsHistory,
+                commandsHistory || context.commandsHistory || [],
                 serializerType  
             )
         ),

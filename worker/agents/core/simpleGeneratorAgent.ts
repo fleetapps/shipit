@@ -245,6 +245,9 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
         this.logger().info('Generating blueprint', { query, queryLength: query.length, imagesCount: initArgs.images?.length || 0 });
         this.logger().info(`Using language: ${language}, frameworks: ${frameworks ? frameworks.join(", ") : "none"}`);
         
+        // Accumulate blueprint markdown chunks locally
+        let blueprintMarkdownBuffer = '';
+        
         const blueprint = await generateBlueprint({
             env: this.env,
             inferenceContext,
@@ -257,6 +260,9 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             stream: {
                 chunk_size: 256,
                 onChunk: (chunk) => {
+                    // Accumulate chunks locally
+                    blueprintMarkdownBuffer += chunk;
+                    
                     console.log(`[CALLBACK_CHAIN] stream.onChunk() called in simpleGeneratorAgent. Chunk length: ${chunk.length}, preview: ${chunk.substring(0, 100)}...`);
                     console.log(`[CALLBACK_CHAIN] About to call initArgs.onBlueprintChunk(chunk)...`);
                     try {
@@ -288,6 +294,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             projectName,
             query,
             blueprint,
+            blueprintMarkdown: blueprintMarkdownBuffer, // Store accumulated markdown
             templateName: templateInfo.templateDetails.name,
             sandboxInstanceId: undefined,
             generatedPhases: [],
@@ -296,6 +303,12 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             sessionId: sandboxSessionId,
             hostname,
             inferenceContext,
+        });
+        
+        this.logger().info('Blueprint markdown stored', { 
+            markdownLength: blueprintMarkdownBuffer.length,
+            hasMarkdown: !!blueprintMarkdownBuffer,
+            preview: blueprintMarkdownBuffer.substring(0, 200)
         });
 
         await this.gitInit();
@@ -1341,7 +1354,7 @@ export class SimpleCodeGeneratorAgent extends Agent<Env, CodeGenState> {
             try {
                 const previousTranscript = this.state.lastDeepDebugTranscript ?? undefined;
                 const operationOptions = this.getOperationOptions();
-                const filesIndex = operationOptions.context.allFiles
+                const filesIndex = (operationOptions.context.allFiles || [])
                     .filter((f) =>
                         !focusPaths?.length ||
                         focusPaths.some((p) => f.filePath.includes(p)),

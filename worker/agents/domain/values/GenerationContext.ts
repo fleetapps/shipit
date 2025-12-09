@@ -13,18 +13,19 @@ export class GenerationContext {
     constructor(
         public readonly query: string,
         public readonly blueprint: Blueprint,
-        public readonly templateDetails: TemplateDetails,
-        public readonly dependencies: Record<string, string>,
-        public readonly allFiles: FileState[],
-        public readonly generatedPhases: PhaseState[],
-        public readonly commandsHistory: string[]
+        public readonly blueprintMarkdown?: string, // Full markdown text of blueprint
+        public readonly templateDetails?: TemplateDetails,
+        public readonly dependencies?: Record<string, string>,
+        public readonly allFiles?: FileState[],
+        public readonly generatedPhases?: PhaseState[],
+        public readonly commandsHistory?: string[]
     ) {
         // Freeze to ensure immutability
         Object.freeze(this);
-        Object.freeze(this.dependencies);
-        Object.freeze(this.allFiles);
-        Object.freeze(this.generatedPhases);
-        Object.freeze(this.commandsHistory);
+        if (this.dependencies) Object.freeze(this.dependencies);
+        if (this.allFiles) Object.freeze(this.allFiles);
+        if (this.generatedPhases) Object.freeze(this.generatedPhases);
+        if (this.commandsHistory) Object.freeze(this.commandsHistory);
     }
 
     /**
@@ -45,6 +46,7 @@ export class GenerationContext {
         return new GenerationContext(
             state.query,
             state.blueprint,
+            state.blueprintMarkdown, // Pass blueprint markdown
             templateDetails,
             dependencies,
             allFiles,
@@ -57,13 +59,13 @@ export class GenerationContext {
      * Get formatted phases for prompt generation
      */
     getCompletedPhases() {
-        return Object.values(this.generatedPhases.filter(phase => phase.completed));
+        return Object.values((this.generatedPhases || []).filter(phase => phase.completed));
     }
 
     getFileTree(): FileTreeNode {
         const builder = new FileTreeBuilder(this.templateDetails?.fileTree);
 
-        for (const { filePath } of this.allFiles) {
+        for (const { filePath } of (this.allFiles || [])) {
             const normalized = FileTreeBuilder.normalizePath(filePath);
             if (normalized) {
                 builder.addFile(normalized);

@@ -1315,6 +1315,7 @@ export interface GeneralSystemPromptBuilderParams {
     templateDetails: TemplateDetails,
     dependencies: Record<string, string>,
     blueprint?: Blueprint,
+    blueprintMarkdown?: string, // Full markdown text of blueprint (fallback when blueprint object is empty)
     language?: string,
     frameworks?: string[],
     templateMetaInfo?: TemplateSelection,
@@ -1332,7 +1333,7 @@ export function generalSystemPromptBuilder(
     };
 
     // Optional blueprint variables
-    if (params.blueprint) {
+    if (params.blueprint && Object.keys(params.blueprint).length > 0) {
         // Redact the initial phase information from blueprint
         const blueprint = {
             ...params.blueprint,
@@ -1340,6 +1341,15 @@ export function generalSystemPromptBuilder(
         }
         variables.blueprint = TemplateRegistry.markdown.serialize(blueprint, BlueprintSchemaLite);
         variables.blueprintDependencies = params.blueprint.frameworks?.join(', ') ?? '';
+    } else if (params.blueprintMarkdown) {
+        // Fallback: Use stored markdown if blueprint object is empty or missing
+        variables.blueprint = params.blueprintMarkdown;
+        variables.blueprintDependencies = '';
+        console.log('[BLUEPRINT_FALLBACK] Using blueprintMarkdown fallback', { markdownLength: params.blueprintMarkdown.length });
+    } else {
+        // No blueprint available - provide empty string to prevent {{blueprint}} placeholder
+        variables.blueprint = 'No blueprint available. Please generate code based on the client request and template structure.';
+        variables.blueprintDependencies = '';
     }
 
     // Optional language and frameworks

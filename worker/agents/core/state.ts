@@ -26,6 +26,7 @@ export const MAX_PHASES = 12;
 
 export interface CodeGenState {
     blueprint: Blueprint;
+    blueprintMarkdown?: string; // Full markdown text of the blueprint (accumulated from chunks)
     projectName: string,
     query: string;
     generatedFilesMap: Record<string, FileState>;

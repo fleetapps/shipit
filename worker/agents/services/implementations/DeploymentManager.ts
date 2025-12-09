@@ -558,12 +558,44 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
      */
     private async createNewInstance(): Promise<BootstrapResponse | null> {
         const state = this.getState();
-        const templateName = state.templateName;
+        let templateName = state.templateName;
         const projectName = state.projectName;
+        const logger = this.getLog();
+
+        // CRITICAL: Fallback template if templateName is empty
+        if (!templateName || templateName.trim() === '') {
+            logger.warn('templateName is empty, attempting to find fallback template', {
+                templateName,
+                hasTemplateName: !!state.templateName,
+                templateNameLength: state.templateName?.length || 0
+            });
+            
+            try {
+                // Get available templates and use the first one as fallback
+                const templatesResponse = await BaseSandboxService.listTemplates();
+                if (templatesResponse.success && templatesResponse.templates && templatesResponse.templates.length > 0) {
+                    // Prefer react-vite or vite templates, otherwise use first available
+                    const preferredTemplate = templatesResponse.templates.find(t => 
+                        t.name.includes('react-vite') || t.name.includes('vite')
+                    ) || templatesResponse.templates[0];
+                    
+                    templateName = preferredTemplate.name;
+                    logger.info('Using fallback template', { 
+                        fallbackTemplate: templateName,
+                        availableTemplates: templatesResponse.templates.map(t => t.name)
+                    });
+                } else {
+                    throw new Error('No templates available for fallback');
+                }
+            } catch (error) {
+                logger.error('Failed to get fallback template', error);
+                throw new Error(`Cannot create sandbox instance: templateName is required but was empty, and no fallback template could be found. Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            }
+        }
 
         // Add AI proxy vars if AI template
         let localEnvVars: Record<string, string> = {};
-        if (state.templateName?.includes('agents')) {
+        if (templateName?.includes('agents')) {
             const secret = this.env.AI_PROXY_JWT_SECRET;
             if (typeof secret === 'string' && secret.trim().length > 0) {
                 localEnvVars = {
@@ -579,7 +611,6 @@ export class DeploymentManager extends BaseAgentService implements IDeploymentMa
         
         // Create instance
         const client = this.getClient();
-        const logger = this.getLog();
         
         console.log('[FLOW_STEP_6] STEP 6: Sandbox Instance Creation - START: Creating sandbox container', { templateName, projectName });
         const createResponse = await client.createInstance(
