@@ -3,7 +3,7 @@
  */
 
 import type { ComponentType, RefObject } from 'react';
-import type { WebSocket } from 'partysocket';
+// Using native browser WebSocket type instead of PartySocket
 import type {
 	FileType,
 	TemplateDetails,

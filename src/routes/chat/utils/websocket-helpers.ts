@@ -1,4 +1,4 @@
-import type { WebSocket } from 'partysocket';
+// Using native browser WebSocket type instead of PartySocket
 
 /**
  * Check if WebSocket is ready for communication

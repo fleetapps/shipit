@@ -1,4 +1,4 @@
-import type { WebSocket } from 'partysocket';
+// Using native browser WebSocket type instead of PartySocket
 import type { WebSocketMessage, BlueprintType, ConversationMessage, AgentState, PhasicState, BehaviorType, ProjectType, TemplateDetails } from '@/api-types';
 import { deduplicateMessages, isAssistantMessageDuplicate } from './deduplicate-messages';
 import { logger } from '@/utils/logger';

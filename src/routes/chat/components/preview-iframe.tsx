@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, forwardRef, useCallback } from 'react';
 import { RefreshCw, AlertCircle } from 'lucide-react';
-import { WebSocket } from 'partysocket';
+// Using native browser WebSocket instead of PartySocket
 
 interface PreviewIframeProps {
     src: string;

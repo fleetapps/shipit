@@ -123,10 +123,10 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     templateSelection: {
-        name: AIModels.CLAUDE_4_SONNET,
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
         max_tokens: 2000,
-        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
-        temperature: 0.6,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE_LATEST,
+        temperature: 1,
     },
     blueprint: {
         name: AIModels.CLAUDE_4_SONNET,

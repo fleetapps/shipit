@@ -1,5 +1,5 @@
 import type { FileType, TemplateDetails } from '@/api-types';
-import { WebSocket } from 'partysocket';
+// Using native browser WebSocket instead of PartySocket
 
 export interface SlideInfo {
 	index: number;

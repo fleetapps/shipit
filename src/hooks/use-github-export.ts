@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { WebSocket } from 'partysocket';
+// Using native browser WebSocket instead of PartySocket
 import { useAuth } from '@/contexts/auth-context';
 import { apiClient } from '@/lib/api-client';
 import type {

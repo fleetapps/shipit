@@ -1,4 +1,4 @@
-import { WebSocket } from 'partysocket';
+// Using native browser WebSocket instead of PartySocket
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import {

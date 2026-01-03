@@ -1,6 +1,6 @@
 import { type FormEvent, type RefObject } from 'react';
 import { ArrowRight, Image as ImageIcon } from 'react-feather';
-import { WebSocket } from 'partysocket';
+// Using native browser WebSocket instead of PartySocket
 import { X } from 'lucide-react';
 import { ImageAttachmentPreview } from '@/components/image-attachment-preview';
 import { sendWebSocketMessage } from '../utils/websocket-helpers';
