@@ -117,67 +117,79 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
 };
 
 //======================================================================================
-// Default Gemini-only config (most likely used in your deployment)
+// Default Claude config (matching v1 deployment)
 //======================================================================================
-/* These are the default out-of-the box gemini-only models used when PLATFORM_MODEL_PROVIDERS is not set */
+/* These are the default Claude models used when PLATFORM_MODEL_PROVIDERS is not set */
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     templateSelection: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.CLAUDE_4_SONNET,
         max_tokens: 2000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
         temperature: 0.6,
     },
     blueprint: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
-        reasoning_effort: 'high',
+        name: AIModels.CLAUDE_4_SONNET,
+        reasoning_effort: 'medium',
         max_tokens: 64000,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
-        temperature: 1,
+        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
+        temperature: 0.7,
     },
     projectSetup: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
-        ...SHARED_IMPLEMENTATION_CONFIG,
+        name: AIModels.CLAUDE_4_SONNET,
+        reasoning_effort: 'low',
+        max_tokens: 10000,
+        temperature: 0.2,
+        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
     },
     phaseGeneration: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
-        ...SHARED_IMPLEMENTATION_CONFIG,
+        name: AIModels.CLAUDE_4_SONNET,
+        reasoning_effort: 'low',
+        max_tokens: 32000,
+        temperature: 0.2,
+        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
     },
     firstPhaseImplementation: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
-        ...SHARED_IMPLEMENTATION_CONFIG,
+        name: AIModels.CLAUDE_4_SONNET,
+        reasoning_effort: 'low',
+        max_tokens: 64000,
+        temperature: 0.2,
+        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
     },
     phaseImplementation: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
-        ...SHARED_IMPLEMENTATION_CONFIG,
+        name: AIModels.CLAUDE_4_SONNET,
+        reasoning_effort: 'low',
+        max_tokens: 64000,
+        temperature: 0.2,
+        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
     },
     conversationalResponse: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'low',
         max_tokens: 4000,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'high',
         max_tokens: 8000,
-        temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        temperature: 0.5,
+        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
     },
     fileRegeneration: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'low',
         max_tokens: 32000,
-        temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        temperature: 0,
+        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
     },
     agenticProjectBuilder: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
-        reasoning_effort: 'high',
+        name: AIModels.CLAUDE_4_SONNET,
+        reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
     },
 };
 
