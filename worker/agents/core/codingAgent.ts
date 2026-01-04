@@ -550,6 +550,85 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     // ==========================================
     
     /**
+     * Override fetch() to handle WebSocket connections directly using native WebSocket
+     * This bypasses the agents package's PartySocket implementation which causes
+     * /cdn-cgi/partyserver/set-name/ requests and connection failures
+     */
+    fetch(request: Request): Promise<Response> {
+        // Check if this is a WebSocket upgrade request
+        const upgradeHeader = request.headers.get('Upgrade');
+        if (upgradeHeader?.toLowerCase() === 'websocket') {
+            try {
+                this.logger().info('Handling WebSocket upgrade request with native WebSocket (bypassing PartySocket)');
+                
+                // Create WebSocket pair for native WebSocket handling
+                const { 0: client, 1: server } = new WebSocketPair();
+                
+                // Accept the server WebSocket
+                server.accept();
+                
+                // The Connection type from agents package is compatible with WebSocket
+                // We can cast the native WebSocket to Connection since sendToConnection expects WebSocket anyway
+                const connection = server as unknown as Connection;
+                
+                // Create a ConnectionContext with the request
+                const connectionContext: ConnectionContext = {
+                    request: request,
+                };
+                
+                // Call onConnect with the connection
+                this.onConnect(connection, connectionContext);
+                
+                // Set up message handler
+                server.addEventListener('message', (event) => {
+                    if (typeof event.data === 'string') {
+                        this.onMessage(connection, event.data).catch((error) => {
+                            this.logger().error('Error handling WebSocket message:', error);
+                        });
+                    }
+                });
+                
+                // Set up close handler
+                server.addEventListener('close', () => {
+                    this.onClose(connection).catch((error) => {
+                        this.logger().error('Error handling WebSocket close:', error);
+                    });
+                });
+                
+                // Set up error handler
+                server.addEventListener('error', (error) => {
+                    this.logger().error('WebSocket error:', error);
+                });
+                
+                this.logger().info('WebSocket connection established successfully with native WebSocket');
+                
+                // Return WebSocket response as Promise
+                return Promise.resolve(new Response(null, {
+                    status: 101,
+                    webSocket: client,
+                }));
+            } catch (error) {
+                this.logger().error('Error setting up WebSocket connection:', error);
+                // Return error response
+                const { 0: client, 1: server } = new WebSocketPair();
+                server.accept();
+                server.send(JSON.stringify({
+                    type: WebSocketMessageResponses.ERROR,
+                    error: `Failed to establish WebSocket connection: ${error instanceof Error ? error.message : String(error)}`
+                }));
+                server.close(1011, 'Internal server error');
+                return Promise.resolve(new Response(null, {
+                    status: 101,
+                    webSocket: client,
+                }));
+            }
+        }
+        
+        // For non-WebSocket requests, call parent fetch() method
+        return super.fetch(request);
+    }
+    
+    /**
      * Handle WebSocket message - Agent owns WebSocket lifecycle
      * Delegates to centralized handler which can access both behavior and objective
      */
