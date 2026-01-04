@@ -585,8 +585,9 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 ? { response_format: zodResponseFormat(schema, schemaName) }
                 : {};
         
-        // If Claude needs structured output, force format to 'json' to avoid response_format conflict
-        const forcedFormat = shouldUseFormatForClaude ? 'json' : format;
+        // If Claude needs structured output, force format to 'markdown' to avoid response_format conflict
+        // 'markdown' format adds instructions to the prompt instead of using response_format
+        const forcedFormat = shouldUseFormatForClaude ? 'markdown' : format;
         
         const extraBody = isClaudeModel ? {
                     extra_body: {
