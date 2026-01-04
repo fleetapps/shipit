@@ -561,6 +561,15 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
      * /cdn-cgi/partyserver/set-name/ requests and connection failures
      */
     fetch(request: Request): Promise<Response> {
+        const url = new URL(request.url);
+        
+        // Intercept and block PartySocket requests from parent Agent class
+        if (url.pathname.includes('/cdn-cgi/partyserver/') || url.hostname.includes('dummy-example.cloudflare.com')) {
+            this.logger().info('Blocking PartySocket request from parent Agent class', { url: request.url });
+            // Return empty response to prevent PartySocket initialization
+            return Promise.resolve(new Response(null, { status: 404 }));
+        }
+        
         // Check if this is a WebSocket upgrade request
         const upgradeHeader = request.headers.get('Upgrade');
         if (upgradeHeader?.toLowerCase() === 'websocket') {
