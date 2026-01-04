@@ -42,7 +42,7 @@ const COMMON_AGENT_CONFIGS = {
 
 const SHARED_IMPLEMENTATION_CONFIG = {
     reasoning_effort: 'low' as const,
-    max_tokens: 48000,
+    max_tokens: 32000,
     temperature: 1,
     fallbackModel: AIModels.GROK_CODE_FAST_1,
 };
@@ -87,11 +87,10 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
-        name: AIModels.GROK_4_1_FAST,
-        reasoning_effort: 'low',
-        max_tokens: 4000,
+        name: AIModels.GROK_4_1_FAST_NON_REASONING,
+        max_tokens: 2000,
         temperature: 1,
-        fallbackModel: AIModels.GROK_4_1_FAST_NON_REASONING,
+        fallbackModel: AIModels.GROK_4_1_FAST,
     },
     deepDebugger: {
         name: AIModels.GROK_4_1_FAST,
@@ -131,7 +130,7 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
     blueprint: {
         name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'medium',
-        max_tokens: 64000,
+        max_tokens: 20000,
         fallbackModel: AIModels.GROK_CODE_FAST_1,
         temperature: 0.7,
     },
@@ -152,23 +151,22 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
     firstPhaseImplementation: {
         name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'low',
-        max_tokens: 64000,
+        max_tokens: 32000,
         temperature: 0.2,
         fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     phaseImplementation: {
         name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'low',
-        max_tokens: 64000,
+        max_tokens: 32000,
         temperature: 0.2,
         fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     conversationalResponse: {
-        name: AIModels.GROK_4_1_FAST,
-        reasoning_effort: 'low',
-        max_tokens: 4000,
+        name: AIModels.GROK_4_1_FAST_NON_REASONING,
+        max_tokens: 2000,
         temperature: 0,
-        fallbackModel: AIModels.GROK_4_1_FAST_NON_REASONING,
+        fallbackModel: AIModels.GROK_4_1_FAST,
     },
     deepDebugger: {
         name: AIModels.GROK_4_1_FAST,
