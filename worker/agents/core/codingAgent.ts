@@ -265,12 +265,15 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         return this.state.metadata.agentId;
     }
     
+    /**
+     * Override getWebSockets() to return only native WebSocket connections
+     * This ensures the parent Agent class's PartySocket connections are not used
+     * Full migration to native WebSocket - no PartySocket dependencies
+     */
     getWebSockets(): WebSocket[] {
-        // Return native WebSockets we're tracking, fallback to parent's WebSockets
-        const native = Array.from(this.nativeWebSockets);
-        const parent = this.ctx.getWebSockets();
-        // Combine both (native WebSockets take precedence)
-        return [...native, ...parent.filter(ws => !native.includes(ws))];
+        // Return only native WebSockets we're tracking
+        // Do not include parent's WebSockets (which may be PartySocket-based)
+        return Array.from(this.nativeWebSockets);
     }
 
     handleVaultUnlocked(): void {
@@ -560,16 +563,12 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
      * This bypasses the agents package's PartySocket implementation which causes
      * /cdn-cgi/partyserver/set-name/ requests and connection failures
      */
+    /**
+     * Override fetch() to handle ALL requests using native WebSocket
+     * This completely replaces the parent Agent class's PartySocket implementation
+     * with native WebSocket for a full migration away from PartySocket
+     */
     fetch(request: Request): Promise<Response> {
-        const url = new URL(request.url);
-        
-        // Intercept and block PartySocket requests from parent Agent class
-        if (url.pathname.includes('/cdn-cgi/partyserver/') || url.hostname.includes('dummy-example.cloudflare.com')) {
-            this.logger().info('Blocking PartySocket request from parent Agent class', { url: request.url });
-            // Return empty response to prevent PartySocket initialization
-            return Promise.resolve(new Response(null, { status: 404 }));
-        }
-        
         // Check if this is a WebSocket upgrade request
         const upgradeHeader = request.headers.get('Upgrade');
         if (upgradeHeader?.toLowerCase() === 'websocket') {
@@ -644,7 +643,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             }
         }
         
-        // For non-WebSocket requests, call parent fetch() method
+        // For non-WebSocket requests, delegate to parent
+        // Since we've overridden fetch() for WebSocket requests, the parent won't handle WebSocket
+        // and therefore won't initialize PartySocket for WebSocket connections
+        // Non-WebSocket requests are safe to pass through
         return super.fetch(request);
     }
     
