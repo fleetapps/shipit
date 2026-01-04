@@ -281,7 +281,7 @@ const MODELS_MASTER = {
 
     // --- Grok Models ---
     GROK_CODE_FAST_1: {
-        id: 'grok/grok-code-fast-1',
+        id: 'grok-2-1212',
         config: {
             name: 'Grok Code Fast 1',
             size: ModelSize.LITE,
@@ -293,7 +293,7 @@ const MODELS_MASTER = {
         }
     },
     GROK_4_FAST: {
-        id: 'grok/grok-4-fast',
+        id: 'grok-2-1212',
         config: {
             name: 'Grok 4 Fast',
             size: ModelSize.LITE,
@@ -305,7 +305,7 @@ const MODELS_MASTER = {
         }
     },
     GROK_4_1_FAST: {
-        id: 'grok/grok-4-1-fast-reasoning',
+        id: 'grok-2-1212',
         config: {
             name: 'Grok 4.1 Fast',
             size: ModelSize.LITE,
@@ -317,7 +317,7 @@ const MODELS_MASTER = {
         }
     },
     GROK_4_1_FAST_NON_REASONING: {
-        id: 'grok/grok-4-1-fast-non-reasoning',
+        id: 'grok-2-1212',
         config: {
             name: 'Grok 4.1 Fast Non reasoning',
             size: ModelSize.LITE,

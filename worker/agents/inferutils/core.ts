@@ -580,6 +580,20 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
+        
+        // Fix Grok model names - x.ai API uses different format
+        // Map our internal model names to actual Grok API model names
+        if (modelConfig.provider === 'grok') {
+            // x.ai API uses 'grok-2-1212' or 'grok-2' as model names
+            // Our config uses 'grok-2-1212' already, but if it has 'grok/' prefix, remove it
+            if (modelName.startsWith('grok/')) {
+                modelName = modelName.replace('grok/', '');
+            }
+            // If model name doesn't match known Grok models, use grok-2-1212 as fallback
+            if (!modelName.match(/^grok-2/)) {
+                modelName = 'grok-2-1212';
+            }
+        }
 
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
         
