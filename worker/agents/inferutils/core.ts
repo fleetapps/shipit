@@ -572,11 +572,23 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         modelName = modelName.replace(/\[.*?\]/, '');
 
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
+        
+        // For Claude models with structured output, we can't use response_format with extra_body
+        // Cloudflare AI Gateway rejects this combination with "output_config: Extra inputs are not permitted"
+        // Solution: Use format-based approach (prompt instructions) instead of response_format for Claude
+        const isClaudeModel = modelName.includes('claude');
+        const needsStructuredOutput = schema && schemaName && !format;
+        const shouldUseFormatForClaude = isClaudeModel && needsStructuredOutput;
+        
         const schemaObj =
-            schema && schemaName && !format
+            schema && schemaName && !format && !shouldUseFormatForClaude
                 ? { response_format: zodResponseFormat(schema, schemaName) }
                 : {};
-        const extraBody = modelName.includes('claude')? {
+        
+        // If Claude needs structured output, force format to 'json' to avoid response_format conflict
+        const forcedFormat = shouldUseFormatForClaude ? 'json' : format;
+        
+        const extraBody = isClaudeModel ? {
                     extra_body: {
                         thinking: {
                             type: 'enabled',
@@ -631,13 +643,13 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             messagesToPass.push(...filtered);
         }
 
-        if (format) {
+        if (forcedFormat) {
             if (!schema || !schemaName) {
                 throw new Error('Schema and schemaName are required when using a custom format');
             }
             const formatInstructions = generateTemplateForSchema(
                 schema,
-                format,
+                forcedFormat,
                 formatOptions,
             );
             const lastMessage = messagesToPass[messagesToPass.length - 1];
@@ -673,7 +685,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             }
         }
 
-        console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
+        console.log(`Running inference with ${modelName} using structured output with ${forcedFormat || (schemaObj.response_format ? 'response_format' : 'none')} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
 
         const toolsOpts = tools ? {
             tools: tools.map(t => {

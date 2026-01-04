@@ -30,7 +30,7 @@ const COMMON_AGENT_CONFIGS = {
         reasoning_effort: undefined,
         max_tokens: 64000,
         temperature: 0.0,
-        fallbackModel: AIModels.CLAUDE_4_SONNET,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     templateSelection: {
         name: AIModels.GROK_4_1_FAST_NON_REASONING,
@@ -44,7 +44,7 @@ const SHARED_IMPLEMENTATION_CONFIG = {
     reasoning_effort: 'low' as const,
     max_tokens: 48000,
     temperature: 1,
-    fallbackModel: AIModels.CLAUDE_4_SONNET,
+    fallbackModel: AIModels.GROK_CODE_FAST_1,
 };
 
 //======================================================================================
@@ -58,10 +58,10 @@ Cloudflare AI Gateway unified billing for seamless model access without managing
 const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     blueprint: {
-        name: AIModels.CLAUDE_4_SONNET,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'high',
         max_tokens: 20000,
-        fallbackModel: AIModels.GROK_4_1_FAST,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
         temperature: 1.0,
     },
     projectSetup: {
@@ -69,7 +69,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.CLAUDE_4_SONNET,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     phaseGeneration: {
         name: AIModels.GROK_4_1_FAST,
@@ -98,7 +98,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.CLAUDE_4_SONNET,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     fileRegeneration: {
         name: AIModels.GROK_4_1_FAST_NON_REASONING,
@@ -112,7 +112,7 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.CLAUDE_4_SONNET,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
 };
 
@@ -129,10 +129,10 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         temperature: 1,
     },
     blueprint: {
-        name: AIModels.CLAUDE_4_SONNET,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'medium',
         max_tokens: 64000,
-        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
         temperature: 0.7,
     },
     projectSetup: {
@@ -143,25 +143,25 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GROK_4_1_FAST_NON_REASONING,
     },
     phaseGeneration: {
-        name: AIModels.CLAUDE_4_SONNET,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'low',
         max_tokens: 32000,
         temperature: 0.2,
-        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     firstPhaseImplementation: {
-        name: AIModels.CLAUDE_4_SONNET,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'low',
         max_tokens: 64000,
         temperature: 0.2,
-        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     phaseImplementation: {
-        name: AIModels.CLAUDE_4_SONNET,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'low',
         max_tokens: 64000,
         temperature: 0.2,
-        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     conversationalResponse: {
         name: AIModels.GROK_4_1_FAST,
@@ -171,25 +171,25 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GROK_4_1_FAST_NON_REASONING,
     },
     deepDebugger: {
-        name: AIModels.CLAUDE_4_SONNET,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 0.5,
-        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     fileRegeneration: {
-        name: AIModels.CLAUDE_4_SONNET,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'low',
         max_tokens: 32000,
         temperature: 0,
-        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     agenticProjectBuilder: {
-        name: AIModels.CLAUDE_4_SONNET,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
 };
 
@@ -216,7 +216,7 @@ export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new
 		enabled: true,
 	}],
 	['projectSetup', {
-		allowedModels: new Set([...RegularModels, AIModels.CLAUDE_4_SONNET]),
+		allowedModels: new Set([...RegularModels, ...LiteModels]),
 		enabled: true,
 	}],
 	['conversationalResponse', {
