@@ -42,6 +42,7 @@ const MODELS_MASTER = {
             provider: 'google-ai-studio',
             creditCost: 5,   // $1.25
             contextSize: 1048576, // 1M Context
+            directOverride: true,
         }
     },
     GEMINI_2_5_FLASH: {
@@ -52,6 +53,7 @@ const MODELS_MASTER = {
             provider: 'google-ai-studio',
             creditCost: 1.2, // $0.30
             contextSize: 1048576, // 1M Context
+            directOverride: true,
         }
     },
     GEMINI_2_5_FLASH_LITE: {
@@ -62,6 +64,7 @@ const MODELS_MASTER = {
             provider: 'google-ai-studio',
             creditCost: 0.4, // $0.10
             contextSize: 1048576, // 1M Context
+            directOverride: true,
         }
     },
     GEMINI_2_5_FLASH_LATEST: {
@@ -72,6 +75,7 @@ const MODELS_MASTER = {
             provider: 'google-ai-studio',
             creditCost: 1.2, // $0.30
             contextSize: 1048576,
+            directOverride: true,
         }
     },
     GEMINI_2_5_FLASH_LITE_LATEST: {
@@ -82,6 +86,7 @@ const MODELS_MASTER = {
             provider: 'google-ai-studio',
             creditCost: 0.4, // $0.10
             contextSize: 1048576,
+            directOverride: true,
         }
     },
     GEMINI_2_5_PRO_LATEST: {
@@ -92,6 +97,7 @@ const MODELS_MASTER = {
             provider: 'google-ai-studio',
             creditCost: 5, // $1.25
             contextSize: 1048576,
+            directOverride: true,
         }
     },
     GEMINI_3_PRO_PREVIEW: {
@@ -102,6 +108,7 @@ const MODELS_MASTER = {
             provider: 'google-ai-studio',
             creditCost: 8, // $2.00 (Preview Pricing)
             contextSize: 1048576,
+            directOverride: true,
         }
     },
     GEMINI_3_FLASH_PREVIEW: {
@@ -112,6 +119,7 @@ const MODELS_MASTER = {
             provider: 'google-ai-studio',
             creditCost: 2, // $0.5
             contextSize: 1048576, // 1M Context
+            directOverride: true,
         }
     },
 
@@ -124,6 +132,7 @@ const MODELS_MASTER = {
             provider: 'anthropic',
             creditCost: 12, // $3.00
             contextSize: 200000, // 200K Context
+            directOverride: true,
         }
     },
     CLAUDE_4_SONNET: {
@@ -134,6 +143,7 @@ const MODELS_MASTER = {
             provider: 'anthropic',
             creditCost: 12, // $3.00
             contextSize: 200000, // 200K Context
+            directOverride: true,
         }
     },
     CLAUDE_4_5_SONNET: {
@@ -144,6 +154,7 @@ const MODELS_MASTER = {
             provider: 'anthropic',
             creditCost: 12, // $3.00
             contextSize: 200000, // 200K Context
+            directOverride: true,
         }
     },
     CLAUDE_4_5_OPUS: {
@@ -154,6 +165,7 @@ const MODELS_MASTER = {
             provider: 'anthropic',
             creditCost: 20, // $5.00
             contextSize: 200000, // 200K Context
+            directOverride: true,
         }
     },
     CLAUDE_4_5_HAIKU: {
@@ -164,6 +176,7 @@ const MODELS_MASTER = {
             provider: 'anthropic',
             creditCost: 4, // ~$1
             contextSize: 200000, // 200K Context
+            directOverride: true,
         }
     },
 
@@ -176,6 +189,7 @@ const MODELS_MASTER = {
             provider: 'openai',
             creditCost: 5, // $1.25
             contextSize: 400000, // 400K Context
+            directOverride: true,
         }
     },
     OPENAI_5_1: {
@@ -186,6 +200,7 @@ const MODELS_MASTER = {
             provider: 'openai',
             creditCost: 5, // $1.25
             contextSize: 400000, // 400K Context
+            directOverride: true,
         }
     },
     OPENAI_5_2: {
@@ -196,6 +211,7 @@ const MODELS_MASTER = {
             provider: 'openai',
             creditCost: 7, // $1.75
             contextSize: 400000, // 400K Context
+            directOverride: true,
         }
     },
     OPENAI_5_MINI: {
@@ -206,6 +222,7 @@ const MODELS_MASTER = {
             provider: 'openai',
             creditCost: 1, // $0.25 (BASELINE)
             contextSize: 400000, // 400K Context
+            directOverride: true,
         }
     },
     // Below configs are commented for now, may be supported in the future
@@ -272,6 +289,7 @@ const MODELS_MASTER = {
             creditCost: 0.8, // $0.20
             contextSize: 256000, // 256K Context
             nonReasoning: true,
+            directOverride: true,
         }
     },
     GROK_4_FAST: {
@@ -283,6 +301,7 @@ const MODELS_MASTER = {
             creditCost: 0.8, // $0.20
             contextSize: 2_000_000, // 2M Context
             nonReasoning: true,
+            directOverride: true,
         }
     },
     GROK_4_1_FAST: {
@@ -294,6 +313,7 @@ const MODELS_MASTER = {
             creditCost: 0.8, // $0.20
             contextSize: 2_000_000, // 2M Context
             nonReasoning: true,
+            directOverride: true,
         }
     },
     GROK_4_1_FAST_NON_REASONING: {
@@ -305,6 +325,7 @@ const MODELS_MASTER = {
             creditCost: 0.8, // $0.20
             contextSize: 2_000_000, // 2M Context
             nonReasoning: true,
+            directOverride: true,
         }
     },
     // --- Vertex Models ---
@@ -316,6 +337,7 @@ const MODELS_MASTER = {
             provider: 'google-vertex-ai',
             creditCost: 0.36, // $0.09
             contextSize: 131072, // 128K Context
+            directOverride: true,
         }
     },
     VERTEX_KIMI_THINKING: {
@@ -326,6 +348,7 @@ const MODELS_MASTER = {
             provider: 'google-vertex-ai',
             creditCost: 2, // $0.50
             contextSize: 262144, // 256K Context
+            directOverride: true,
         }
     },
     QWEN_3_CODER_480B: {
@@ -336,6 +359,7 @@ const MODELS_MASTER = {
             provider: 'google-vertex-ai',
             creditCost: 8, // $0.22
             contextSize: 262144, // 256K Context
+            directOverride: true,
         },
     }
 } as const;
