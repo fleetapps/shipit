@@ -29,6 +29,7 @@ import { ProjectObjective } from "./objectives/base";
 import { FileOutputType } from "../schemas";
 import { SecretsClient, type UserSecretsStoreStub } from '../../services/secrets/SecretsClient';
 import { StateMigration } from './stateMigration';
+import { createScratchTemplateDetails } from '../utils/templates';
 
 const DEFAULT_CONVERSATION_SESSION_ID = 'default';
 
@@ -141,7 +142,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
     
     async isInitialized() {
-        return this.getAgentId() ? true : false
+        // Check if agent has basic state (query and projectName indicate initialization started)
+        return !!(this.getAgentId() && this.state.query);
     }
 
     /**
@@ -206,16 +208,27 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     onConnect(connection: Connection, ctx: ConnectionContext) {
         this.logger().info(`Agent connected for agent ${this.getAgentId()}`, { connection, ctx });
         let previewUrl = '';
+        let templateDetails: TemplateDetails | undefined;
+        
+        // Safely get template details - handle case where agent isn't fully initialized
         try {
-            if (this.behavior.getTemplateDetails().renderMode === 'browser') {
+            templateDetails = this.behavior.getTemplateDetails();
+            if (templateDetails?.renderMode === 'browser') {
                 previewUrl = this.behavior.getBrowserPreviewURL();
             }
         } catch (error) {
-            this.logger().error('Error getting preview URL:', error);
+            this.logger().warn('Template details not available yet, agent may still be initializing:', error);
+            // Agent might still be initializing, use scratch template as fallback
+            try {
+                templateDetails = createScratchTemplateDetails();
+            } catch (fallbackError) {
+                this.logger().error('Failed to create fallback template details:', fallbackError);
+            }
         }
+        
         sendToConnection(connection, WebSocketMessageResponses.AGENT_CONNECTED, {
             state: this.state,
-            templateDetails: this.behavior.getTemplateDetails(),
+            templateDetails: templateDetails || createScratchTemplateDetails(),
             previewUrl: previewUrl
         });
     }

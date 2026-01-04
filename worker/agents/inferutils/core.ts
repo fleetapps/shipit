@@ -714,7 +714,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 throw new AbortError('**User cancelled inference**', toolCallContext);
             }
             
-            console.error(`Failed to get inference response from OpenAI: ${error}`);
+            console.error(`Failed to get inference response from AI Gateway: ${error}`);
             // if ((error instanceof Error && error.message.includes('429')) || (typeof error === 'string' && error.includes('429'))) {
 
             //     throw new RateLimitExceededError('Rate limit exceeded in LLM calls, Please try again later', RateLimitType.LLM_CALLS);

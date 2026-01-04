@@ -16,26 +16,26 @@ const COMMON_AGENT_CONFIGS = {
         reasoning_effort: 'medium' as const,
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.GROK_4_1_FAST,
     },
     realtimeCodeFixer: {
         name: AIModels.GROK_4_1_FAST_NON_REASONING,
         reasoning_effort: 'low' as const,
         max_tokens: 32000,
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.GROK_4_1_FAST,
     },
     fastCodeFixer: {
         name: AIModels.DISABLED,
         reasoning_effort: undefined,
         max_tokens: 64000,
         temperature: 0.0,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        fallbackModel: AIModels.CLAUDE_4_SONNET,
     },
     templateSelection: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.GROK_4_1_FAST_NON_REASONING,
         max_tokens: 2000,
-        fallbackModel: AIModels.GROK_4_1_FAST_NON_REASONING,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
         temperature: 1,
     },
 } as const;
@@ -44,7 +44,7 @@ const SHARED_IMPLEMENTATION_CONFIG = {
     reasoning_effort: 'low' as const,
     max_tokens: 48000,
     temperature: 1,
-    fallbackModel: AIModels.GEMINI_2_5_PRO,
+    fallbackModel: AIModels.CLAUDE_4_SONNET,
 };
 
 //======================================================================================
@@ -58,10 +58,10 @@ Cloudflare AI Gateway unified billing for seamless model access without managing
 const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     blueprint: {
-        name: AIModels.GEMINI_3_PRO_PREVIEW,
+        name: AIModels.CLAUDE_4_SONNET,
         reasoning_effort: 'high',
         max_tokens: 20000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.GROK_4_1_FAST,
         temperature: 1.0,
     },
     projectSetup: {
@@ -69,21 +69,21 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        fallbackModel: AIModels.CLAUDE_4_SONNET,
     },
     phaseGeneration: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.OPENAI_5_MINI,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     firstPhaseImplementation: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.GROK_4_1_FAST,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseImplementation: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.GROK_4_1_FAST,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
@@ -91,14 +91,14 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         reasoning_effort: 'low',
         max_tokens: 4000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.GROK_4_1_FAST_NON_REASONING,
     },
     deepDebugger: {
         name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        fallbackModel: AIModels.CLAUDE_4_SONNET,
     },
     fileRegeneration: {
         name: AIModels.GROK_4_1_FAST_NON_REASONING,
@@ -108,11 +108,11 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.GROK_CODE_FAST_1,
     },
     agenticProjectBuilder: {
-        name: AIModels.GEMINI_3_FLASH_PREVIEW,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'medium',
         max_tokens: 8000,
         temperature: 1,
-        fallbackModel: AIModels.GEMINI_2_5_PRO,
+        fallbackModel: AIModels.CLAUDE_4_SONNET,
     },
 };
 
@@ -123,9 +123,9 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     templateSelection: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.GROK_4_1_FAST_NON_REASONING,
         max_tokens: 2000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE_LATEST,
+        fallbackModel: AIModels.GROK_CODE_FAST_1,
         temperature: 1,
     },
     blueprint: {
@@ -136,11 +136,11 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         temperature: 0.7,
     },
     projectSetup: {
-        name: AIModels.CLAUDE_4_SONNET,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'low',
         max_tokens: 10000,
         temperature: 0.2,
-        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
+        fallbackModel: AIModels.GROK_4_1_FAST_NON_REASONING,
     },
     phaseGeneration: {
         name: AIModels.CLAUDE_4_SONNET,
@@ -164,11 +164,11 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
     },
     conversationalResponse: {
-        name: AIModels.CLAUDE_4_SONNET,
+        name: AIModels.GROK_4_1_FAST,
         reasoning_effort: 'low',
         max_tokens: 4000,
         temperature: 0,
-        fallbackModel: AIModels.CLAUDE_3_7_SONNET_20250219,
+        fallbackModel: AIModels.GROK_4_1_FAST_NON_REASONING,
     },
     deepDebugger: {
         name: AIModels.CLAUDE_4_SONNET,
@@ -204,7 +204,7 @@ export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new
 		enabled: true,
 	}],
 	['realtimeCodeFixer', {
-		allowedModels: new Set([AIModels.DISABLED]),
+		allowedModels: new Set(LiteModels),
 		enabled: true,
 	}],
 	['fileRegeneration', {
@@ -216,7 +216,7 @@ export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new
 		enabled: true,
 	}],
 	['projectSetup', {
-		allowedModels: new Set([...RegularModels, AIModels.GEMINI_2_5_PRO]),
+		allowedModels: new Set([...RegularModels, AIModels.CLAUDE_4_SONNET]),
 		enabled: true,
 	}],
 	['conversationalResponse', {
