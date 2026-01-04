@@ -48,6 +48,8 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     readonly fileManager: FileManager;
     readonly deploymentManager: DeploymentManager;
     readonly git: GitVersionControl;
+    // Track WebSocket connections for native WebSocket implementation
+    private nativeWebSockets: Set<WebSocket> = new Set();
     
     // Redeclare as public to satisfy AgentInfrastructure interface
     declare public readonly env: Env;
@@ -264,7 +266,11 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
     
     getWebSockets(): WebSocket[] {
-        return this.ctx.getWebSockets();
+        // Return native WebSockets we're tracking, fallback to parent's WebSockets
+        const native = Array.from(this.nativeWebSockets);
+        const parent = this.ctx.getWebSockets();
+        // Combine both (native WebSockets take precedence)
+        return [...native, ...parent.filter(ws => !native.includes(ws))];
     }
 
     handleVaultUnlocked(): void {
@@ -567,6 +573,9 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 // Accept the server WebSocket
                 server.accept();
                 
+                // Track this WebSocket for broadcast functionality
+                this.nativeWebSockets.add(server);
+                
                 // The Connection type from agents package is compatible with WebSocket
                 // We can cast the native WebSocket to Connection since sendToConnection expects WebSocket anyway
                 const connection = server as unknown as Connection;
@@ -588,15 +597,17 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                     }
                 });
                 
-                // Set up close handler
+                // Set up close handler - remove from tracking when closed
                 server.addEventListener('close', () => {
+                    this.nativeWebSockets.delete(server);
                     this.onClose(connection).catch((error) => {
                         this.logger().error('Error handling WebSocket close:', error);
                     });
                 });
                 
-                // Set up error handler
+                // Set up error handler - remove from tracking on error
                 server.addEventListener('error', (error) => {
+                    this.nativeWebSockets.delete(server);
                     this.logger().error('WebSocket error:', error);
                 });
                 
