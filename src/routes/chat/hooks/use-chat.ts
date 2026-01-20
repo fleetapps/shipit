@@ -18,6 +18,7 @@ import {
 	createRepairingJSONParser,
 	ndjsonStream,
 } from '@/utils/ndjson-parser/ndjson-parser';
+import { normalizeBlueprintData } from '../utils/blueprint-normalizer';
 import { getFileType } from '@/utils/string';
 import { logger } from '@/utils/logger';
 import { mergeFiles } from '@/utils/file-helpers';
@@ -505,13 +506,15 @@ export function useChat({
 								updateStage('bootstrap', { status: 'completed' });
 								updateStage('blueprint', { status: 'active' });
 							}
-							parser.feed(obj.chunk);
-							try {
-								const partial = parser.finalize();
-								setBlueprint(partial);
-							} catch (e) {
-								logger.error('Error parsing JSON:', e, obj.chunk);
-							}
+						parser.feed(obj.chunk);
+						try {
+							const partial = parser.finalize();
+							// Normalize partial blueprint to handle object->array conversions
+							const normalized = normalizeBlueprintData(partial);
+							setBlueprint(normalized);
+						} catch (e) {
+							logger.error('Error parsing JSON:', e, obj.chunk);
+						}
 						}
 						if (obj.agentId) {
 							result.agentId = obj.agentId;

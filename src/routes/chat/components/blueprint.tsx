@@ -88,14 +88,14 @@ export function Blueprint({
 					</div>
 				</div>
 
-				{/* Views */}
-				{phasicBlueprint && phasicBlueprint.views?.length > 0 && (
-					<div>
-						<h3 className="text-sm font-medium mb-3 text-text-50/70 uppercase tracking-wider">
-							Views
-						</h3>
-						<div className="space-y-3">
-							{phasicBlueprint.views?.map((view, index) => (
+			{/* Views */}
+			{phasicBlueprint && Array.isArray(phasicBlueprint.views) && phasicBlueprint.views.length > 0 && (
+				<div>
+					<h3 className="text-sm font-medium mb-3 text-text-50/70 uppercase tracking-wider">
+						Views
+					</h3>
+					<div className="space-y-3">
+						{phasicBlueprint.views.map((view, index) => (
 								<div key={`view-${index}`} className="space-y-1">
 									<h4 className="text-xs font-medium text-text-50/70">
 										{view.name}
@@ -164,14 +164,14 @@ export function Blueprint({
 					</div>
 				)}
 
-				{/* Implementation Roadmap */}
-				{phasicBlueprint && phasicBlueprint.implementationRoadmap?.length > 0 && (
-					<div>
-						<h3 className="text-sm font-medium mb-2 text-text-50/70 uppercase tracking-wider">
-							Implementation Roadmap
-						</h3>
-						<div className="space-y-3">
-							{phasicBlueprint.implementationRoadmap?.map((roadmapItem, index) => (
+			{/* Implementation Roadmap */}
+			{phasicBlueprint && Array.isArray(phasicBlueprint.implementationRoadmap) && phasicBlueprint.implementationRoadmap.length > 0 && (
+				<div>
+					<h3 className="text-sm font-medium mb-2 text-text-50/70 uppercase tracking-wider">
+						Implementation Roadmap
+					</h3>
+					<div className="space-y-3">
+						{phasicBlueprint.implementationRoadmap.map((roadmapItem, index) => (
 								<div key={`roadmap-${index}`} className="space-y-1">
 									<h4 className="text-xs font-medium text-text-50/70">
 										Phase {index + 1}: {roadmapItem.phase}

@@ -24,6 +24,7 @@ import type { PhaseTimelineItem } from '../hooks/use-chat';
 import type { FileType } from '@/api-types';
 import { toast } from 'sonner';
 import { createRepairingJSONParser } from '@/utils/ndjson-parser/ndjson-parser';
+import { normalizeBlueprintData } from './blueprint-normalizer';
 
 const isPhasicState = (state: AgentState): state is PhasicState => {
 	const record = state as unknown as Record<string, unknown>;
@@ -946,7 +947,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 // Try to parse partial blueprint
                 try {
                     const partial = blueprintParser.finalize();
-                    setBlueprint(partial);
+                    // Normalize partial blueprint to handle object->array conversions
+                    const normalized = normalizeBlueprintData(partial);
+                    setBlueprint(normalized);
                     logger.debug('Blueprint chunk processed, partial blueprint updated');
                 } catch (e) {
                     logger.debug('Blueprint chunk accumulated, waiting for more data');
