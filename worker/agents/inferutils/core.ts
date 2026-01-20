@@ -1137,7 +1137,7 @@ ${tools ? 'When you need to use a tool, output JSON with this structure: {"thoug
       method: 'POST',
       signal: abortSignal,
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        'x-goog-api-key': apiKey,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
