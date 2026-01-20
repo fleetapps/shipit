@@ -286,9 +286,12 @@ async function getApiKey(
     // }
     // Fallback to environment variables
     // Special case: grok provider uses GROQ_API_KEY (not GROK_API_KEY)
+    // Special case: deepseek provider uses DEEPSEEK_API_KEY and NEVER falls back to gateway
     let envKey: keyof Env;
     if (provider === 'grok') {
         envKey = 'GROQ_API_KEY';
+    } else if (provider === 'deepseek') {
+        envKey = 'DEEPSEEK_API_KEY';
     } else {
         const providerKeyString = provider.toUpperCase().replaceAll('-', '_');
         envKey = `${providerKeyString}_API_KEY` as keyof Env;
@@ -296,7 +299,11 @@ async function getApiKey(
     let apiKey: string = env[envKey] as string;
     
     // Check if apiKey is empty or undefined and is valid
+    // DeepSeek MUST use its own API key - never fall back to gateway token
     if (!isValidApiKey(apiKey)) {
+        if (provider === 'deepseek') {
+            throw new Error('DEEPSEEK_API_KEY is required and must be a valid DeepSeek API key. DeepSeek does not support Cloudflare AI Gateway tokens.');
+        }
         apiKey = runtimeOverrides?.aiGatewayOverride?.token ?? env.CLOUDFLARE_AI_GATEWAY_TOKEN;
     }
     return apiKey;
@@ -336,9 +343,14 @@ export async function getConfigurationForModel(
                     apiKey: env.OPENAI_API_KEY,
                 };
             case 'deepseek':
+                // DeepSeek MUST use its own API key - never gateway
+                const deepseekKey = env.DEEPSEEK_API_KEY;
+                if (!deepseekKey || !isValidApiKey(deepseekKey)) {
+                    throw new Error('DEEPSEEK_API_KEY is required and must be a valid DeepSeek API key. DeepSeek does not support Cloudflare AI Gateway.');
+                }
                 return {
                     baseURL: 'https://api.deepseek.com/v1',
-                    apiKey: env.DEEPSEEK_API_KEY,
+                    apiKey: deepseekKey,
                 };
             default:
                 providerForcedOverride = modelConfig.provider as AIGatewayProviders;
@@ -651,18 +663,28 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         // For Claude models with structured output, we can't use response_format with extra_body
         // Cloudflare AI Gateway rejects this combination with "output_config: Extra inputs are not permitted"
         // Solution: Use format-based approach (prompt instructions) instead of response_format for Claude
+        // DeepSeek uses json_object mode (not json_schema) but still needs prompt instructions
         const isClaudeModel = modelName.includes('claude');
+        const isDeepSeekModel = modelConfig.provider === 'deepseek';
         const needsStructuredOutput = schema && schemaName && !format;
         const shouldUseFormatForClaude = isClaudeModel && needsStructuredOutput;
+        const shouldUseJsonObjectForDeepSeek = isDeepSeekModel && needsStructuredOutput;
         
         const schemaObj =
-            schema && schemaName && !format && !shouldUseFormatForClaude
-                ? { response_format: zodResponseFormat(schema, schemaName) }
+            schema && schemaName && !format && !shouldUseFormatForClaude && !shouldUseJsonObjectForDeepSeek
+                ? { response_format: zodResponseFormat(schema, schemaName) } // OpenAI json_schema
+                : shouldUseJsonObjectForDeepSeek
+                ? { response_format: { type: "json_object" as const } } // DeepSeek json_object
                 : {};
         
         // If Claude needs structured output, force format to 'markdown' to avoid response_format conflict
+        // DeepSeek needs both json_object mode AND prompt instructions (markdown format)
         // 'markdown' format adds instructions to the prompt instead of using response_format
-        const forcedFormat = shouldUseFormatForClaude ? 'markdown' : format;
+        const forcedFormat = shouldUseFormatForClaude 
+            ? 'markdown' 
+            : shouldUseJsonObjectForDeepSeek 
+            ? 'markdown' // Use markdown format to add prompt instructions
+            : format;
         
         const extraBody = isClaudeModel ? {
                     extra_body: {
@@ -761,7 +783,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             }
         }
 
-        console.log(`Running inference with ${modelName} using structured output with ${forcedFormat || (schemaObj.response_format ? 'response_format' : 'none')} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
+        const formatType = shouldUseJsonObjectForDeepSeek 
+            ? 'json_object (DeepSeek)' 
+            : schemaObj.response_format 
+            ? 'response_format' 
+            : 'none';
+        console.log(`Running inference with ${modelName} using structured output with ${forcedFormat || formatType} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
 
         const toolsOpts = tools ? {
             tools: tools.map(t => {
