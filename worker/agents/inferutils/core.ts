@@ -552,21 +552,40 @@ function normalizeBlueprintData(raw: any): any {
 
     const normalized = { ...raw };
 
-    // Normalize views: object -> array
+    // Normalize views: object -> array, preserving key as 'name' if missing
     if (normalized.views && typeof normalized.views === 'object' && !Array.isArray(normalized.views)) {
-        normalized.views = Object.values(normalized.views);
+        normalized.views = Object.entries(normalized.views).map(([key, value]) => {
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                // Preserve key as 'name' if it's missing from the value
+                return !('name' in value) ? { name: key, ...value } : value;
+            }
+            return value;
+        });
     }
 
-    // Normalize implementationRoadmap: object -> array
+    // Normalize implementationRoadmap: object -> array, preserving key as 'phase' if missing
     if (normalized.implementationRoadmap && typeof normalized.implementationRoadmap === 'object' && !Array.isArray(normalized.implementationRoadmap)) {
-        normalized.implementationRoadmap = Object.values(normalized.implementationRoadmap);
+        normalized.implementationRoadmap = Object.entries(normalized.implementationRoadmap).map(([key, value]) => {
+            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                // Preserve key as 'phase' if it's missing from the value
+                return !('phase' in value) ? { phase: key, ...value } : value;
+            }
+            return value;
+        });
     }
 
-    // Normalize initialPhase.files: object -> array
+    // Normalize initialPhase.files: object -> array, preserving key as 'path' if missing
     if (normalized.initialPhase && typeof normalized.initialPhase === 'object') {
         normalized.initialPhase = { ...normalized.initialPhase };
         if (normalized.initialPhase.files && typeof normalized.initialPhase.files === 'object' && !Array.isArray(normalized.initialPhase.files)) {
-            normalized.initialPhase.files = Object.values(normalized.initialPhase.files);
+            normalized.initialPhase.files = Object.entries(normalized.initialPhase.files).map(([key, value]) => {
+                if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+                    // Preserve key as 'path' if it's missing from the value
+                    // The key might be "File1" or a filename, so use it as path if path is missing
+                    return !('path' in value) ? { path: key, ...value } : value;
+                }
+                return value;
+            });
         }
     }
 

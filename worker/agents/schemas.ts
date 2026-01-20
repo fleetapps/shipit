@@ -32,7 +32,7 @@ export const FileConceptSchema = z.object({
 export const PhaseConceptSchema = z.object({
     name: z.string().describe('Name of the phase (Utility, api, frontend, etc)'),
     description: z.string().describe('Concise, descriptive, directed description of the phase'),
-    files: z.array(FileConceptSchema).describe('Files that need to be written in this stage (new or modified existing), including paths and purposes of each source/code file. **NO BINARY FILES**.'),
+    files: z.array(FileConceptSchema).default([]).catch([]).describe('Files that need to be written in this stage (new or modified existing), including paths and purposes of each source/code file. **NO BINARY FILES**.'),
     lastPhase: z.boolean().describe('Whether this is the last phase to be implemented. If true, no next phase is required and the process will end here'),
 })
 
@@ -86,8 +86,8 @@ export const SimpleBlueprintSchema = z.object({
     title: z.string().describe('Title for the project'),
     projectName: z.string().describe('Name for the project, in small case, no special characters, no spaces, no dots. Only letters, numbers, hyphens, underscores are allowed.'),
     description: z.string().describe('Short, brief, concise description of the project in a single sentence'),
-    colorPalette: z.array(z.string()).describe('Color palette RGB codes to be used in the project, only base colors and not their shades, max 3 colors'),
-    frameworks: z.array(z.string()).describe('Essential Frameworks, libraries and dependencies to be used in the project, with only major versions optionally specified'),
+    colorPalette: z.array(z.string()).default([]).catch([]).describe('Color palette RGB codes to be used in the project, only base colors and not their shades, max 3 colors'),
+    frameworks: z.array(z.string()).default([]).catch([]).describe('Essential Frameworks, libraries and dependencies to be used in the project, with only major versions optionally specified'),
 });
 
 export const PhasicBlueprintSchema = SimpleBlueprintSchema.extend({
@@ -95,7 +95,7 @@ export const PhasicBlueprintSchema = SimpleBlueprintSchema.extend({
     views: z.array(z.object({
         name: z.string().describe('Name of the view'),
         description: z.string().describe('Description of the view'),
-    })).describe('Views of the application'),
+    })).default([]).catch([]).describe('Views of the application'),
     userFlow: z.object({
         uiLayout: z.string().describe('Detailed description of the layout of the user interface of the application, including margins, padding, spacing, etc. and how UI elements appear and where'),
         uiDesign: z.string().describe('Description of the user interface design and how it should look, including styling, colors, fonts, etc.'),
@@ -105,17 +105,17 @@ export const PhasicBlueprintSchema = SimpleBlueprintSchema.extend({
     architecture: z.object({
         dataFlow: z.string().describe('Conscise description of how data flows through the application'),
     }).describe('Description of the architecture of the application, only needed for a dynamic application'),
-    pitfalls: z.array(z.string()).describe('Exhaustive yet concise list of all the various framework and domain specific pitfalls, issues, challenges, and bugs that can occur while developing this and to avoid during implementation'),
-    frameworks: z.array(z.string()).describe('Essential Frameworks, libraries and dependencies to be used in the application (apart from what is already in the template), with only major versions optionally specified'),
+    pitfalls: z.array(z.string()).default([]).catch([]).describe('Exhaustive yet concise list of all the various framework and domain specific pitfalls, issues, challenges, and bugs that can occur while developing this and to avoid during implementation'),
+    frameworks: z.array(z.string()).default([]).catch([]).describe('Essential Frameworks, libraries and dependencies to be used in the application (apart from what is already in the template), with only major versions optionally specified'),
     implementationRoadmap: z.array(z.object({
         phase: z.string().describe('Phase name'),
         description: z.string().describe('Concise and brief description of the phase'),
-    })).describe('Rough roadmap of the project'),
+    })).default([]).catch([]).describe('Rough roadmap of the project'),
     initialPhase: PhaseConceptSchema.describe('The first phase to be implemented, in **STRICT** accordance with <PHASE GENERATION STRATEGY>'),
 });
 
 export const AgenticBlueprintSchema = SimpleBlueprintSchema.extend({
-    plan: z.array(z.string()).describe('Step by step plan for implementing the project'),
+    plan: z.array(z.string()).default([]).catch([]).describe('Step by step plan for implementing the project'),
 });
 
 export const BlueprintSchemaLite = PhasicBlueprintSchema.omit({
