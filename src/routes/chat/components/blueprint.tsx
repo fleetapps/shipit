@@ -219,23 +219,23 @@ export function Blueprint({
 					</div>
 				)}
 
-				{/* Pitfalls */}
-				{phasicBlueprint && phasicBlueprint.pitfalls?.length > 0 && (
-					<div>
-						<h3 className="text-sm font-medium mb-2 text-text-50/70 uppercase tracking-wider">
-							Pitfalls
-						</h3>
-						<div className="prose prose-sm prose-invert">
-							<ul className="">
-								{phasicBlueprint.pitfalls?.map((pitfall, index) => (
-									<li key={`pitfall-${index}`} className="">
-										{pitfall}
-									</li>
-								))}
-							</ul>
-						</div>
+			{/* Pitfalls */}
+			{phasicBlueprint && Array.isArray(phasicBlueprint.pitfalls) && phasicBlueprint.pitfalls.length > 0 && (
+				<div>
+					<h3 className="text-sm font-medium mb-2 text-text-50/70 uppercase tracking-wider">
+						Pitfalls
+					</h3>
+					<div className="prose prose-sm prose-invert">
+						<ul className="">
+							{phasicBlueprint.pitfalls.map((pitfall, index) => (
+								<li key={`pitfall-${index}`} className="">
+									{pitfall}
+								</li>
+							))}
+						</ul>
 					</div>
-				)}
+				</div>
+			)}
 
 
 			</div>

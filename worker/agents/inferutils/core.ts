@@ -544,6 +544,9 @@ function updateToolCallContext(
  * - views: { "MainView": {...} } instead of [{ name: "...", description: "..." }]
  * - implementationRoadmap: { "Phase1": {...} } instead of [{ phase: "...", description: "..." }]
  * - initialPhase.files: { "File1": {...} } instead of [{ path: "...", purpose: "..." }]
+ * - pitfalls: { "Pitfall1": "..." } instead of ["...", "..."]
+ * - frameworks: { "Framework1": "..." } instead of ["...", "..."]
+ * - colorPalette: { "Color1": "..." } instead of ["...", "..."]
  */
 function normalizeBlueprintData(raw: any): any {
     if (!raw || typeof raw !== 'object') {
@@ -587,6 +590,21 @@ function normalizeBlueprintData(raw: any): any {
                 return value;
             });
         }
+    }
+
+    // Normalize pitfalls: object -> array (simple string array)
+    if (normalized.pitfalls && typeof normalized.pitfalls === 'object' && !Array.isArray(normalized.pitfalls)) {
+        normalized.pitfalls = Object.values(normalized.pitfalls).filter((v): v is string => typeof v === 'string');
+    }
+
+    // Normalize frameworks: object -> array (simple string array)
+    if (normalized.frameworks && typeof normalized.frameworks === 'object' && !Array.isArray(normalized.frameworks)) {
+        normalized.frameworks = Object.values(normalized.frameworks).filter((v): v is string => typeof v === 'string');
+    }
+
+    // Normalize colorPalette: object -> array (simple string array)
+    if (normalized.colorPalette && typeof normalized.colorPalette === 'object' && !Array.isArray(normalized.colorPalette)) {
+        normalized.colorPalette = Object.values(normalized.colorPalette).filter((v): v is string => typeof v === 'string');
     }
 
     return normalized;
