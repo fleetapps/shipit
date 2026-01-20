@@ -12,39 +12,36 @@ import { env } from 'cloudflare:workers';
 // Common configs - these are good defaults
 const COMMON_AGENT_CONFIGS = {
     screenshotAnalysis: {
-        name: AIModels.DISABLED,
-        reasoning_effort: 'medium' as const,
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        reasoning_effort: undefined,
         max_tokens: 8000,
-        temperature: 1,
-        fallbackModel: AIModels.GROK_4_1_FAST,
+        temperature: 0,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
     },
     realtimeCodeFixer: {
-        name: AIModels.GROK_4_1_FAST_NON_REASONING,
-        reasoning_effort: 'low' as const,
-        max_tokens: 32000,
-        temperature: 0.2,
-        fallbackModel: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH,
+        reasoning_effort: undefined,
+        temperature: 0,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
     },
     fastCodeFixer: {
-        name: AIModels.DISABLED,
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
         reasoning_effort: undefined,
-        max_tokens: 64000,
-        temperature: 0.0,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        temperature: 0,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     templateSelection: {
-        name: AIModels.GROK_4_1_FAST_NON_REASONING,
-        max_tokens: 2000,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
-        temperature: 1,
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        temperature: 0,
     },
 } as const;
 
 const SHARED_IMPLEMENTATION_CONFIG = {
     reasoning_effort: 'low' as const,
-    max_tokens: 32000,
-    temperature: 1,
-    fallbackModel: AIModels.GROK_CODE_FAST_1,
+    max_tokens: 12000,
+    temperature: 0.1,
+    fallbackModel: AIModels.GEMINI_2_5_FLASH,
 };
 
 //======================================================================================
@@ -58,60 +55,54 @@ Cloudflare AI Gateway unified billing for seamless model access without managing
 const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     blueprint: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH,
         reasoning_effort: 'high',
         max_tokens: 20000,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
-        temperature: 1.0,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        temperature: 0.25,
     },
     projectSetup: {
-        name: AIModels.GROK_4_1_FAST,
-        reasoning_effort: 'medium',
-        max_tokens: 8000,
-        temperature: 1,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        reasoning_effort: 'low',
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     phaseGeneration: {
-        name: AIModels.GROK_4_1_FAST,
-        reasoning_effort: 'medium',
-        max_tokens: 8000,
-        temperature: 1,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        name: AIModels.GEMINI_2_5_FLASH,
+        reasoning_effort: 'low',
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
     },
     firstPhaseImplementation: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseImplementation: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
-        name: AIModels.GROK_4_1_FAST_NON_REASONING,
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
         max_tokens: 2000,
-        temperature: 1,
-        fallbackModel: AIModels.GROK_4_1_FAST,
+        temperature: 0.4,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     deepDebugger: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH,
         reasoning_effort: 'high',
         max_tokens: 8000,
-        temperature: 1,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        temperature: 0.2,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
     },
     fileRegeneration: {
-        name: AIModels.GROK_4_1_FAST_NON_REASONING,
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
         reasoning_effort: 'low',
-        max_tokens: 16000,
-        temperature: 0.0,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     agenticProjectBuilder: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH,
         reasoning_effort: 'medium',
-        max_tokens: 8000,
-        temperature: 1,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        max_tokens: 4000,
+        temperature: 0.2,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
     },
 };
 
@@ -122,72 +113,62 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     templateSelection: {
-        name: AIModels.GROK_4_1_FAST_NON_REASONING,
-        max_tokens: 2000,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
-        temperature: 1,
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     blueprint: {
-        name: AIModels.GROK_4_1_FAST,
-        reasoning_effort: 'medium',
-        max_tokens: 20000,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
-        temperature: 0.7,
+        name: AIModels.GEMINI_2_5_FLASH,
+        reasoning_effort: 'high',
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        temperature: 0.3,
     },
     projectSetup: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
         reasoning_effort: 'low',
-        max_tokens: 10000,
         temperature: 0.2,
-        fallbackModel: AIModels.GROK_4_1_FAST_NON_REASONING,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     phaseGeneration: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH,
         reasoning_effort: 'low',
-        max_tokens: 32000,
         temperature: 0.2,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
     },
     firstPhaseImplementation: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH,
         reasoning_effort: 'low',
-        max_tokens: 32000,
         temperature: 0.2,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
     },
     phaseImplementation: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH,
         reasoning_effort: 'low',
-        max_tokens: 32000,
+        max_tokens: 12000,
         temperature: 0.2,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
     },
     conversationalResponse: {
-        name: AIModels.GROK_4_1_FAST_NON_REASONING,
-        max_tokens: 2000,
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
         temperature: 0,
-        fallbackModel: AIModels.GROK_4_1_FAST,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     deepDebugger: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH,
         reasoning_effort: 'high',
-        max_tokens: 8000,
-        temperature: 0.5,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        temperature: 0,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
     },
     fileRegeneration: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH_LITE,
         reasoning_effort: 'low',
-        max_tokens: 32000,
         temperature: 0,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH,
     },
     agenticProjectBuilder: {
-        name: AIModels.GROK_4_1_FAST,
+        name: AIModels.GEMINI_2_5_FLASH,
         reasoning_effort: 'medium',
-        max_tokens: 8000,
-        temperature: 1,
-        fallbackModel: AIModels.GROK_CODE_FAST_1,
+        temperature: 0.2,
+        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
     },
 };
 
@@ -198,7 +179,7 @@ export const AGENT_CONFIG: AgentConfig = env.PLATFORM_MODEL_PROVIDERS
 
 export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new Map([
 	['fastCodeFixer', {
-		allowedModels: new Set([AIModels.DISABLED]),
+		allowedModels: new Set([AIModels.GEMINI_2_5_FLASH_LITE]),
 		enabled: true,
 	}],
 	['realtimeCodeFixer', {
@@ -226,3 +207,37 @@ export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new
 		enabled: true,
 	}],
 ]);
+
+// export const TOKEN_GUARDS = {
+//     HARD_LIMIT: 50_000,      // absolute stop
+//     SOFT_LIMIT: 35_000,      // start degrading
+//   };
+  
+// export function applyTokenGuard(
+//     config: ModelConfig,
+//     context: InferenceContext,
+//   ): ModelConfig {
+//     const spent = context.spentTokens ?? 0;
+  
+//     // 🔴 HARD STOP
+//     if (spent >= TOKEN_GUARDS.HARD_LIMIT) {
+//       throw new Error('Token budget exceeded');
+//     }
+  
+//     // 🟡 SOFT DEGRADE
+//     if (spent >= TOKEN_GUARDS.SOFT_LIMIT) {
+//       return {
+//         ...config,
+//         temperature: Math.min(config.temperature ?? 0.2, 0.1),
+//         reasoning_effort: undefined,
+//         max_tokens: Math.min(config.max_tokens ?? 4000, 4000),
+//         name: LiteModels.includes(config.name as AIModels)
+//           ? config.name
+//           : AIModels.GEMINI_2_5_FLASH_LITE,
+//         fallbackModel: undefined, // 🔒 disable escalation
+//       };
+//     }
+  
+//     return config;
+//   }
+  

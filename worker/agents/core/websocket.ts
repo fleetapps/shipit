@@ -264,7 +264,8 @@ export function sendToConnection<T extends WebSocketMessageType>(
         const message: WebSocketMessage = { type, ...data } as WebSocketMessage;
         connection.send(JSON.stringify(message));
     } catch (error) {
-        console.error(`Error sending message to connection ${connection.url}:`, error);
+        // Cloudflare WebSocket objects don't have a url property
+        console.error(`Error sending message to WebSocket connection:`, error);
     }
 }
 

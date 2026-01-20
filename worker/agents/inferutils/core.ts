@@ -270,8 +270,14 @@ async function getApiKey(
     //     console.error("Error getting API key for provider: ", provider, error);
     // }
     // Fallback to environment variables
-    const providerKeyString = provider.toUpperCase().replaceAll('-', '_');
-    const envKey = `${providerKeyString}_API_KEY` as keyof Env;
+    // Special case: grok provider uses GROQ_API_KEY (not GROK_API_KEY)
+    let envKey: keyof Env;
+    if (provider === 'grok') {
+        envKey = 'GROQ_API_KEY';
+    } else {
+        const providerKeyString = provider.toUpperCase().replaceAll('-', '_');
+        envKey = `${providerKeyString}_API_KEY` as keyof Env;
+    }
     let apiKey: string = env[envKey] as string;
     
     // Check if apiKey is empty or undefined and is valid

@@ -12,6 +12,7 @@ export type BehaviorType = 'phasic' | 'agentic';
 
 export type ProjectType = 'app' | 'workflow' | 'presentation' | 'general';
 
+
 /**
  * Runtime type - WHERE it runs during dev
  * - sandbox: Cloudflare Containers (full apps with UI)
