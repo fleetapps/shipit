@@ -644,6 +644,14 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
         
+        // Fix DeepSeek model names - DeepSeek API expects exact model IDs without provider prefix
+        if (modelConfig.provider === 'deepseek') {
+            // DeepSeek expects 'deepseek-chat' or 'deepseek-reasoner', not 'deepseek/deepseek-chat'
+            if (modelName.startsWith('deepseek/')) {
+                modelName = modelName.replace('deepseek/', '');
+            }
+        }
+        
         // Fix Grok model names - x.ai API uses different format
         // Map our internal model names to actual Grok API model names
         if (modelConfig.provider === 'grok') {

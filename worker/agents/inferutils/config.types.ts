@@ -365,7 +365,7 @@ const MODELS_MASTER = {
 
     // --- DeepSeek Models ---
     DEEPSEEK_REASONER_V3_2: {
-        id: 'deepseek/deepseek-reasoner',
+        id: 'deepseek-reasoner',
         config: {
             name: 'DeepSeek Reasoner V3.2',
             size: ModelSize.LARGE,
@@ -376,7 +376,7 @@ const MODELS_MASTER = {
         }
     },
     DEEPSEEK_CHAT_V3_2: {
-        id: 'deepseek/deepseek-chat',
+        id: 'deepseek-chat',
         config: {
             name: 'DeepSeek Chat V3.2',
             size: ModelSize.REGULAR,
