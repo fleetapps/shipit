@@ -203,7 +203,7 @@ export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new
 		enabled: true,
 	}],
 	['templateSelection', {
-		allowedModels: new Set(LiteModels),
+		allowedModels: new Set([AIModels.DEEPSEEK_CHAT_V3_2, ...LiteModels]),
 		enabled: true,
 	}],
 ]);
