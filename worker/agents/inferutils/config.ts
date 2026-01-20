@@ -55,11 +55,11 @@ Cloudflare AI Gateway unified billing for seamless model access without managing
 const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     blueprint: {
-        name: AIModels.DEEPSEEK_REASONER_V3_2,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         reasoning_effort: 'high',
         max_tokens: 20000,
         fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
-        temperature: 0.25,
+        temperature: 0.1,
     },
     projectSetup: {
         name: AIModels.DEEPSEEK_CHAT_V3_2,
@@ -117,10 +117,10 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     blueprint: {
-        name: AIModels.DEEPSEEK_REASONER_V3_2,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         reasoning_effort: 'high',
         fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
-        temperature: 0.3,
+        temperature: 0.1,
     },
     projectSetup: {
         name: AIModels.DEEPSEEK_CHAT_V3_2,
