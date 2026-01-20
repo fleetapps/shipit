@@ -200,7 +200,9 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     }
 
                     if (state.blueprint && !blueprint) {
-                        setBlueprint(state.blueprint);
+                        // Normalize blueprint to handle object->array conversions
+                        const normalized = normalizeBlueprintData(state.blueprint);
+                        setBlueprint(normalized);
                         updateStage('blueprint', { status: 'completed' });
                     }
 
