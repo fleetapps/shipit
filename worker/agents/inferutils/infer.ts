@@ -197,7 +197,29 @@ export async function executeInference<T extends z.AnyZodObject>(   {
             // console.log(result);
             return result;
         } catch (error) {
-            if (error instanceof RateLimitExceededError || error instanceof SecurityError) {
+            // Handle rate limit errors with API-provided retry delays
+            if (error instanceof RateLimitExceededError) {
+                const isLastAttempt = attempt === retryLimit - 1;
+                
+                if (!isLastAttempt) {
+                    // Use API-provided retry delay if available, otherwise use exponential backoff
+                    const retryDelay = error.period || backoffMs(attempt);
+                    logger.info(`Rate limit exceeded. Retrying in ${retryDelay}ms (API suggested delay: ${error.period ? 'yes' : 'no'})...`);
+                    await new Promise(resolve => setTimeout(resolve, retryDelay));
+                    
+                    // Only switch to fallback model after waiting (to avoid hammering the API)
+                    if (resolvedConfig.fallbackModel && resolvedConfig.fallbackModel !== modelName) {
+                        logger.info(`Switching to fallback model: ${resolvedConfig.fallbackModel}`);
+                        modelName = resolvedConfig.fallbackModel;
+                    }
+                    continue; // Retry with same or fallback model
+                } else {
+                    // Last attempt failed
+                    throw error;
+                }
+            }
+            
+            if (error instanceof SecurityError) {
                 throw error;
             }
             

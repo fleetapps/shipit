@@ -361,7 +361,31 @@ const MODELS_MASTER = {
             contextSize: 262144, // 256K Context
             directOverride: true,
         },
-    }
+    },
+
+    // --- DeepSeek Models ---
+    DEEPSEEK_REASONER_V3_2: {
+        id: 'deepseek/deepseek-reasoner',
+        config: {
+            name: 'DeepSeek Reasoner V3.2',
+            size: ModelSize.LARGE,
+            provider: 'deepseek',
+            creditCost: 4, // $1.00 (estimated based on reasoning capabilities)
+            contextSize: 131072, // 128K Context
+            directOverride: true,
+        }
+    },
+    DEEPSEEK_CHAT_V3_2: {
+        id: 'deepseek/deepseek-chat',
+        config: {
+            name: 'DeepSeek Chat V3.2',
+            size: ModelSize.REGULAR,
+            provider: 'deepseek',
+            creditCost: 1.2, // $0.30 (estimated)
+            contextSize: 131072, // 128K Context
+            directOverride: true,
+        }
+    },
 } as const;
 
 /**

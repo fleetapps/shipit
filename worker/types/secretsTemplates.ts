@@ -101,6 +101,19 @@ export function getTemplatesData(): SecretTemplate[] {
 			required: false,
 			category: 'ai',
 		},
+		{
+			id: 'DEEPSEEK_API_KEY',
+			displayName: 'DeepSeek API Key',
+			envVarName: 'DEEPSEEK_API_KEY',
+			provider: 'deepseek',
+			icon: '🧠',
+			description: 'DeepSeek API key for DeepSeek models (including v3.2 thinking mode)',
+			instructions: 'Go to DeepSeek Platform → API Keys → Create new secret key',
+			placeholder: 'sk-...',
+			validation: '^sk-[a-zA-Z0-9]{32,}$',
+			required: false,
+			category: 'ai',
+		},
 
 		// BYOK (Bring Your Own Key) AI Providers - Lenient validation for compatibility
 		{

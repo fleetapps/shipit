@@ -12,27 +12,27 @@ import { env } from 'cloudflare:workers';
 // Common configs - these are good defaults
 const COMMON_AGENT_CONFIGS = {
     screenshotAnalysis: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         reasoning_effort: undefined,
         max_tokens: 8000,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     realtimeCodeFixer: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         reasoning_effort: undefined,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     fastCodeFixer: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         reasoning_effort: undefined,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     templateSelection: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
         temperature: 0,
     },
 } as const;
@@ -41,7 +41,7 @@ const SHARED_IMPLEMENTATION_CONFIG = {
     reasoning_effort: 'low' as const,
     max_tokens: 12000,
     temperature: 0.1,
-    fallbackModel: AIModels.GEMINI_2_5_FLASH,
+    fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
 };
 
 //======================================================================================
@@ -55,120 +55,120 @@ Cloudflare AI Gateway unified billing for seamless model access without managing
 const PLATFORM_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     blueprint: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         reasoning_effort: 'high',
         max_tokens: 20000,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
         temperature: 0.25,
     },
     projectSetup: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         reasoning_effort: 'low',
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     phaseGeneration: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         reasoning_effort: 'low',
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     firstPhaseImplementation: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseImplementation: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         max_tokens: 2000,
         temperature: 0.4,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         reasoning_effort: 'high',
         max_tokens: 8000,
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     fileRegeneration: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         reasoning_effort: 'low',
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     agenticProjectBuilder: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         reasoning_effort: 'medium',
         max_tokens: 4000,
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
 };
 
 //======================================================================================
-// Default Claude config (matching v1 deployment)
+// Default DeepSeek config
 //======================================================================================
-/* These are the default Claude models used when PLATFORM_MODEL_PROVIDERS is not set */
+/* These are the default DeepSeek models used when PLATFORM_MODEL_PROVIDERS is not set */
 const DEFAULT_AGENT_CONFIG: AgentConfig = {
     ...COMMON_AGENT_CONFIGS,
     templateSelection: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     blueprint: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         reasoning_effort: 'high',
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
         temperature: 0.3,
     },
     projectSetup: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         reasoning_effort: 'low',
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     phaseGeneration: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         reasoning_effort: 'low',
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     firstPhaseImplementation: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         reasoning_effort: 'low',
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     phaseImplementation: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         reasoning_effort: 'low',
         max_tokens: 12000,
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     conversationalResponse: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     deepDebugger: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         reasoning_effort: 'high',
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     fileRegeneration: {
-        name: AIModels.GEMINI_2_5_FLASH_LITE,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         reasoning_effort: 'low',
         temperature: 0,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     agenticProjectBuilder: {
-        name: AIModels.GEMINI_2_5_FLASH,
+        name: AIModels.DEEPSEEK_REASONER_V3_2,
         reasoning_effort: 'medium',
         temperature: 0.2,
-        fallbackModel: AIModels.GEMINI_2_5_FLASH_LITE,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
 };
 
@@ -179,7 +179,7 @@ export const AGENT_CONFIG: AgentConfig = env.PLATFORM_MODEL_PROVIDERS
 
 export const AGENT_CONSTRAINTS: Map<AgentActionKey, AgentConstraintConfig> = new Map([
 	['fastCodeFixer', {
-		allowedModels: new Set([AIModels.GEMINI_2_5_FLASH_LITE]),
+		allowedModels: new Set([AIModels.DEEPSEEK_CHAT_V3_2]),
 		enabled: true,
 	}],
 	['realtimeCodeFixer', {

@@ -30,6 +30,7 @@ const PROVIDER_CAPABILITIES = {
   grok: { openAICompatible: true },
   anthropic: { openAICompatible: false },
   'google-ai-studio': { openAICompatible: false, requiresNativeInference: true },
+  deepseek: { openAICompatible: true },
 } as const;
 
 // Type guard using capability matrix
@@ -333,6 +334,11 @@ export async function getConfigurationForModel(
                 return {
                     baseURL: 'https://api.openai.com/v1',
                     apiKey: env.OPENAI_API_KEY,
+                };
+            case 'deepseek':
+                return {
+                    baseURL: 'https://api.deepseek.com/v1',
+                    apiKey: env.DEEPSEEK_API_KEY,
                 };
             default:
                 providerForcedOverride = modelConfig.provider as AIGatewayProviders;
@@ -796,11 +802,43 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 throw new AbortError('**User cancelled inference**', toolCallContext);
             }
             
+            // Handle rate limit errors from OpenAI/Anthropic/OpenRouter providers
+            // OpenAI SDK throws APIError with status property, Anthropic also uses 429
+            if (error && typeof error === 'object') {
+                const errorStatus = (error as any).status || (error as any).response?.status || (error as any).statusCode;
+                
+                if (errorStatus === 429) {
+                    // Try to extract retry-after from multiple possible locations
+                    // OpenAI SDK: error.headers or error.response?.headers
+                    // Anthropic: response headers
+                    // OpenRouter: similar structure
+                    const headers = (error as any).headers || (error as any).response?.headers || {};
+                    const retryAfterHeader = headers['retry-after'] || headers['Retry-After'] || 
+                                           (error as any).retryAfter || (error as any).retry_after;
+                    
+                    let retryDelayMs = 60000; // Default 60s for OpenAI/Anthropic/OpenRouter
+                    
+                    if (retryAfterHeader) {
+                        // Handle both string (seconds) and number formats
+                        const retryAfterSeconds = typeof retryAfterHeader === 'string' 
+                            ? parseFloat(retryAfterHeader) 
+                            : retryAfterHeader;
+                        
+                        if (!isNaN(retryAfterSeconds) && retryAfterSeconds > 0) {
+                            retryDelayMs = Math.ceil(retryAfterSeconds * 1000);
+                        }
+                    }
+                    
+                    throw new RateLimitExceededError(
+                        `API rate limit exceeded. Retry after ${retryDelayMs / 1000}s`,
+                        RateLimitType.LLM_CALLS,
+                        undefined,
+                        retryDelayMs
+                    );
+                }
+            }
+            
             console.error(`Failed to get inference response from AI Gateway: ${error}`);
-            // if ((error instanceof Error && error.message.includes('429')) || (typeof error === 'string' && error.includes('429'))) {
-
-            //     throw new RateLimitExceededError('Rate limit exceeded in LLM calls, Please try again later', RateLimitType.LLM_CALLS);
-            // }
             throw error;
         }
         let toolCalls: ChatCompletionMessageFunctionToolCall[] = [];
@@ -1152,6 +1190,61 @@ ${tools ? 'When you need to use a tool, output JSON with this structure: {"thoug
 
   if (!res.ok) {
     const errorText = await res.text();
+    
+    // Handle 429 rate limit errors with retry delay parsing
+    if (res.status === 429) {
+      try {
+        const errorJson = JSON.parse(errorText);
+        
+        // First, check for retry-after header (some Gemini endpoints may include it)
+        const retryAfterHeader = res.headers.get('retry-after') || res.headers.get('Retry-After');
+        let retryDelaySeconds = 34; // Default fallback
+        
+        if (retryAfterHeader) {
+          const parsed = parseFloat(retryAfterHeader);
+          if (!isNaN(parsed) && parsed > 0) {
+            retryDelaySeconds = parsed;
+          }
+        } else {
+          // Extract retry delay from RetryInfo detail in error JSON
+          const retryInfo = errorJson?.error?.details?.find(
+            (d: any) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo'
+          );
+          
+          if (retryInfo?.retryDelay) {
+            // Handle both number and string formats (e.g., "34.179532308s" or 34.179532308)
+            const delayValue = retryInfo.retryDelay.seconds || retryInfo.retryDelay;
+            if (typeof delayValue === 'string') {
+              // Remove 's' suffix if present and parse
+              retryDelaySeconds = parseFloat(delayValue.replace(/s$/, ''));
+            } else {
+              retryDelaySeconds = parseFloat(delayValue);
+            }
+            
+            // Validate parsed value
+            if (isNaN(retryDelaySeconds) || retryDelaySeconds <= 0) {
+              retryDelaySeconds = 34; // Fallback to default
+            }
+          }
+        }
+        
+        throw new RateLimitExceededError(
+          `Gemini API rate limit exceeded. Retry after ${retryDelaySeconds}s`,
+          RateLimitType.LLM_CALLS,
+          undefined,
+          Math.ceil(retryDelaySeconds * 1000) // Convert to milliseconds, round up
+        );
+      } catch (parseError) {
+        // If parsing fails, throw generic error with default delay
+        throw new RateLimitExceededError(
+          `Gemini API rate limit exceeded`,
+          RateLimitType.LLM_CALLS,
+          undefined,
+          34000 // Default 34s
+        );
+      }
+    }
+    
     throw new Error(`Gemini API error ${res.status}: ${errorText}`);
   }
 

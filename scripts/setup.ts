@@ -373,10 +373,11 @@ class SetupManager {
 		console.log('   3. Google AI Studio (for Gemini models) [DEFAULT]');
 		console.log('   4. Cerebras (for open source models)');
 		console.log('   5. OpenRouter (for various models)');
-		console.log('   6. Custom provider\n');
+		console.log('   6. DeepSeek (for DeepSeek models)');
+		console.log('   7. Custom provider\n');
 
 		const providerChoice = await this.prompt('Select providers (comma-separated numbers, e.g., 1,2,3): ');
-		const selectedProviders = providerChoice.split(',').map(n => parseInt(n.trim())).filter(n => n >= 1 && n <= 6);
+		const selectedProviders = providerChoice.split(',').map(n => parseInt(n.trim())).filter(n => n >= 1 && n <= 7);
 
 		if (selectedProviders.length === 0) {
 			console.log('⚠️  No providers selected - you MUST configure at least one provider!');
@@ -390,12 +391,13 @@ class SetupManager {
 			2: { name: 'Anthropic', key: 'ANTHROPIC_API_KEY', provider: 'anthropic' },
 			3: { name: 'Google AI Studio', key: 'GOOGLE_AI_STUDIO_API_KEY', provider: 'google-ai-studio' },
 			4: { name: 'Cerebras', key: 'CEREBRAS_API_KEY', provider: 'cerebras' },
-			5: { name: 'OpenRouter', key: 'OPENROUTER_API_KEY', provider: 'openrouter' }
+			5: { name: 'OpenRouter', key: 'OPENROUTER_API_KEY', provider: 'openrouter' },
+			6: { name: 'DeepSeek', key: 'DEEPSEEK_API_KEY', provider: 'deepseek' }
 		};
 
 		console.log('\n🔑 API Key Configuration');
 		for (const choice of selectedProviders) {
-			if (choice === 6) {
+			if (choice === 7) {
 				// Custom provider
 				const customProviderName = await this.prompt('Enter custom provider name: ');
 				if (customProviderName) {
@@ -1134,7 +1136,7 @@ class SetupManager {
 
 	private static readonly FALLBACK_WORKER_VARS = new Set([
 		'TEMPLATES_REPOSITORY', 'ALLOWED_EMAIL', 'DISPATCH_NAMESPACE', 'CLOUDFLARE_AI_GATEWAY', 'ENABLE_READ_REPLICAS',
-		'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'CEREBRAS_API_KEY', 'GROQ_API_KEY',
+		'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'CEREBRAS_API_KEY', 'GROQ_API_KEY', 'DEEPSEEK_API_KEY',
 		'SANDBOX_SERVICE_API_KEY', 'SANDBOX_SERVICE_TYPE', 'SANDBOX_SERVICE_URL',
 		'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID', 'CLOUDFLARE_AI_GATEWAY_URL', 'CLOUDFLARE_AI_GATEWAY_TOKEN',
 		'SERPAPI_KEY', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_CLIENT_ID', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
@@ -1203,7 +1205,7 @@ class SetupManager {
 		const setupManagedVars = new Set([
 			'CUSTOM_DOMAIN', 'ENVIRONMENT', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
 			'CLOUDFLARE_AI_GATEWAY_TOKEN', 'CLOUDFLARE_AI_GATEWAY_URL',
-			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY',
+			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY', 'DEEPSEEK_API_KEY',
 			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
 			'JWT_SECRET', 'WEBHOOK_SECRET'
@@ -1247,7 +1249,7 @@ class SetupManager {
 
 		// Provider specific secrets
 		content += '# Provider specific secrets\n';
-		const providerVars = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY'];
+		const providerVars = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY', 'DEEPSEEK_API_KEY'];
 		for (const varName of providerVars) {
 			if (this.config.devVars[varName]) {
 				content += `${varName}="${this.config.devVars[varName]}"\n`;
@@ -1342,7 +1344,7 @@ class SetupManager {
 		const setupManagedVars = new Set([
 			'CUSTOM_DOMAIN', 'ENVIRONMENT', 'CLOUDFLARE_API_TOKEN', 'CLOUDFLARE_ACCOUNT_ID',
 			'CLOUDFLARE_AI_GATEWAY_TOKEN', 'CLOUDFLARE_AI_GATEWAY_URL',
-			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY',
+			'ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY', 'DEEPSEEK_API_KEY',
 			'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET',
 			'GITHUB_EXPORTER_CLIENT_ID', 'GITHUB_EXPORTER_CLIENT_SECRET',
 			'JWT_SECRET', 'WEBHOOK_SECRET'
@@ -1371,7 +1373,7 @@ class SetupManager {
 
 		// Provider specific secrets
 		content += '# Provider specific secrets\n';
-		const providerVars = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY'];
+		const providerVars = ['ANTHROPIC_API_KEY', 'OPENAI_API_KEY', 'GOOGLE_AI_STUDIO_API_KEY', 'OPENROUTER_API_KEY', 'GROQ_API_KEY', 'DEEPSEEK_API_KEY'];
 		for (const varName of providerVars) {
 			if (this.config.prodVars[varName]) {
 				content += `${varName}="${this.config.prodVars[varName]}"\n`;
