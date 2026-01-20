@@ -536,6 +536,43 @@ function updateToolCallContext(
     return newToolCallContext;
 }
 
+/**
+ * Normalizes blueprint data structures that may be returned as objects
+ * instead of arrays by LLMs. Converts object maps to arrays by extracting values.
+ * 
+ * This handles cases where models return:
+ * - views: { "MainView": {...} } instead of [{ name: "...", description: "..." }]
+ * - implementationRoadmap: { "Phase1": {...} } instead of [{ phase: "...", description: "..." }]
+ * - initialPhase.files: { "File1": {...} } instead of [{ path: "...", purpose: "..." }]
+ */
+function normalizeBlueprintData(raw: any): any {
+    if (!raw || typeof raw !== 'object') {
+        return raw;
+    }
+
+    const normalized = { ...raw };
+
+    // Normalize views: object -> array
+    if (normalized.views && typeof normalized.views === 'object' && !Array.isArray(normalized.views)) {
+        normalized.views = Object.values(normalized.views);
+    }
+
+    // Normalize implementationRoadmap: object -> array
+    if (normalized.implementationRoadmap && typeof normalized.implementationRoadmap === 'object' && !Array.isArray(normalized.implementationRoadmap)) {
+        normalized.implementationRoadmap = Object.values(normalized.implementationRoadmap);
+    }
+
+    // Normalize initialPhase.files: object -> array
+    if (normalized.initialPhase && typeof normalized.initialPhase === 'object') {
+        normalized.initialPhase = { ...normalized.initialPhase };
+        if (normalized.initialPhase.files && typeof normalized.initialPhase.files === 'object' && !Array.isArray(normalized.initialPhase.files)) {
+            normalized.initialPhase.files = Object.values(normalized.initialPhase.files);
+        }
+    }
+
+    return normalized;
+}
+
 export function infer<OutputSchema extends z.AnyZodObject>(
     args: InferArgsStructured,
     toolCallContext?: ToolCallContext,
@@ -1100,12 +1137,17 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 ? parseContentForSchema(content, format, schema, formatOptions)
                 : JSON.parse(content);
 
+            // Normalize blueprint data structures before validation
+            // This handles cases where models return objects instead of arrays
+            const normalizedContent = normalizeBlueprintData(parsedContent);
+
             // Use Zod's safeParse for proper error handling
-            const result = schema.safeParse(parsedContent);
+            const result = schema.safeParse(normalizedContent);
 
             if (!result.success) {
                 console.log('Raw content:', content);
                 console.log('Parsed data:', parsedContent);
+                console.log('Normalized data:', normalizedContent);
                 console.error('Schema validation errors:', result.error.format());
                 throw new Error(`Failed to validate AI response against schema: ${result.error.message}`);
             }
