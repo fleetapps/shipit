@@ -72,11 +72,11 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     firstPhaseImplementation: {
-        name: AIModels.DEEPSEEK_REASONER_V3_2,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     phaseImplementation: {
-        name: AIModels.DEEPSEEK_REASONER_V3_2,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         ...SHARED_IMPLEMENTATION_CONFIG,
     },
     conversationalResponse: {
@@ -135,13 +135,13 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     firstPhaseImplementation: {
-        name: AIModels.DEEPSEEK_REASONER_V3_2,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         reasoning_effort: 'low',
         temperature: 0.2,
         fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
     phaseImplementation: {
-        name: AIModels.DEEPSEEK_REASONER_V3_2,
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
         reasoning_effort: 'low',
         max_tokens: 12000,
         temperature: 0.2,
