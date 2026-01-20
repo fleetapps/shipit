@@ -24,6 +24,20 @@ import { getMaxToolCallingDepth, MAX_LLM_MESSAGES } from '../constants';
 import { executeToolCallsWithDependencies } from './toolExecution';
 import { CompletionDetector } from './completionDetection';
 
+// Provider capability matrix - prevents misrouting providers to wrong inference paths
+const PROVIDER_CAPABILITIES = {
+  openai: { openAICompatible: true },
+  grok: { openAICompatible: true },
+  anthropic: { openAICompatible: false },
+  'google-ai-studio': { openAICompatible: false, requiresNativeInference: true },
+} as const;
+
+// Type guard using capability matrix
+function requiresNativeInference(provider: string): boolean {
+  const capabilities = PROVIDER_CAPABILITIES[provider as keyof typeof PROVIDER_CAPABILITIES];
+  return capabilities !== undefined && 'requiresNativeInference' in capabilities && capabilities.requiresNativeInference === true;
+}
+
 function optimizeInputs(messages: Message[]): Message[] {
     return messages.map((message) => ({
         ...message,
@@ -305,11 +319,6 @@ export async function getConfigurationForModel(
                     baseURL: 'https://openrouter.ai/api/v1',
                     apiKey: env.OPENROUTER_API_KEY,
                 };
-            case 'google-ai-studio':
-                return {
-                    baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
-                    apiKey: env.GOOGLE_AI_STUDIO_API_KEY,
-                };
             case 'anthropic':
                 return {
                     baseURL: 'https://api.anthropic.com/v1/',
@@ -570,11 +579,41 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         };
     }
     
+    // Get model config to check provider (early check for routing)
+    const modelConfig = AI_MODEL_CONFIG[modelName as AIModels];
+    if (!modelConfig) {
+        throw new Error(`Unknown model: ${modelName}`);
+    }
+
+    // Route Gemini to native inference path (using capability matrix)
+    if (requiresNativeInference(modelConfig.provider)) {
+        return inferGeminiNative({
+            env,
+            metadata,
+            messages,
+            schema,
+            schemaName,
+            format,
+            formatOptions,
+            actionKey,
+            modelName,
+            reasoning_effort,
+            temperature,
+            frequency_penalty,
+            maxTokens,
+            stream,
+            tools,
+            runtimeOverrides,
+            abortSignal,
+            onAssistantMessage,
+            completionConfig,
+        }, toolCallContext);
+    }
+    
     try {
         const userConfig = await getUserConfigurableSettings(env, metadata.userId)
         // Maybe in the future can expand using config object for other stuff like global model configs?
         await RateLimitService.enforceLLMCallsRateLimit(env, userConfig.security.rateLimit, metadata.userId, modelName)
-        const modelConfig = AI_MODEL_CONFIG[modelName as AIModels];
 
         const { apiKey, baseURL, defaultHeaders } = await getConfigurationForModel(
             modelConfig,
@@ -1010,4 +1049,194 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         console.error('Error in inferWithSchemaOutput:', error);
         throw error;
     }
+}
+
+/**
+ * Native Gemini inference using direct API calls.
+ * Uses prompt-enforced JSON (no response_format) and tool intent protocol.
+ */
+async function inferGeminiNative<OutputSchema extends z.AnyZodObject>(
+  args: InferArgsBase & {
+    schema?: OutputSchema;
+    schemaName?: string;
+    format?: SchemaFormat;
+    formatOptions?: FormatterOptions;
+  },
+  toolCallContext?: ToolCallContext
+): Promise<InferResponseObject<OutputSchema> | InferResponseString> {
+  const {
+    env,
+    messages,
+    schema,
+    schemaName,
+    format,
+    formatOptions,
+    modelName,
+    temperature,
+    maxTokens,
+    tools,
+    abortSignal,
+    actionKey,
+    completionConfig,
+  } = args;
+
+  // Check tool calling depth (same as main infer function)
+  const currentDepth = toolCallContext?.depth ?? 0;
+  if (currentDepth >= getMaxToolCallingDepth(actionKey)) {
+    console.warn(`Tool calling depth limit reached (${currentDepth}/${getMaxToolCallingDepth(actionKey)}). Stopping recursion.`);
+    if (schema) {
+      throw new AbortError(`Maximum tool calling depth (${getMaxToolCallingDepth(actionKey)}) exceeded.`, toolCallContext);
+    }
+    return { 
+      string: `[System: Maximum tool calling depth reached.]`,
+      toolCallContext 
+    };
+  }
+
+  const apiKey = env.GOOGLE_AI_STUDIO_API_KEY;
+  if (!apiKey) {
+    throw new Error('Missing GOOGLE_AI_STUDIO_API_KEY');
+  }
+
+  // Extract model name (remove provider prefix if present)
+  let geminiModelName = modelName.replace(/^google-ai-studio\//, '').replace(/^gemini\//, '');
+  
+  // Build prompt with enforced JSON format instructions
+  const formatInstructions =
+    schema && schemaName
+      ? generateTemplateForSchema(schema, format ?? 'markdown', formatOptions)
+      : '';
+
+  // Convert messages to text format (simplified - no need for structured Gemini format since we use single prompt)
+  const conversationText = messages.map(msg => {
+    // Handle content (string or array)
+    const content = typeof msg.content === 'string' 
+      ? msg.content 
+      : Array.isArray(msg.content)
+        ? msg.content.map(c => typeof c === 'string' ? c : JSON.stringify(c)).join('\n')
+        : JSON.stringify(msg.content);
+    
+    if (msg.role === 'tool') {
+      return `TOOL (${msg.name}): ${content}`;
+    }
+    return `${msg.role.toUpperCase()}: ${content}`;
+  }).join('\n');
+
+  // Add system prompt with JSON enforcement
+  const systemPrompt = `You are an autonomous agent.
+You MUST output valid JSON only.
+${formatInstructions}
+${tools ? 'When you need to use a tool, output JSON with this structure: {"thought": "...", "action": {"tool": "tool_name", "args": {...}}}. Otherwise, output your final response in the "final" field.' : ''}`;
+
+  const prompt = `${systemPrompt}\n\nConversation:\n${conversationText}`;
+
+  // Call Gemini native API
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModelName}:generateContent`,
+    {
+      method: 'POST',
+      signal: abortSignal,
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: temperature ?? 0.2,
+          maxOutputTokens: maxTokens ?? 8192,
+        },
+      }),
+    }
+  );
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Gemini API error ${res.status}: ${errorText}`);
+  }
+
+  const json = await res.json() as {
+    candidates?: Array<{
+      content?: {
+        parts?: Array<{ text?: string }>;
+      };
+    }>;
+  };
+  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    throw new InferError('Empty response from Gemini', '', toolCallContext);
+  }
+
+  // Parse JSON response
+  let parsed: any;
+  try {
+    parsed = JSON.parse(text);
+  } catch (e) {
+    throw new InferError('Invalid JSON from Gemini', text, toolCallContext);
+  }
+
+  // Handle tool intent protocol
+  if (parsed.action && tools) {
+    // Find matching tool definition
+    const toolDef = tools.find(t => t.name === parsed.action.tool);
+    if (!toolDef) {
+      throw new InferError(`Unknown tool: ${parsed.action.tool}`, text, toolCallContext);
+    }
+
+    // Create tool call in OpenAI format for compatibility
+    const toolCall: ChatCompletionMessageFunctionToolCall = {
+      id: `gemini_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'function',
+      function: {
+        name: parsed.action.tool,
+        arguments: JSON.stringify(parsed.action.args ?? {}),
+      },
+    };
+
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content: parsed.thought || '',
+      tool_calls: [toolCall],
+    };
+
+    // Execute tool calls
+    const executed = await executeToolCalls([toolCall], tools);
+    const newContext = updateToolCallContext(
+      toolCallContext,
+      assistantMessage,
+      executed,
+      completionConfig?.detector
+    );
+
+    // Check for completion signal
+    if (newContext.completionSignal?.signaled) {
+      if (schema) {
+        throw new AbortError(
+          `Completion signaled: ${newContext.completionSignal.summary || 'Task complete'}`,
+          newContext
+        );
+      }
+      return {
+        string: newContext.completionSignal.summary || 'Task complete',
+        toolCallContext: newContext
+      };
+    }
+
+    // Recurse with tool results (preserve abortSignal for cancellation)
+    return inferGeminiNative(
+      { ...args, abortSignal },
+      newContext
+    );
+  }
+
+  // Final output - validate with schema if provided
+  if (schema) {
+    const result = schema.safeParse(parsed.final ?? parsed);
+    if (!result.success) {
+      throw new InferError('Schema validation failed', text, toolCallContext);
+    }
+    return { object: result.data, toolCallContext };
+  }
+
+  return { string: parsed.final ?? text, toolCallContext };
 }
