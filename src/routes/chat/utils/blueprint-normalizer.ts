@@ -17,7 +17,7 @@ export function normalizeBlueprintData(raw: any): any {
 
     // Handle arrays - recursively normalize items
     if (Array.isArray(raw)) {
-        return raw.map(item => normalizeBlueprintData(item));
+        return raw.map((item: any) => normalizeBlueprintData(item));
     }
 
     const normalized = { ...raw };
@@ -32,7 +32,7 @@ export function normalizeBlueprintData(raw: any): any {
         });
     } else if (Array.isArray(normalized.views)) {
         // Recursively normalize array items
-        normalized.views = normalized.views.map(item => normalizeBlueprintData(item));
+        normalized.views = normalized.views.map((item: any) => normalizeBlueprintData(item));
     }
 
     // Normalize implementationRoadmap: object -> array, preserving key as 'phase' if missing
@@ -45,7 +45,7 @@ export function normalizeBlueprintData(raw: any): any {
         });
     } else if (Array.isArray(normalized.implementationRoadmap)) {
         // Recursively normalize array items
-        normalized.implementationRoadmap = normalized.implementationRoadmap.map(item => normalizeBlueprintData(item));
+        normalized.implementationRoadmap = normalized.implementationRoadmap.map((item: any) => normalizeBlueprintData(item));
     }
 
     // Normalize initialPhase: recursively normalize nested structure
@@ -67,7 +67,7 @@ export function normalizeBlueprintData(raw: any): any {
         normalized.pitfalls = Object.values(normalized.pitfalls).filter((v): v is string => typeof v === 'string');
     } else if (Array.isArray(normalized.pitfalls)) {
         // Ensure all items are strings
-        normalized.pitfalls = normalized.pitfalls.filter((v): v is string => typeof v === 'string');
+        normalized.pitfalls = normalized.pitfalls.filter((v: any): v is string => typeof v === 'string');
     }
 
     // Normalize frameworks: object -> array (simple string array)
@@ -75,7 +75,7 @@ export function normalizeBlueprintData(raw: any): any {
         normalized.frameworks = Object.values(normalized.frameworks).filter((v): v is string => typeof v === 'string');
     } else if (Array.isArray(normalized.frameworks)) {
         // Ensure all items are strings
-        normalized.frameworks = normalized.frameworks.filter((v): v is string => typeof v === 'string');
+        normalized.frameworks = normalized.frameworks.filter((v: any): v is string => typeof v === 'string');
     }
 
     // Normalize colorPalette: object -> array (simple string array)
@@ -83,7 +83,7 @@ export function normalizeBlueprintData(raw: any): any {
         normalized.colorPalette = Object.values(normalized.colorPalette).filter((v): v is string => typeof v === 'string');
     } else if (Array.isArray(normalized.colorPalette)) {
         // Ensure all items are strings
-        normalized.colorPalette = normalized.colorPalette.filter((v): v is string => typeof v === 'string');
+        normalized.colorPalette = normalized.colorPalette.filter((v: any): v is string => typeof v === 'string');
     }
 
     return normalized;
