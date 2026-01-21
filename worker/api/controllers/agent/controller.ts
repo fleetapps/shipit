@@ -103,6 +103,83 @@ export class CodingAgentController extends BaseController {
             }
 
             const agentId = generateId();
+            
+            // CRITICAL: Create app record EARLY before agent initialization
+            // This ensures the app exists even if agent initialization fails
+            // Matches original VibeSDK pattern for reliability
+            const { AppService } = await import('../../../database/services/AppService');
+            const appService = new AppService(env);
+            const userId = user.id;
+            let appCreated = false;
+            let lastError: unknown = null;
+            
+            this.logger.info(`[createApp] Starting early app creation for agent: ${agentId}`, {
+                agentId,
+                userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+            });
+            
+            // Retry app creation up to 3 times with exponential backoff
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                try {
+                    await appService.createApp({
+                        id: agentId,
+                        userId: userId,
+                        sessionToken: null,
+                        title: query.substring(0, 100), // Temporary, will be updated with blueprint title
+                        description: null,
+                        originalPrompt: query,
+                        finalPrompt: query,
+                        framework: null, // Will be updated when blueprint completes
+                        visibility: 'private',
+                        status: 'generating',
+                        createdAt: new Date(),
+                        updatedAt: new Date()
+                    });
+                    appCreated = true;
+                    this.logger.info(`[createApp] App record created immediately for agent: ${agentId} (attempt ${attempt})`, {
+                        agentId,
+                        userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                        attempt,
+                    });
+                    break; // Success - exit retry loop
+                } catch (error) {
+                    lastError = error;
+                    const errorDetails = error instanceof Error ? {
+                        message: error.message,
+                        name: error.name,
+                    } : { error: String(error) };
+                    
+                    this.logger.warn(`[createApp] Failed to create app record immediately for agent ${agentId} (attempt ${attempt}/3)`, {
+                        agentId,
+                        userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                        attempt,
+                        error: errorDetails,
+                    });
+                    
+                    // If this is the last attempt, log as error
+                    if (attempt === 3) {
+                        this.logger.error(`[createApp] CRITICAL: Failed to create app record after 3 attempts for agent ${agentId}`, {
+                            agentId,
+                            userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                            error: errorDetails,
+                        });
+                    } else {
+                        // Wait before retry (exponential backoff)
+                        await new Promise(resolve => setTimeout(resolve, 100 * attempt));
+                    }
+                }
+            }
+            
+            // If app creation failed after all retries, this is critical but we continue
+            // The app will be created in saveToDatabase() as a fallback
+            if (!appCreated) {
+                this.logger.error(`[createApp] CRITICAL: App record creation failed for agent ${agentId} - will retry in saveToDatabase()`, {
+                    agentId,
+                    userId: userId ? `${userId.substring(0, 8)}...` : 'null (anonymous)',
+                    lastError: lastError instanceof Error ? lastError.message : String(lastError)
+                });
+            }
+            
             const modelConfigService = new ModelConfigService(env);
             const projectType = resolveProjectType(body);
             const behaviorType = resolveBehaviorType(body);

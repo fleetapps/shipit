@@ -2,6 +2,7 @@ import { Agent, AgentContext, ConnectionContext } from "agents";
 import { AgentInitArgs, AgentSummary, DeployOptions, DeployResult, ExportOptions, ExportResult, DeploymentTarget, BehaviorType } from "./types";
 import { AgenticState, AgentState, BaseProjectState, CurrentDevState, MAX_PHASES, PhasicState } from "./state";
 import { Blueprint } from "../schemas";
+import * as schema from "../../database/schema";
 import { BaseCodingBehavior } from "./behaviors/base";
 import { createObjectLogger, StructuredLogger } from '../../logger';
 import { InferenceMetadata } from "../inferutils/config.types";
@@ -367,7 +368,7 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     
     protected async saveToDatabase() {
         try {
-            this.logger().info(`Saving agent ${this.getAgentId()} to database`);
+            this.logger().info(`[saveToDatabase] Starting database save operation for agent ${this.getAgentId()}`);
             const appService = new AppService(this.env);
             
             // Safely extract blueprint fields with fallbacks
@@ -376,21 +377,21 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             const description = blueprint?.description || this.state.query || '';
             
             // Safely handle frameworks - could be array, object, or missing
-            let framework = '';
+            let framework: string | null = null;
             if (blueprint?.frameworks) {
-                if (Array.isArray(blueprint.frameworks)) {
-                    framework = blueprint.frameworks.join(',');
+                if (Array.isArray(blueprint.frameworks) && blueprint.frameworks.length > 0) {
+                    framework = blueprint.frameworks[0]; // Use first framework (matches original VibeSDK)
                 } else if (typeof blueprint.frameworks === 'object') {
                     // Handle case where frameworks is an object (from normalization issues)
-                    framework = Object.values(blueprint.frameworks)
-                        .filter((v): v is string => typeof v === 'string')
-                        .join(',');
+                    const frameworks = Object.values(blueprint.frameworks)
+                        .filter((v): v is string => typeof v === 'string');
+                    framework = frameworks[0] || null;
                 }
             }
             
             // Ensure required fields are present
             if (!title || !this.state.query) {
-                this.logger().error('Missing required fields for app creation', {
+                this.logger().error('[saveToDatabase] Missing required fields for app creation', {
                     hasTitle: !!title,
                     hasQuery: !!this.state.query,
                     agentId: this.getAgentId()
@@ -398,25 +399,45 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
                 throw new Error('Missing required fields: title or query');
             }
             
-            await appService.createApp({
-                id: this.state.metadata.agentId,
-                userId: this.state.metadata.userId,
-                sessionToken: null,
+            const appData = {
                 title,
                 description,
                 originalPrompt: this.state.query,
                 finalPrompt: this.state.query,
                 framework,
-                visibility: 'private',
-                status: 'generating',
-                createdAt: new Date(),
-                updatedAt: new Date()
-            });
+                visibility: 'private' as const,
+                status: 'generating' as const,
+            };
+            
+            // Try to update first (app should exist from early creation in controller)
+            // This matches the original VibeSDK pattern for reliability
+            const existingApp = await appService.getAppDetails(this.state.metadata.agentId, this.state.metadata.userId || undefined);
+            const updateData: Partial<typeof schema.apps.$inferInsert> = {
+                ...appData,
+            };
+            
+            const updateSuccess = await appService.updateApp(this.state.metadata.agentId, updateData);
+            
+            if (!updateSuccess) {
+                // If update failed, app might not exist (early creation failed), so try create
+                this.logger().warn(`[saveToDatabase] Update failed, app record may not exist, attempting create for agent ${this.getAgentId()}`);
+                await appService.createApp({
+                    id: this.state.metadata.agentId,
+                    userId: this.state.metadata.userId,
+                    sessionToken: null,
+                    ...appData,
+                    createdAt: new Date(),
+                    updatedAt: new Date()
+                });
+                this.logger().info(`[saveToDatabase] App record created (fallback after update failed) for agent ${this.getAgentId()}`);
+            } else {
+                this.logger().info(`[saveToDatabase] App updated successfully in database for agent ${this.getAgentId()}`);
+            }
             
             this.logger().info(`App saved successfully to database for agent ${this.getAgentId()}`);
         } catch (error) {
             // Log but don't fail initialization - app record creation is important
-            this.logger().error(`Failed to save app to database for agent ${this.getAgentId()}:`, error);
+            this.logger().error(`[saveToDatabase] Failed to save app to database for agent ${this.getAgentId()}:`, error);
             // Re-throw to fail initialization if DB write fails (ensures we know about the issue)
             throw error;
         }
