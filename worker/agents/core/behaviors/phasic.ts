@@ -201,9 +201,24 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     }
 
     getOperationOptions(): OperationOptions<PhasicGenerationContext> {
+        // INVARIANT CHECK: Ensure behaviorType is resolved before operations
+        const stateRecord = this.state as unknown as { behaviorType?: string };
+        if (stateRecord.behaviorType === 'unknown' || stateRecord.behaviorType !== 'phasic') {
+            throw new Error(
+                `Invalid state: behaviorType is '${stateRecord.behaviorType || 'undefined'}' when generating phase. ` +
+                `This indicates onStart() did not properly initialize state. ` +
+                `Expected: 'phasic', got: '${stateRecord.behaviorType || 'undefined'}'`
+            );
+        }
+        
         const context = GenerationContext.from(this.state, this.getTemplateDetails(), this.logger);
         if (!GenerationContext.isPhasic(context)) {
-            throw new Error('Expected PhasicGenerationContext');
+            const behaviorTypeStr = String(stateRecord.behaviorType || 'undefined');
+            const contextType = behaviorTypeStr === 'agentic' ? 'Agentic' : 'Unknown';
+            throw new Error(
+                `Expected PhasicGenerationContext but got ${contextType} context. ` +
+                `State behaviorType: ${behaviorTypeStr}`
+            );
         }
         return {
             env: this.env,

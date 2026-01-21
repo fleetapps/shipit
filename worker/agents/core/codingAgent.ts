@@ -164,17 +164,37 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
 
         this.logger().info('Bootstrapping CodeGeneratorAgent', { props });
         const agentProps = props as AgentBootstrapProps;
-        const behaviorType = agentProps?.behaviorType ?? this.state.behaviorType ?? 'phasic';
-        const projectType = agentProps?.projectType ?? this.state.projectType ?? 'app';
+        
+        // Resolve behaviorType and projectType from props or state
+        // CRITICAL: Only use 'unknown' as fallback if state is truly uninitialized
+        const currentBehaviorType = (this.state as unknown as { behaviorType?: string }).behaviorType;
+        const currentProjectType = (this.state as unknown as { projectType?: string }).projectType;
+        
+        const resolvedBehaviorType = agentProps?.behaviorType ?? 
+            (currentBehaviorType && currentBehaviorType !== 'unknown' ? currentBehaviorType as BehaviorType : 'phasic');
+        const resolvedProjectType = agentProps?.projectType ?? 
+            (currentProjectType && currentProjectType !== 'unknown' ? currentProjectType as ProjectType : 'app');
 
-        if (behaviorType === 'phasic') {
-            this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>, projectType);
+        // CRITICAL: Update state BEFORE creating behavior instance
+        // The behavior constructor reads from state, so it must be correct here
+        if (currentBehaviorType !== resolvedBehaviorType || 
+            currentProjectType !== resolvedProjectType) {
+            this.setState({
+                ...this.state,
+                behaviorType: resolvedBehaviorType,
+                projectType: resolvedProjectType,
+            } as AgentState);
+        }
+
+        // Now create behavior instance - constructor will read correct values from state
+        if (resolvedBehaviorType === 'phasic') {
+            this.behavior = new PhasicCodingBehavior(this as AgentInfrastructure<PhasicState>, resolvedProjectType);
         } else {
-            this.behavior = new AgenticCodingBehavior(this as AgentInfrastructure<AgenticState>, projectType);
+            this.behavior = new AgenticCodingBehavior(this as AgentInfrastructure<AgenticState>, resolvedProjectType);
         }
         
         // Create objective based on project type
-        this.objective = this.createObjective(projectType);
+        this.objective = this.createObjective(resolvedProjectType);
 
         this.behavior.onStart(props);
 
@@ -199,6 +219,10 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         await this.gitInit();
         
         await this.behavior.ensureTemplateDetails();
+        
+        // Validate state invariants after initialization
+        this.validateStateForOperations();
+        
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart processed successfully`);
 
         // Load the latest user configs
@@ -206,6 +230,28 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
         const userConfigsRecord = await modelConfigService.getUserModelConfigs(this.state.metadata.userId);
         this.behavior.setUserModelConfigs(userConfigsRecord);
         this.logger().info(`Agent ${this.getAgentId()} session: ${this.state.sessionId} onStart: User configs loaded successfully`, {userConfigsRecord});
+    }
+
+    /**
+     * Validates that state has required fields for code generation
+     * Called before any operation that requires resolved behaviorType
+     */
+    private validateStateForOperations(): void {
+        const stateRecord = this.state as unknown as { behaviorType?: string; projectType?: string };
+        if (stateRecord.behaviorType === 'unknown' || !stateRecord.behaviorType) {
+            throw new Error(
+                `Agent state is invalid: behaviorType is '${stateRecord.behaviorType || 'undefined'}'. ` +
+                `This should be resolved in onStart() before operations begin. ` +
+                `AgentId: ${this.getAgentId()}`
+            );
+        }
+        if (stateRecord.projectType === 'unknown' || !stateRecord.projectType) {
+            throw new Error(
+                `Agent state is invalid: projectType is '${stateRecord.projectType || 'undefined'}'. ` +
+                `This should be resolved in onStart() before operations begin. ` +
+                `AgentId: ${this.getAgentId()}`
+            );
+        }
     }
     
     onConnect(connection: Connection, ctx: ConnectionContext) {

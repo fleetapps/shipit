@@ -228,6 +228,15 @@ export class AgenticCodingBehavior extends BaseCodingBehavior<AgenticState> impl
     }
 
     getOperationOptions(): OperationOptions<AgenticGenerationContext> {
+        // INVARIANT CHECK: Ensure behaviorType is resolved before operations
+        const stateRecord = this.state as unknown as { behaviorType?: string };
+        if (stateRecord.behaviorType === 'unknown' || stateRecord.behaviorType !== 'agentic') {
+            throw new Error(
+                `Invalid state: behaviorType is '${stateRecord.behaviorType || 'undefined'}' when generating code. ` +
+                `This indicates onStart() did not properly initialize state. ` +
+                `Expected: 'agentic', got: '${stateRecord.behaviorType || 'undefined'}'`
+            );
+        }
         const context = GenerationContext.from(this.state, this.getTemplateDetails(), this.logger);
         if (!GenerationContext.isAgentic(context)) {
             throw new Error('Expected AgenticGenerationContext');
