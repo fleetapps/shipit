@@ -14,6 +14,232 @@ import { ProjectType } from '../core/types';
 
 const logger = createLogger('Blueprint');
 
+// ─────────────────────────────────────────────
+// FLAG: Toggle between hardcoded and generated blueprints
+// Set to true to use GOLDEN_BLUEPRINT, false to use LLM generation
+// ─────────────────────────────────────────────
+const USE_HARDCODED_BLUEPRINT = true; // TODO: Move to env var or config
+
+// ─────────────────────────────────────────────
+// GOLDEN_BLUEPRINT: Hardcoded fallback blueprint
+// ─────────────────────────────────────────────
+export const GOLDEN_BLUEPRINT: PhasicBlueprint = {
+  // ─────────────────────────────────────────────
+  // SimpleBlueprintSchema (REQUIRED)
+  // ─────────────────────────────────────────────
+  title: "Architecture Portfolio Platform",
+  projectName: "architecture-portfolio-platform",
+  description:
+    "A high-end, modern architecture portfolio web application showcasing projects, philosophy, and process with a clean, editorial-style interface.",
+
+  // ─────────────────────────────────────────────
+  // SimpleBlueprintSchema (OPTIONAL but PROVIDED)
+  // ─────────────────────────────────────────────
+  colorPalette: [
+    "#0f172a", // Slate 900
+    "#ffffff", // White
+    "#64748b", // Slate 500
+    "#3b82f6", // Blue 500 (accent)
+    "#22c55e"  // Green 500 (success)
+  ],
+
+  frameworks: [
+    "react",
+    "vite",
+    "typescript",
+    "tailwindcss",
+    "react-router-dom",
+    "lucide-react",
+    "framer-motion"
+  ],
+
+  views: [
+    {
+      name: "Home",
+      description:
+        "Landing page featuring hero section, philosophy summary, and featured projects."
+    },
+    {
+      name: "Projects",
+      description:
+        "Grid-based project gallery with detailed case study pages."
+    },
+    {
+      name: "Project Detail",
+      description:
+        "Detailed project page describing context, design decisions, and visuals."
+    },
+    {
+      name: "About",
+      description:
+        "Page describing the architect's philosophy, process, and background."
+    },
+    {
+      name: "Contact",
+      description:
+        "Contact page with inquiry form and professional links."
+    }
+  ],
+
+  pitfalls: [
+    "Avoid over-nesting React components; favor composition over hierarchy",
+    "Ensure all layout components are responsive across breakpoints",
+    "Do not hardcode data inside components; use structured data files",
+    "Avoid layout shift by reserving space for images and media",
+    "Ensure semantic HTML is used for accessibility",
+    "Avoid excessive animation that distracts from content",
+    "Handle empty states and missing data gracefully",
+    "Keep Tailwind utility usage consistent and readable",
+    "Prevent prop drilling by using context where appropriate",
+    "Ensure consistent spacing and typography scale across views",
+    "Avoid duplicating layout logic across pages",
+    "Ensure navigation is accessible via keyboard",
+    "Avoid unnecessary global state",
+    "Use TypeScript types to prevent runtime errors",
+    "Keep components small and focused"
+  ],
+
+  implementationRoadmap: [
+    {
+      phase: "Foundation",
+      description:
+        "Set up project structure, routing, layouts, and global styling."
+    },
+    {
+      phase: "Content Sections",
+      description:
+        "Implement reusable content-driven UI sections."
+    },
+    {
+      phase: "Project Showcase",
+      description:
+        "Add project listing and detailed project pages."
+    },
+    {
+      phase: "Polish & Motion",
+      description:
+        "Enhance visuals with animations and refined interactions."
+    },
+    {
+      phase: "Accessibility & SEO",
+      description:
+        "Ensure accessibility compliance and SEO best practices."
+    }
+  ],
+
+  // ─────────────────────────────────────────────
+  // PhasicBlueprintSchema (REQUIRED)
+  // ─────────────────────────────────────────────
+  detailedDescription:
+    "This application is a professional-grade architecture portfolio platform built with React and TypeScript. It emphasizes content hierarchy, visual clarity, and thoughtful interaction design. The site is structured around reusable layout primitives and data-driven sections, enabling easy extension and future CMS integration. Styling is handled with Tailwind CSS and enhanced with subtle animations using Framer Motion. The architecture prioritizes maintainability, scalability, and accessibility.",
+
+  userFlow: {
+    uiLayout:
+      "The layout consists of a fixed header with primary navigation, a centered main content area constrained to a max width of 1280px, and a footer with secondary navigation and contact information. Pages use a consistent vertical rhythm with generous spacing. On larger screens, content is displayed in multi-column grids; on smaller screens, layouts collapse gracefully into single-column flows.",
+
+    uiDesign:
+      "The visual design follows an editorial aesthetic with strong typography, ample white space, and restrained color usage. Headings use bold weights and larger font sizes to establish hierarchy, while body text remains readable and understated. Interactive elements include subtle hover and focus states, smooth transitions, and minimal motion to enhance clarity without distraction.",
+
+    userJourney:
+      "Users arrive on the home page and immediately understand the architect's style and focus through a strong hero section. They can browse featured projects, navigate to individual project pages for deeper insights, learn about the design philosophy and process, and initiate contact through a dedicated contact page. Navigation remains consistent and intuitive throughout the experience."
+  },
+
+  dataFlow:
+    "Content data is stored in structured TypeScript files and imported into React components. Components receive data via props and render content declaratively. Future backend or CMS integration can replace static data sources without changing component structure. No global mutable state is required for the initial implementation.",
+
+  architecture: {
+    dataFlow:
+      "The frontend is built as a single-page application using React and React Router. Routing determines which page-level components are rendered. Page components compose smaller presentational components and pass in structured data. Styling is applied using Tailwind CSS utility classes. Animations are handled at the component level using Framer Motion. The architecture avoids tight coupling between data and presentation."
+  },
+
+  // ─────────────────────────────────────────────
+  // CRITICAL: initialPhase (USED BY CODEGEN)
+  // ─────────────────────────────────────────────
+  initialPhase: {
+    name: "Foundation Setup",
+    description:
+      "Establish the core project structure, routing, global layout components, and styling foundation. This phase creates the base upon which all other features are built.",
+
+    // CRITICAL: must always be an array
+    files: [
+      {
+        path: "index.html",
+        purpose:
+          "HTML entry point defining metadata, viewport settings, and the root element for mounting the React application.",
+        changes: "create"
+      },
+      {
+        path: "src/main.tsx",
+        purpose:
+          "Application entry point responsible for creating the React root and rendering the App component.",
+        changes: "create"
+      },
+      {
+        path: "src/App.tsx",
+        purpose:
+          "Top-level application component that defines routes and shared layout structure.",
+        changes: "create"
+      },
+      {
+        path: "src/routes/Home.tsx",
+        purpose:
+          "Home page component containing the hero section and featured content.",
+        changes: "create"
+      },
+      {
+        path: "src/routes/Projects.tsx",
+        purpose:
+          "Projects listing page displaying a grid of architectural projects.",
+        changes: "create"
+      },
+      {
+        path: "src/routes/ProjectDetail.tsx",
+        purpose:
+          "Detailed project page presenting individual project information.",
+        changes: "create"
+      },
+      {
+        path: "src/routes/About.tsx",
+        purpose:
+          "About page describing philosophy, process, and background.",
+        changes: "create"
+      },
+      {
+        path: "src/routes/Contact.tsx",
+        purpose:
+          "Contact page with inquiry form and professional contact information.",
+        changes: "create"
+      },
+      {
+        path: "src/components/layout/Header.tsx",
+        purpose:
+          "Global header component with site navigation and branding.",
+        changes: "create"
+      },
+      {
+        path: "src/components/layout/Footer.tsx",
+        purpose:
+          "Global footer component with secondary navigation and contact links.",
+        changes: "create"
+      },
+      {
+        path: "src/styles/global.css",
+        purpose:
+          "Global CSS file defining Tailwind directives and base styles.",
+        changes: "create"
+      },
+      {
+        path: "tailwind.config.js",
+        purpose:
+          "Tailwind CSS configuration extending the default theme with custom colors and typography.",
+        changes: "create"
+      }
+    ],
+
+    lastPhase: false
+  }
+};
+
 const SIMPLE_SYSTEM_PROMPT = `<ROLE>
     You are a Senior Software Architect at Cloudflare with expertise in rapid prototyping and modern web development.
     Your expertise lies in creating concise, actionable blueprints for building web applications quickly and efficiently.
@@ -287,6 +513,31 @@ export async function generateBlueprint(
 ): Promise<Blueprint> {
     const { env, inferenceContext, query, language, frameworks, templateDetails, templateMetaInfo, images, stream, projectType } = args;
     const isAgentic = !templateDetails || !templateMetaInfo;
+    
+    // ─────────────────────────────────────────────
+    // BYPASS: Return hardcoded blueprint if flag is enabled
+    // ─────────────────────────────────────────────
+    if (USE_HARDCODED_BLUEPRINT && !isAgentic) {
+        logger.info('Using hardcoded GOLDEN_BLUEPRINT (bypassing LLM generation)', {
+            query: query.substring(0, 100),
+            templateName: templateDetails?.name || 'unknown'
+        });
+        
+        // Simulate streaming if stream callback is provided
+        if (stream?.onChunk) {
+            // Stream the blueprint as JSON chunks for consistency with normal flow
+            const blueprintJson = JSON.stringify(GOLDEN_BLUEPRINT);
+            const chunkSize = stream.chunk_size || 256;
+            for (let i = 0; i < blueprintJson.length; i += chunkSize) {
+                const chunk = blueprintJson.slice(i, i + chunkSize);
+                stream.onChunk(chunk);
+                // Small delay to simulate streaming
+                await new Promise(resolve => setTimeout(resolve, 10));
+            }
+        }
+        
+        return GOLDEN_BLUEPRINT;
+    }
     
     try {
         logger.info(`Generating ${isAgentic ? 'agentic' : 'phasic'} blueprint`, { query, queryLength: query.length, imagesCount: images?.length || 0 });
