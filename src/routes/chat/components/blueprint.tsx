@@ -56,7 +56,7 @@ export function Blueprint({
 
 					<div className="text-text-50/70 font-mono">Dependencies</div>
 					<div className="flex flex-wrap gap-2 items-center">
-						{Array.isArray(blueprint.frameworks) &&
+						{Array.isArray(blueprint.frameworks) && blueprint.frameworks.length > 0 &&
 							blueprint.frameworks.map((framework, index) => {
 								let name: string, version: string | undefined;
 
