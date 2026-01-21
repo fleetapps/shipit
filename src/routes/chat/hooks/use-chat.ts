@@ -513,7 +513,11 @@ export function useChat({
 							const normalized = normalizeBlueprintData(partial);
 							setBlueprint(normalized);
 						} catch (e) {
-							logger.error('Error parsing JSON:', e, obj.chunk);
+							// Silently accumulate chunks - errors are expected during streaming
+							// Only log if it's not a repair error (which means we're still accumulating)
+							if (e instanceof Error && !e.message.includes('unable to repair JSON')) {
+								logger.error('Error parsing JSON:', e, obj.chunk);
+							}
 						}
 						}
 						if (obj.agentId) {

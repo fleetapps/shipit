@@ -946,7 +946,8 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                 // Feed chunk to parser
                 blueprintParser.feed(message.chunk);
 
-                // Try to parse partial blueprint
+                // Try to parse partial blueprint silently
+                // Only log errors if it's a non-recoverable issue
                 try {
                     const partial = blueprintParser.finalize();
                     // Normalize partial blueprint to handle object->array conversions
@@ -954,7 +955,11 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
                     setBlueprint(normalized);
                     logger.debug('Blueprint chunk processed, partial blueprint updated');
                 } catch (e) {
-                    logger.debug('Blueprint chunk accumulated, waiting for more data');
+                    // Silently accumulate chunks - errors are expected during streaming
+                    // Only log if it's clearly not a partial JSON issue
+                    if (e instanceof Error && !e.message.includes('unable to repair JSON')) {
+                        logger.debug('Blueprint chunk accumulated, waiting for more data', e.message);
+                    }
                 }
                 break;
             }
