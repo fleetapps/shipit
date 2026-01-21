@@ -140,7 +140,7 @@
 	],
 	"routes": [
         {
-            "pattern": "app.ellement.dev",
+            "pattern": "www.ellement.dev",
             "custom_domain": true
         },
         {
@@ -168,7 +168,7 @@
             },
             "version": "1.0.0"
         },
-        "CUSTOM_DOMAIN": "app.ellement.dev",
+        "CUSTOM_DOMAIN": "www.ellement.dev",
         "CUSTOM_PREVIEW_DOMAIN": "ellement.dev",
         "MAX_SANDBOX_INSTANCES": "10",
         "SANDBOX_INSTANCE_TYPE": "standard-3"
