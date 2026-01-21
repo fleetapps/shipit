@@ -1197,7 +1197,10 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
             // Normalize blueprint data structures before validation
             // This handles cases where models return objects instead of arrays
-            const normalizedContent = normalizeBlueprintData(parsedContent);
+            // ONLY apply normalization for blueprint schemas
+            const normalizedContent = actionKey === 'blueprint' 
+                ? normalizeBlueprintData(parsedContent)
+                : parsedContent;
 
             // Use Zod's safeParse for proper error handling
             const result = schema.safeParse(normalizedContent);
