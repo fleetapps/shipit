@@ -140,11 +140,11 @@
 	],
 	"routes": [
         {
-            "pattern": "anything.fleet.ke",
+            "pattern": "app.ellement.dev",
             "custom_domain": true
         },
         {
-            "pattern": "*.fleet.ke/*",
+            "pattern": "*.ellement.dev/*",
             "custom_domain": false
         }
     ],
@@ -168,8 +168,8 @@
             },
             "version": "1.0.0"
         },
-        "CUSTOM_DOMAIN": "anything.fleet.ke",
-        "CUSTOM_PREVIEW_DOMAIN": "fleet.ke",
+        "CUSTOM_DOMAIN": "app.ellement.dev",
+        "CUSTOM_PREVIEW_DOMAIN": "ellement.dev",
         "MAX_SANDBOX_INSTANCES": "10",
         "SANDBOX_INSTANCE_TYPE": "standard-3"
     },
