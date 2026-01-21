@@ -366,29 +366,60 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
     }
     
     protected async saveToDatabase() {
-        this.logger().info(`Saving agent ${this.getAgentId()} to database`);
-        // Save the app to database (authenticated users only)
-        const appService = new AppService(this.env);
-        await appService.createApp({
-            id: this.state.metadata.agentId,
-            userId: this.state.metadata.userId,
-            sessionToken: null,
-            title: this.state.blueprint.title || this.state.query.substring(0, 100),
-            description: this.state.blueprint.description,
-            originalPrompt: this.state.query,
-            finalPrompt: this.state.query,
-            framework: this.state.blueprint.frameworks.join(','),
-            visibility: 'private',
-            status: 'generating',
+        try {
+            this.logger().info(`Saving agent ${this.getAgentId()} to database`);
+            const appService = new AppService(this.env);
+            
+            // Safely extract blueprint fields with fallbacks
+            const blueprint = this.state.blueprint;
+            const title = blueprint?.title || this.state.query?.substring(0, 100) || 'Untitled Project';
+            const description = blueprint?.description || this.state.query || '';
+            
+            // Safely handle frameworks - could be array, object, or missing
+            let framework = '';
+            if (blueprint?.frameworks) {
+                if (Array.isArray(blueprint.frameworks)) {
+                    framework = blueprint.frameworks.join(',');
+                } else if (typeof blueprint.frameworks === 'object') {
+                    // Handle case where frameworks is an object (from normalization issues)
+                    framework = Object.values(blueprint.frameworks)
+                        .filter((v): v is string => typeof v === 'string')
+                        .join(',');
+                }
+            }
+            
+            // Ensure required fields are present
+            if (!title || !this.state.query) {
+                this.logger().error('Missing required fields for app creation', {
+                    hasTitle: !!title,
+                    hasQuery: !!this.state.query,
+                    agentId: this.getAgentId()
+                });
+                throw new Error('Missing required fields: title or query');
+            }
+            
+            await appService.createApp({
+                id: this.state.metadata.agentId,
+                userId: this.state.metadata.userId,
+                sessionToken: null,
+                title,
+                description,
+                originalPrompt: this.state.query,
+                finalPrompt: this.state.query,
+                framework,
+                visibility: 'private',
+                status: 'generating',
                 createdAt: new Date(),
-            updatedAt: new Date()
+                updatedAt: new Date()
             });
-        this.logger().info(`App saved successfully to database for agent ${this.state.metadata.agentId}`, { 
-            agentId: this.state.metadata.agentId, 
-            userId: this.state.metadata.userId,
-            visibility: 'private'
-        });
-        this.logger().info(`Agent initialized successfully for agent ${this.state.metadata.agentId}`);
+            
+            this.logger().info(`App saved successfully to database for agent ${this.getAgentId()}`);
+        } catch (error) {
+            // Log but don't fail initialization - app record creation is important
+            this.logger().error(`Failed to save app to database for agent ${this.getAgentId()}:`, error);
+            // Re-throw to fail initialization if DB write fails (ensures we know about the issue)
+            throw error;
+        }
     }
 
     // ==========================================
