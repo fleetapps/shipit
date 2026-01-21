@@ -411,7 +411,6 @@ export class CodeGeneratorAgent extends Agent<Env, AgentState> implements AgentI
             
             // Try to update first (app should exist from early creation in controller)
             // This matches the original VibeSDK pattern for reliability
-            const existingApp = await appService.getAppDetails(this.state.metadata.agentId, this.state.metadata.userId || undefined);
             const updateData: Partial<typeof schema.apps.$inferInsert> = {
                 ...appData,
             };
