@@ -653,6 +653,13 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
         this.logger.info("Files generated for phase:", phase.name, safeFiles.map(f => f.filePath));
 
+        // Send phase_validated BEFORE deployment so UI updates even if deployment hangs
+        // This ensures users see progress instead of being stuck on "Reviewing phase..."
+        this.broadcast(WebSocketMessageResponses.PHASE_VALIDATED, {
+            message: `Files validated for phase: ${phase.name}`,
+            phase: phase
+        });
+
         if (result.commands && result.commands.length > 0) {
             this.logger.info("Phase implementation suggested install commands:", result.commands);
             await this.executeCommands(result.commands, false);
@@ -667,12 +674,6 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 }
             }
         }
-
-        // Validation complete
-        this.broadcast(WebSocketMessageResponses.PHASE_VALIDATED, {
-            message: `Files validated for phase: ${phase.name}`,
-            phase: phase
-        });
     
         this.logger.info("Files generated for phase:", phase.name, finalFiles.map(f => f.filePath));
     

@@ -238,14 +238,35 @@ export class SandboxComplianceService {
                 quickIssues: quickIssues.length
             });
 
-            await executeInference({
-                env: this.env,
-                messages,
-                agentActionName: 'sandbox_compliance',
-                tools,
-                context: this.inferenceContext,
-                retryLimit: 1,
-            });
+            // Add timeout to prevent hanging - 30 seconds max for compliance fixes
+            const COMPLIANCE_TIMEOUT_MS = 30000;
+            try {
+                await Promise.race([
+                    executeInference({
+                        env: this.env,
+                        messages,
+                        agentActionName: 'sandbox_compliance',
+                        tools,
+                        context: this.inferenceContext,
+                        retryLimit: 1,
+                    }),
+                    new Promise<never>((_, reject) => 
+                        setTimeout(() => reject(new Error('Compliance check timeout after 30s')), COMPLIANCE_TIMEOUT_MS)
+                    )
+                ]);
+            } catch (timeoutError) {
+                this.logger.warn('Compliance AI check timed out or failed, using quick check results', { 
+                    error: timeoutError instanceof Error ? timeoutError.message : 'Unknown error' 
+                });
+                // Return with quick check results instead of hanging
+                // The AI fix attempt failed, but we can still proceed with deployment
+                // The quick check issues will be logged but won't block deployment
+                return {
+                    compliant: false,
+                    issues: quickIssues,
+                    fixedFiles: []
+                };
+            }
 
             // Get fixed files from agent's file manager
             const allFiles = this.agent.listFiles();

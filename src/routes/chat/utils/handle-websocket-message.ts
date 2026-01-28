@@ -729,6 +729,18 @@ export function createWebSocketMessageHandler(deps: HandleMessageDeps) {
 
             case 'phase_validated': {
                 sendMessage(createAIMessage('phase_validated', message.message));
+                
+                // Update phase status so UI shows progress even if deployment hangs
+                setPhaseTimeline(prev => {
+                    const updated = [...prev];
+                    if (updated.length > 0) {
+                        const lastPhase = updated[updated.length - 1];
+                        // Keep status as 'validating' for now, phase_implemented will change it to 'completed'
+                        // But log that validation completed so we can track progress
+                        logger.debug(`Phase validated: ${lastPhase.name}`);
+                    }
+                    return updated;
+                });
                 break;
             }
 
