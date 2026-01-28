@@ -246,7 +246,7 @@ export class SandboxComplianceService {
                 const inferencePromise = executeInference({
                     env: this.env,
                     messages,
-                    agentActionName: 'sandbox_compliance',
+                    agentActionName: 'sandboxCompliance',
                     tools,
                     context: this.inferenceContext,
                     retryLimit: 1,

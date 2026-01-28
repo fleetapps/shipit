@@ -24,21 +24,6 @@ import { getMaxToolCallingDepth, MAX_LLM_MESSAGES } from '../constants';
 import { executeToolCallsWithDependencies } from './toolExecution';
 import { CompletionDetector } from './completionDetection';
 
-// Provider capability matrix - prevents misrouting providers to wrong inference paths
-const PROVIDER_CAPABILITIES = {
-  openai: { openAICompatible: true },
-  grok: { openAICompatible: true },
-  anthropic: { openAICompatible: false },
-  'google-ai-studio': { openAICompatible: false, requiresNativeInference: true },
-  deepseek: { openAICompatible: true },
-} as const;
-
-// Type guard using capability matrix
-function requiresNativeInference(provider: string): boolean {
-  const capabilities = PROVIDER_CAPABILITIES[provider as keyof typeof PROVIDER_CAPABILITIES];
-  return capabilities !== undefined && 'requiresNativeInference' in capabilities && capabilities.requiresNativeInference === true;
-}
-
 function optimizeInputs(messages: Message[]): Message[] {
     return messages.map((message) => ({
         ...message,
@@ -285,25 +270,12 @@ async function getApiKey(
     //     console.error("Error getting API key for provider: ", provider, error);
     // }
     // Fallback to environment variables
-    // Special case: grok provider uses GROQ_API_KEY (not GROK_API_KEY)
-    // Special case: deepseek provider uses DEEPSEEK_API_KEY and NEVER falls back to gateway
-    let envKey: keyof Env;
-    if (provider === 'grok') {
-        envKey = 'GROQ_API_KEY';
-    } else if (provider === 'deepseek') {
-        envKey = 'DEEPSEEK_API_KEY';
-    } else {
-        const providerKeyString = provider.toUpperCase().replaceAll('-', '_');
-        envKey = `${providerKeyString}_API_KEY` as keyof Env;
-    }
+    const providerKeyString = provider.toUpperCase().replaceAll('-', '_');
+    const envKey = `${providerKeyString}_API_KEY` as keyof Env;
     let apiKey: string = env[envKey] as string;
     
     // Check if apiKey is empty or undefined and is valid
-    // DeepSeek MUST use its own API key - never fall back to gateway token
     if (!isValidApiKey(apiKey)) {
-        if (provider === 'deepseek') {
-            throw new Error('DEEPSEEK_API_KEY is required and must be a valid DeepSeek API key. DeepSeek does not support Cloudflare AI Gateway tokens.');
-        }
         apiKey = runtimeOverrides?.aiGatewayOverride?.token ?? env.CLOUDFLARE_AI_GATEWAY_TOKEN;
     }
     return apiKey;
@@ -327,32 +299,21 @@ export async function getConfigurationForModel(
                     baseURL: 'https://openrouter.ai/api/v1',
                     apiKey: env.OPENROUTER_API_KEY,
                 };
+            case 'google-ai-studio':
+                return {
+                    baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+                    apiKey: env.GOOGLE_AI_STUDIO_API_KEY,
+                };
             case 'anthropic':
                 return {
                     baseURL: 'https://api.anthropic.com/v1/',
                     apiKey: env.ANTHROPIC_API_KEY,
                 };
-            case 'grok':
-                return {
-                    baseURL: 'https://api.x.ai/v1',
-                    apiKey: env.GROQ_API_KEY,
-                };
-            case 'openai':
-                return {
-                    baseURL: 'https://api.openai.com/v1',
-                    apiKey: env.OPENAI_API_KEY,
-                };
-            case 'deepseek': {
-                // DeepSeek MUST use its own API key - never gateway
-                const deepseekKey = env.DEEPSEEK_API_KEY;
-                if (!deepseekKey || !isValidApiKey(deepseekKey)) {
-                    throw new Error('DEEPSEEK_API_KEY is required and must be a valid DeepSeek API key. DeepSeek does not support Cloudflare AI Gateway.');
-                }
+            case 'deepseek':
                 return {
                     baseURL: 'https://api.deepseek.com/v1',
-                    apiKey: deepseekKey,
+                    apiKey: (env as unknown as Record<string, string>)['DEEPSEEK_API_KEY'] || '',
                 };
-            }
             default:
                 providerForcedOverride = modelConfig.provider as AIGatewayProviders;
                 break;
@@ -537,101 +498,6 @@ function updateToolCallContext(
     return newToolCallContext;
 }
 
-/**
- * Normalizes blueprint data structures that may be returned as objects
- * instead of arrays by LLMs. Converts object maps to arrays by extracting values.
- * 
- * This handles cases where models return:
- * - views: { "MainView": {...} } instead of [{ name: "...", description: "..." }]
- * - implementationRoadmap: { "Phase1": {...} } instead of [{ phase: "...", description: "..." }]
- * - initialPhase.files: { "File1": {...} } instead of [{ path: "...", purpose: "..." }]
- * - pitfalls: { "Pitfall1": "..." } instead of ["...", "..."]
- * - frameworks: { "Framework1": "..." } instead of ["...", "..."]
- * - colorPalette: { "Color1": "..." } instead of ["...", "..."]
- */
-function normalizeBlueprintData(raw: any): any {
-    if (!raw || typeof raw !== 'object') {
-        return raw;
-    }
-
-    // Handle arrays - recursively normalize items
-    if (Array.isArray(raw)) {
-        return raw.map(item => normalizeBlueprintData(item));
-    }
-
-    const normalized = { ...raw };
-
-    // Normalize views: object -> array, preserving key as 'name' if missing
-    if (normalized.views && typeof normalized.views === 'object' && !Array.isArray(normalized.views)) {
-        normalized.views = Object.entries(normalized.views).map(([key, value]) => {
-            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                // Preserve key as 'name' if it's missing from the value
-                return !('name' in value) ? { name: key, ...normalizeBlueprintData(value) } : normalizeBlueprintData(value);
-            }
-            return normalizeBlueprintData(value);
-        });
-    } else if (Array.isArray(normalized.views)) {
-        // Recursively normalize array items
-        normalized.views = normalized.views.map((item: any) => normalizeBlueprintData(item));
-    }
-
-    // Normalize implementationRoadmap: object -> array, preserving key as 'phase' if missing
-    if (normalized.implementationRoadmap && typeof normalized.implementationRoadmap === 'object' && !Array.isArray(normalized.implementationRoadmap)) {
-        normalized.implementationRoadmap = Object.entries(normalized.implementationRoadmap).map(([key, value]) => {
-            if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                // Preserve key as 'phase' if it's missing from the value
-                return !('phase' in value) ? { phase: key, ...normalizeBlueprintData(value) } : normalizeBlueprintData(value);
-            }
-            return normalizeBlueprintData(value);
-        });
-    } else if (Array.isArray(normalized.implementationRoadmap)) {
-        // Recursively normalize array items
-        normalized.implementationRoadmap = normalized.implementationRoadmap.map((item: any) => normalizeBlueprintData(item));
-    }
-
-    // Normalize initialPhase: recursively normalize nested structure
-    if (normalized.initialPhase && typeof normalized.initialPhase === 'object' && !Array.isArray(normalized.initialPhase)) {
-        normalized.initialPhase = normalizeBlueprintData(normalized.initialPhase);
-        // Ensure files is normalized
-        if (normalized.initialPhase.files && typeof normalized.initialPhase.files === 'object' && !Array.isArray(normalized.initialPhase.files)) {
-            normalized.initialPhase.files = Object.entries(normalized.initialPhase.files).map(([key, value]) => {
-                if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-                    // Preserve key as 'path' if it's missing from the value
-                    // The key might be "File1" or a filename, so use it as path if path is missing
-                    return !('path' in value) ? { path: key, ...normalizeBlueprintData(value) } : normalizeBlueprintData(value);
-                }
-                return normalizeBlueprintData(value);
-            });
-        }
-    }
-
-    // Normalize pitfalls: object -> array (simple string array)
-    if (normalized.pitfalls && typeof normalized.pitfalls === 'object' && !Array.isArray(normalized.pitfalls)) {
-        normalized.pitfalls = Object.values(normalized.pitfalls).filter((v): v is string => typeof v === 'string');
-    } else if (Array.isArray(normalized.pitfalls)) {
-        // Ensure all items are strings
-        normalized.pitfalls = normalized.pitfalls.filter((v: any): v is string => typeof v === 'string');
-    }
-
-    // Normalize frameworks: object -> array (simple string array)
-    if (normalized.frameworks && typeof normalized.frameworks === 'object' && !Array.isArray(normalized.frameworks)) {
-        normalized.frameworks = Object.values(normalized.frameworks).filter((v): v is string => typeof v === 'string');
-    } else if (Array.isArray(normalized.frameworks)) {
-        // Ensure all items are strings
-        normalized.frameworks = normalized.frameworks.filter((v: any): v is string => typeof v === 'string');
-    }
-
-    // Normalize colorPalette: object -> array (simple string array)
-    if (normalized.colorPalette && typeof normalized.colorPalette === 'object' && !Array.isArray(normalized.colorPalette)) {
-        normalized.colorPalette = Object.values(normalized.colorPalette).filter((v): v is string => typeof v === 'string');
-    } else if (Array.isArray(normalized.colorPalette)) {
-        // Ensure all items are strings
-        normalized.colorPalette = normalized.colorPalette.filter((v: any): v is string => typeof v === 'string');
-    }
-
-    return normalized;
-}
-
 export function infer<OutputSchema extends z.AnyZodObject>(
     args: InferArgsStructured,
     toolCallContext?: ToolCallContext,
@@ -693,41 +559,11 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         };
     }
     
-    // Get model config to check provider (early check for routing)
-    const modelConfig = AI_MODEL_CONFIG[modelName as AIModels];
-    if (!modelConfig) {
-        throw new Error(`Unknown model: ${modelName}`);
-    }
-
-    // Route Gemini to native inference path (using capability matrix)
-    if (requiresNativeInference(modelConfig.provider)) {
-        return inferGeminiNative({
-            env,
-            metadata,
-            messages,
-            schema,
-            schemaName,
-            format,
-            formatOptions,
-            actionKey,
-            modelName,
-            reasoning_effort,
-            temperature,
-            frequency_penalty,
-            maxTokens,
-            stream,
-            tools,
-            runtimeOverrides,
-            abortSignal,
-            onAssistantMessage,
-            completionConfig,
-        }, toolCallContext);
-    }
-    
     try {
         const userConfig = await getUserConfigurableSettings(env, metadata.userId)
         // Maybe in the future can expand using config object for other stuff like global model configs?
         await RateLimitService.enforceLLMCallsRateLimit(env, userConfig.security.rateLimit, metadata.userId, modelName)
+        const modelConfig = AI_MODEL_CONFIG[modelName as AIModels];
 
         const { apiKey, baseURL, defaultHeaders } = await getConfigurationForModel(
             modelConfig,
@@ -739,58 +575,13 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
 
         // Remove [*.] from model name
         modelName = modelName.replace(/\[.*?\]/, '');
-        
-        // Fix DeepSeek model names - DeepSeek API expects exact model IDs without provider prefix
-        if (modelConfig.provider === 'deepseek') {
-            // DeepSeek expects 'deepseek-chat' or 'deepseek-reasoner', not 'deepseek/deepseek-chat'
-            if (modelName.startsWith('deepseek/')) {
-                modelName = modelName.replace('deepseek/', '');
-            }
-        }
-        
-        // Fix Grok model names - x.ai API uses different format
-        // Map our internal model names to actual Grok API model names
-        if (modelConfig.provider === 'grok') {
-            // x.ai API uses 'grok-2-1212' or 'grok-2' as model names
-            // Our config uses 'grok-2-1212' already, but if it has 'grok/' prefix, remove it
-            if (modelName.startsWith('grok/')) {
-                modelName = modelName.replace('grok/', '');
-            }
-            // If model name doesn't match known Grok models, use grok-2-1212 as fallback
-            if (!modelName.match(/^grok-2/)) {
-                modelName = 'grok-2-1212';
-            }
-        }
 
         const client = new OpenAI({ apiKey, baseURL: baseURL, defaultHeaders });
-        
-        // For Claude models with structured output, we can't use response_format with extra_body
-        // Cloudflare AI Gateway rejects this combination with "output_config: Extra inputs are not permitted"
-        // Solution: Use format-based approach (prompt instructions) instead of response_format for Claude
-        // DeepSeek uses json_object mode (not json_schema) but still needs prompt instructions
-        const isClaudeModel = modelName.includes('claude');
-        const isDeepSeekModel = modelConfig.provider === 'deepseek';
-        const needsStructuredOutput = schema && schemaName && !format;
-        const shouldUseFormatForClaude = isClaudeModel && needsStructuredOutput;
-        const shouldUseJsonObjectForDeepSeek = isDeepSeekModel && needsStructuredOutput;
-        
         const schemaObj =
-            schema && schemaName && !format && !shouldUseFormatForClaude && !shouldUseJsonObjectForDeepSeek
-                ? { response_format: zodResponseFormat(schema, schemaName) } // OpenAI json_schema
-                : shouldUseJsonObjectForDeepSeek
-                ? { response_format: { type: "json_object" as const } } // DeepSeek json_object
+            schema && schemaName && !format
+                ? { response_format: zodResponseFormat(schema, schemaName) }
                 : {};
-        
-        // If Claude needs structured output, force format to 'markdown' to avoid response_format conflict
-        // DeepSeek needs both json_object mode AND prompt instructions (markdown format)
-        // 'markdown' format adds instructions to the prompt instead of using response_format
-        const forcedFormat = shouldUseFormatForClaude 
-            ? 'markdown' 
-            : shouldUseJsonObjectForDeepSeek 
-            ? 'markdown' // Use markdown format to add prompt instructions
-            : format;
-        
-        const extraBody = isClaudeModel ? {
+        const extraBody = modelName.includes('claude')? {
                     extra_body: {
                         thinking: {
                             type: 'enabled',
@@ -845,13 +636,13 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             messagesToPass.push(...filtered);
         }
 
-        if (forcedFormat) {
+        if (format) {
             if (!schema || !schemaName) {
                 throw new Error('Schema and schemaName are required when using a custom format');
             }
             const formatInstructions = generateTemplateForSchema(
                 schema,
-                forcedFormat,
+                format,
                 formatOptions,
             );
             const lastMessage = messagesToPass[messagesToPass.length - 1];
@@ -887,12 +678,7 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
             }
         }
 
-        const formatType = shouldUseJsonObjectForDeepSeek 
-            ? 'json_object (DeepSeek)' 
-            : schemaObj.response_format 
-            ? 'response_format' 
-            : 'none';
-        console.log(`Running inference with ${modelName} using structured output with ${forcedFormat || formatType} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
+        console.log(`Running inference with ${modelName} using structured output with ${format} format, reasoning effort: ${reasoning_effort}, max tokens: ${maxTokens}, temperature: ${temperature}, frequency_penalty: ${frequency_penalty}, baseURL: ${baseURL}`);
 
         const toolsOpts = tools ? {
             tools: tools.map(t => {
@@ -933,43 +719,11 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 throw new AbortError('**User cancelled inference**', toolCallContext);
             }
             
-            // Handle rate limit errors from OpenAI/Anthropic/OpenRouter providers
-            // OpenAI SDK throws APIError with status property, Anthropic also uses 429
-            if (error && typeof error === 'object') {
-                const errorStatus = (error as any).status || (error as any).response?.status || (error as any).statusCode;
-                
-                if (errorStatus === 429) {
-                    // Try to extract retry-after from multiple possible locations
-                    // OpenAI SDK: error.headers or error.response?.headers
-                    // Anthropic: response headers
-                    // OpenRouter: similar structure
-                    const headers = (error as any).headers || (error as any).response?.headers || {};
-                    const retryAfterHeader = headers['retry-after'] || headers['Retry-After'] || 
-                                           (error as any).retryAfter || (error as any).retry_after;
-                    
-                    let retryDelayMs = 60000; // Default 60s for OpenAI/Anthropic/OpenRouter
-                    
-                    if (retryAfterHeader) {
-                        // Handle both string (seconds) and number formats
-                        const retryAfterSeconds = typeof retryAfterHeader === 'string' 
-                            ? parseFloat(retryAfterHeader) 
-                            : retryAfterHeader;
-                        
-                        if (!isNaN(retryAfterSeconds) && retryAfterSeconds > 0) {
-                            retryDelayMs = Math.ceil(retryAfterSeconds * 1000);
-                        }
-                    }
-                    
-                    throw new RateLimitExceededError(
-                        `API rate limit exceeded. Retry after ${retryDelayMs / 1000}s`,
-                        RateLimitType.LLM_CALLS,
-                        undefined,
-                        retryDelayMs
-                    );
-                }
-            }
-            
-            console.error(`Failed to get inference response from AI Gateway: ${error}`);
+            console.error(`Failed to get inference response from OpenAI: ${error}`);
+            // if ((error instanceof Error && error.message.includes('429')) || (typeof error === 'string' && error.includes('429'))) {
+
+            //     throw new RateLimitExceededError('Rate limit exceeded in LLM calls, Please try again later', RateLimitType.LLM_CALLS);
+            // }
             throw error;
         }
         let toolCalls: ChatCompletionMessageFunctionToolCall[] = [];
@@ -1196,20 +950,12 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
                 ? parseContentForSchema(content, format, schema, formatOptions)
                 : JSON.parse(content);
 
-            // Normalize blueprint data structures before validation
-            // This handles cases where models return objects instead of arrays
-            // ONLY apply normalization for blueprint schemas
-            const normalizedContent = actionKey === 'blueprint' 
-                ? normalizeBlueprintData(parsedContent)
-                : parsedContent;
-
             // Use Zod's safeParse for proper error handling
-            const result = schema.safeParse(normalizedContent);
+            const result = schema.safeParse(parsedContent);
 
             if (!result.success) {
                 console.log('Raw content:', content);
                 console.log('Parsed data:', parsedContent);
-                console.log('Normalized data:', normalizedContent);
                 console.error('Schema validation errors:', result.error.format());
                 throw new Error(`Failed to validate AI response against schema: ${result.error.message}`);
             }
@@ -1226,249 +972,4 @@ export async function infer<OutputSchema extends z.AnyZodObject>({
         console.error('Error in inferWithSchemaOutput:', error);
         throw error;
     }
-}
-
-/**
- * Native Gemini inference using direct API calls.
- * Uses prompt-enforced JSON (no response_format) and tool intent protocol.
- */
-async function inferGeminiNative<OutputSchema extends z.AnyZodObject>(
-  args: InferArgsBase & {
-    schema?: OutputSchema;
-    schemaName?: string;
-    format?: SchemaFormat;
-    formatOptions?: FormatterOptions;
-  },
-  toolCallContext?: ToolCallContext
-): Promise<InferResponseObject<OutputSchema> | InferResponseString> {
-  const {
-    env,
-    messages,
-    schema,
-    schemaName,
-    format,
-    formatOptions,
-    modelName,
-    temperature,
-    maxTokens,
-    tools,
-    abortSignal,
-    actionKey,
-    completionConfig,
-  } = args;
-
-  // Check tool calling depth (same as main infer function)
-  const currentDepth = toolCallContext?.depth ?? 0;
-  if (currentDepth >= getMaxToolCallingDepth(actionKey)) {
-    console.warn(`Tool calling depth limit reached (${currentDepth}/${getMaxToolCallingDepth(actionKey)}). Stopping recursion.`);
-    if (schema) {
-      throw new AbortError(`Maximum tool calling depth (${getMaxToolCallingDepth(actionKey)}) exceeded.`, toolCallContext);
-    }
-    return { 
-      string: `[System: Maximum tool calling depth reached.]`,
-      toolCallContext 
-    };
-  }
-
-  const apiKey = env.GOOGLE_AI_STUDIO_API_KEY;
-  if (!apiKey) {
-    throw new Error('Missing GOOGLE_AI_STUDIO_API_KEY');
-  }
-
-  // Extract model name (remove provider prefix if present)
-  const geminiModelName = modelName.replace(/^google-ai-studio\//, '').replace(/^gemini\//, '');
-  
-  // Build prompt with enforced JSON format instructions
-  const formatInstructions =
-    schema && schemaName
-      ? generateTemplateForSchema(schema, format ?? 'markdown', formatOptions)
-      : '';
-
-  // Convert messages to text format (simplified - no need for structured Gemini format since we use single prompt)
-  const conversationText = messages.map(msg => {
-    // Handle content (string or array)
-    const content = typeof msg.content === 'string' 
-      ? msg.content 
-      : Array.isArray(msg.content)
-        ? msg.content.map(c => typeof c === 'string' ? c : JSON.stringify(c)).join('\n')
-        : JSON.stringify(msg.content);
-    
-    if (msg.role === 'tool') {
-      return `TOOL (${msg.name}): ${content}`;
-    }
-    return `${msg.role.toUpperCase()}: ${content}`;
-  }).join('\n');
-
-  // Add system prompt with JSON enforcement
-  const systemPrompt = `You are an autonomous agent.
-You MUST output valid JSON only.
-${formatInstructions}
-${tools ? 'When you need to use a tool, output JSON with this structure: {"thought": "...", "action": {"tool": "tool_name", "args": {...}}}. Otherwise, output your final response in the "final" field.' : ''}`;
-
-  const prompt = `${systemPrompt}\n\nConversation:\n${conversationText}`;
-
-  // Call Gemini native API
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${geminiModelName}:generateContent`,
-    {
-      method: 'POST',
-      signal: abortSignal,
-      headers: {
-        'x-goog-api-key': apiKey,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: {
-          temperature: temperature ?? 0.2,
-          maxOutputTokens: maxTokens ?? 8192,
-        },
-      }),
-    }
-  );
-
-  if (!res.ok) {
-    const errorText = await res.text();
-    
-    // Handle 429 rate limit errors with retry delay parsing
-    if (res.status === 429) {
-      try {
-        const errorJson = JSON.parse(errorText);
-        
-        // First, check for retry-after header (some Gemini endpoints may include it)
-        const retryAfterHeader = res.headers.get('retry-after') || res.headers.get('Retry-After');
-        let retryDelaySeconds = 34; // Default fallback
-        
-        if (retryAfterHeader) {
-          const parsed = parseFloat(retryAfterHeader);
-          if (!isNaN(parsed) && parsed > 0) {
-            retryDelaySeconds = parsed;
-          }
-        } else {
-          // Extract retry delay from RetryInfo detail in error JSON
-          const retryInfo = errorJson?.error?.details?.find(
-            (d: any) => d['@type'] === 'type.googleapis.com/google.rpc.RetryInfo'
-          );
-          
-          if (retryInfo?.retryDelay) {
-            // Handle both number and string formats (e.g., "34.179532308s" or 34.179532308)
-            const delayValue = retryInfo.retryDelay.seconds || retryInfo.retryDelay;
-            if (typeof delayValue === 'string') {
-              // Remove 's' suffix if present and parse
-              retryDelaySeconds = parseFloat(delayValue.replace(/s$/, ''));
-            } else {
-              retryDelaySeconds = parseFloat(delayValue);
-            }
-            
-            // Validate parsed value
-            if (isNaN(retryDelaySeconds) || retryDelaySeconds <= 0) {
-              retryDelaySeconds = 34; // Fallback to default
-            }
-          }
-        }
-        
-        throw new RateLimitExceededError(
-          `Gemini API rate limit exceeded. Retry after ${retryDelaySeconds}s`,
-          RateLimitType.LLM_CALLS,
-          undefined,
-          Math.ceil(retryDelaySeconds * 1000) // Convert to milliseconds, round up
-        );
-      } catch (parseError) {
-        // If parsing fails, throw generic error with default delay
-        throw new RateLimitExceededError(
-          `Gemini API rate limit exceeded`,
-          RateLimitType.LLM_CALLS,
-          undefined,
-          34000 // Default 34s
-        );
-      }
-    }
-    
-    throw new Error(`Gemini API error ${res.status}: ${errorText}`);
-  }
-
-  const json = await res.json() as {
-    candidates?: Array<{
-      content?: {
-        parts?: Array<{ text?: string }>;
-      };
-    }>;
-  };
-  const text = json?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new InferError('Empty response from Gemini', '', toolCallContext);
-  }
-
-  // Parse JSON response
-  let parsed: any;
-  try {
-    parsed = JSON.parse(text);
-  } catch (e) {
-    throw new InferError('Invalid JSON from Gemini', text, toolCallContext);
-  }
-
-  // Handle tool intent protocol
-  if (parsed.action && tools) {
-    // Find matching tool definition
-    const toolDef = tools.find(t => t.name === parsed.action.tool);
-    if (!toolDef) {
-      throw new InferError(`Unknown tool: ${parsed.action.tool}`, text, toolCallContext);
-    }
-
-    // Create tool call in OpenAI format for compatibility
-    const toolCall: ChatCompletionMessageFunctionToolCall = {
-      id: `gemini_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      type: 'function',
-      function: {
-        name: parsed.action.tool,
-        arguments: JSON.stringify(parsed.action.args ?? {}),
-      },
-    };
-
-    const assistantMessage: Message = {
-      role: 'assistant',
-      content: parsed.thought || '',
-      tool_calls: [toolCall],
-    };
-
-    // Execute tool calls
-    const executed = await executeToolCalls([toolCall], tools);
-    const newContext = updateToolCallContext(
-      toolCallContext,
-      assistantMessage,
-      executed,
-      completionConfig?.detector
-    );
-
-    // Check for completion signal
-    if (newContext.completionSignal?.signaled) {
-      if (schema) {
-        throw new AbortError(
-          `Completion signaled: ${newContext.completionSignal.summary || 'Task complete'}`,
-          newContext
-        );
-      }
-      return {
-        string: newContext.completionSignal.summary || 'Task complete',
-        toolCallContext: newContext
-      };
-    }
-
-    // Recurse with tool results (preserve abortSignal for cancellation)
-    return inferGeminiNative(
-      { ...args, abortSignal },
-      newContext
-    );
-  }
-
-  // Final output - validate with schema if provided
-  if (schema) {
-    const result = schema.safeParse(parsed.final ?? parsed);
-    if (!result.success) {
-      throw new InferError('Schema validation failed', text, toolCallContext);
-    }
-    return { object: result.data, toolCallContext };
-  }
-
-  return { string: parsed.final ?? text, toolCallContext };
 }
