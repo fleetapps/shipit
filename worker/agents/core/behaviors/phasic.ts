@@ -46,6 +46,10 @@ interface PhasicOperations extends BaseCodingOperations {
 export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implements ICodingAgent {
     protected static readonly PROJECT_NAME_PREFIX_MAX_LENGTH = 20;
     
+    // File tracking for generation completion
+    private expectedFiles: Set<string> = new Set();
+    private generatedFiles: Set<string> = new Set();
+    
     protected operations: PhasicOperations = {
         regenerateFile: new FileRegenerationOperation(),
         fastCodeFixer: new FastCodeFixerOperation(),
@@ -283,6 +287,9 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     private async launchStateMachine() {
         this.logger.info("Launching state machine");
 
+        // Initialize file tracking - collect all expected files from phases
+        this.initializeFileTracking();
+
         // Check if we should use parallel execution (all phases from roadmap)
         const roadmapPhases = this.state.blueprint.implementationRoadmap || [];
         const hasIncompletePhases = this.state.generatedPhases.some(p => !p.completed);
@@ -291,6 +298,8 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         if (shouldUseParallel) {
             this.logger.info(`Using parallel execution for ${roadmapPhases.length} phases`);
             await this.executePhasesInParallel();
+            // Wait for all files to complete before returning
+            await this.waitForAllFilesToComplete();
             return;
         }
 
@@ -348,8 +357,88 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             }
 
             this.logger.info("State machine completed successfully");
+            
+            // Wait for all expected files to be generated before completing
+            await this.waitForAllFilesToComplete();
         } catch (error) {
             this.logger.error("Error in state machine:", error);
+        }
+    }
+
+    /**
+     * Initialize file tracking by collecting all expected files from all phases
+     */
+    private initializeFileTracking(): void {
+        this.expectedFiles.clear();
+        this.generatedFiles.clear();
+
+        // Add initial phase files
+        const initialPhase = this.state.blueprint.initialPhase;
+        if (initialPhase?.files) {
+            initialPhase.files.forEach(file => {
+                if (file.changes?.toLowerCase().trim() !== 'delete') {
+                    this.expectedFiles.add(file.path);
+                }
+            });
+        }
+
+        // Add files from generated phases
+        this.state.generatedPhases.forEach(phase => {
+            if (phase.files) {
+                phase.files.forEach(file => {
+                    if (file.changes?.toLowerCase().trim() !== 'delete') {
+                        this.expectedFiles.add(file.path);
+                    }
+                });
+            }
+        });
+
+        // Files from roadmap phases will be added when phases are generated
+
+        this.logger.info(`File tracking initialized: ${this.expectedFiles.size} expected files`, {
+            expectedFiles: Array.from(this.expectedFiles)
+        });
+    }
+
+
+    /**
+     * Wait for all expected files to be generated
+     * Polls until all files are complete or timeout
+     */
+    private async waitForAllFilesToComplete(): Promise<void> {
+        const MAX_WAIT_TIME = 30000; // 30 seconds max wait
+        const POLL_INTERVAL = 500; // Check every 500ms
+        const startTime = Date.now();
+
+        let lastLogTime = startTime;
+        
+        while (Date.now() - startTime < MAX_WAIT_TIME) {
+            const pendingFiles = Array.from(this.expectedFiles).filter(f => !this.generatedFiles.has(f));
+            
+            if (pendingFiles.length === 0) {
+                this.logger.info(`[File Tracking] All ${this.expectedFiles.size} expected files have been generated`);
+                return;
+            }
+
+            // Log progress every 2 seconds
+            const elapsed = Date.now() - lastLogTime;
+            if (elapsed >= 2000) {
+                this.logger.info(`[File Tracking] Waiting for ${pendingFiles.length} files: ${pendingFiles.slice(0, 5).join(', ')}${pendingFiles.length > 5 ? `... (+${pendingFiles.length - 5} more)` : ''}`);
+                lastLogTime = Date.now();
+            }
+
+            await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+        }
+
+        // Final check after timeout
+        const finalPending = Array.from(this.expectedFiles).filter(f => !this.generatedFiles.has(f));
+        const completed = this.generatedFiles.size;
+        const total = this.expectedFiles.size;
+
+        if (finalPending.length > 0) {
+            this.logger.warn(`[File Tracking] Timeout waiting for files. ${completed}/${total} completed. Pending: ${finalPending.join(', ')}`);
+        } else {
+            this.logger.info(`[File Tracking] All ${total} files completed after timeout check`);
         }
     }
 
@@ -370,18 +459,24 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         this.logger.info(`Generating concepts for ${roadmap.length} roadmap phases sequentially`);
         
         for (let i = 0; i < roadmap.length; i++) {
-            const roadmapPhase = roadmap[i];
             try {
                 const currentIssues = await this.fetchAllIssues();
                 const concept = await this.generateNextPhase(currentIssues, undefined, i === roadmap.length - 1);
                 if (concept && concept.files.length > 0) {
                     allPhases.push(concept);
                     this.createNewIncompletePhase(concept);
+                    // Add files from this phase to expected files tracking
+                    concept.files.forEach(file => {
+                        if (file.changes?.toLowerCase().trim() !== 'delete') {
+                            this.expectedFiles.add(file.path);
+                        }
+                    });
+                    this.logger.info(`[File Tracking] Added ${concept.files.length} files from phase ${concept.name} to tracking`);
                 } else {
-                    this.logger.warn(`Phase generation returned empty concept for: ${roadmapPhase.phase}`);
+                    this.logger.warn(`Phase generation returned empty concept for roadmap phase ${i + 1}`);
                 }
             } catch (error) {
-                this.logger.error(`Failed to generate concept for phase ${roadmapPhase.phase}:`, error);
+                this.logger.error(`Failed to generate concept for roadmap phase ${i + 1}:`, error);
                 // Continue with next phase
             }
         }
@@ -675,6 +770,15 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         }
         
         this.createNewIncompletePhase(result);
+        
+        // Add files from this phase to expected files tracking
+        result.files.forEach(file => {
+            if (file.changes?.toLowerCase().trim() !== 'delete') {
+                this.expectedFiles.add(file.path);
+            }
+        });
+        this.logger.info(`[File Tracking] Added ${result.files.length} files from phase ${result.name} to tracking (total expected: ${this.expectedFiles.size})`);
+        
         // Notify phase generation complete
         this.broadcast(WebSocketMessageResponses.PHASE_GENERATED, {
             message: `Generated next phase: ${result.name}`,
@@ -711,6 +815,13 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                 issues, 
                 isFirstPhase: this.state.generatedPhases.filter(p => p.completed).length === 0,
                 fileGeneratingCallback: (filePath: string, filePurpose: string) => {
+                    // Track file generation start
+                    if (!this.expectedFiles.has(filePath)) {
+                        this.expectedFiles.add(filePath);
+                        this.logger.info(`[File Tracking] Added unexpected file to tracking: ${filePath}`);
+                    }
+                    this.logger.info(`[File Tracking] File generating: ${filePath} (${this.generatedFiles.size}/${this.expectedFiles.size} done)`);
+                    
                     this.broadcast(WebSocketMessageResponses.FILE_GENERATING, {
                         message: `Generating file: ${filePath}`,
                         filePath: filePath,
@@ -728,6 +839,16 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                     });
                 } : (_filePath: string, _chunk: string, _format: 'full_content' | 'unified_diff') => {},
                 fileClosedCallback: (file: FileOutputType, message: string) => {
+                    // Track file generation completion - this is called synchronously during streaming
+                    const wasAlreadyGenerated = this.generatedFiles.has(file.filePath);
+                    this.generatedFiles.add(file.filePath);
+                    
+                    if (!wasAlreadyGenerated) {
+                        const completed = this.generatedFiles.size;
+                        const total = this.expectedFiles.size;
+                        this.logger.info(`[File Tracking] ✓ File generated: ${file.filePath} (${completed}/${total} done)`);
+                    }
+                    
                     this.broadcast(WebSocketMessageResponses.FILE_GENERATED, {
                         message,
                         file,
@@ -769,13 +890,6 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
         this.logger.info("Files generated for phase:", phase.name, safeFiles.map(f => f.filePath));
 
-        // Send phase_validated BEFORE deployment so UI updates even if deployment hangs
-        // This ensures users see progress instead of being stuck on "Reviewing phase..."
-        this.broadcast(WebSocketMessageResponses.PHASE_VALIDATED, {
-            message: `Files validated for phase: ${phase.name}`,
-            phase: phase
-        });
-
         if (result.commands && result.commands.length > 0) {
             this.logger.info("Phase implementation suggested install commands:", result.commands);
             await this.executeCommands(result.commands, false);
@@ -794,6 +908,13 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         this.logger.info("Files generated for phase:", phase.name, finalFiles.map(f => f.filePath));
     
         this.logger.info(`Validation complete for phase: ${phase.name}`);
+    
+        // Send phase_validated AFTER deployment and fixes complete
+        // This ensures all file processing is truly done before marking phase as validated
+        this.broadcast(WebSocketMessageResponses.PHASE_VALIDATED, {
+            message: `Files validated for phase: ${phase.name}`,
+            phase: phase
+        });
     
         // Notify phase completion
         this.broadcast(WebSocketMessageResponses.PHASE_IMPLEMENTED, {

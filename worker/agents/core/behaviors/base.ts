@@ -450,6 +450,10 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
             // Clear abort controller after generation completes
             this.clearAbortController();
             
+            // For phasic behavior, ensure all files are tracked and completed
+            // This is handled in launchStateMachine's waitForAllFilesToComplete()
+            // For other behaviors, proceed normally
+            
             const appService = new AppService(this.env);
             await appService.updateApp(
                 this.getAgentId(),
@@ -458,6 +462,13 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
                 }
             );
             this.generationPromise = null;
+            
+            // Get actual file count for logging
+            const actualFilesGenerated = this.fileManager.getGeneratedFilePaths().length;
+            const expectedFiles = this.getTotalFiles();
+            
+            this.logger.info(`Generation complete: ${actualFilesGenerated} files generated (expected: ${expectedFiles})`);
+            
             this.broadcast(WebSocketMessageResponses.GENERATION_COMPLETE, {
                 message: "Code generation and review process completed.",
                 instanceId: this.state.sandboxInstanceId,
