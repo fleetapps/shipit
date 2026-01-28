@@ -342,7 +342,7 @@ export async function getConfigurationForModel(
                     baseURL: 'https://api.openai.com/v1',
                     apiKey: env.OPENAI_API_KEY,
                 };
-            case 'deepseek':
+            case 'deepseek': {
                 // DeepSeek MUST use its own API key - never gateway
                 const deepseekKey = env.DEEPSEEK_API_KEY;
                 if (!deepseekKey || !isValidApiKey(deepseekKey)) {
@@ -352,6 +352,7 @@ export async function getConfigurationForModel(
                     baseURL: 'https://api.deepseek.com/v1',
                     apiKey: deepseekKey,
                 };
+            }
             default:
                 providerForcedOverride = modelConfig.provider as AIGatewayProviders;
                 break;
@@ -1275,7 +1276,7 @@ async function inferGeminiNative<OutputSchema extends z.AnyZodObject>(
   }
 
   // Extract model name (remove provider prefix if present)
-  let geminiModelName = modelName.replace(/^google-ai-studio\//, '').replace(/^gemini\//, '');
+  const geminiModelName = modelName.replace(/^google-ai-studio\//, '').replace(/^gemini\//, '');
   
   // Build prompt with enforced JSON format instructions
   const formatInstructions =
