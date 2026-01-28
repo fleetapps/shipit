@@ -240,20 +240,25 @@ export class SandboxComplianceService {
 
             // Add timeout to prevent hanging - 30 seconds max for compliance fixes
             const COMPLIANCE_TIMEOUT_MS = 30000;
+            let timeoutId: ReturnType<typeof setTimeout> | undefined;
+            
             try {
-                await Promise.race([
-                    executeInference({
-                        env: this.env,
-                        messages,
-                        agentActionName: 'sandbox_compliance',
-                        tools,
-                        context: this.inferenceContext,
-                        retryLimit: 1,
-                    }),
-                    new Promise<never>((_, reject) => 
-                        setTimeout(() => reject(new Error('Compliance check timeout after 30s')), COMPLIANCE_TIMEOUT_MS)
-                    )
-                ]);
+                const inferencePromise = executeInference({
+                    env: this.env,
+                    messages,
+                    agentActionName: 'sandbox_compliance',
+                    tools,
+                    context: this.inferenceContext,
+                    retryLimit: 1,
+                });
+                
+                const timeoutPromise = new Promise<never>((_, reject) => {
+                    timeoutId = setTimeout(() => {
+                        reject(new Error('Compliance check timeout after 30s'));
+                    }, COMPLIANCE_TIMEOUT_MS);
+                });
+                
+                await Promise.race([inferencePromise, timeoutPromise]);
             } catch (timeoutError) {
                 this.logger.warn('Compliance AI check timed out or failed, using quick check results', { 
                     error: timeoutError instanceof Error ? timeoutError.message : 'Unknown error' 
@@ -266,6 +271,11 @@ export class SandboxComplianceService {
                     issues: quickIssues,
                     fixedFiles: []
                 };
+            } finally {
+                // Clean up timeout to prevent it from firing after promise resolves
+                if (timeoutId !== undefined) {
+                    clearTimeout(timeoutId);
+                }
             }
 
             // Get fixed files from agent's file manager
