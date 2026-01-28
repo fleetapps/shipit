@@ -1,5 +1,38 @@
 # Changelog
 
+## 1.0.0 (2026-01-28)
+
+
+### Features
+
+* Add sandbox compliance service for runtime requirements ([6730416](https://github.com/fleetapps/shipit/commit/6730416944d3c8de0e1d1b120492cbc1d3f0ac41))
+* bypass AI Gateway for all LLMs with directOverride ([0e28956](https://github.com/fleetapps/shipit/commit/0e28956c7d819c56ec2ce3370272f4d63315008b))
+* configure custom domain to anything.fleet.ke ([1e7d035](https://github.com/fleetapps/shipit/commit/1e7d0359c6644d9d1f01000adfce08430dea5518))
+* fix phase execution counter and add parallel phase execution ([54d6808](https://github.com/fleetapps/shipit/commit/54d680830b3e9a2fb87a3786c045b2e234ebe81b))
+* implement native Gemini inference path with tool intent protocol ([918be82](https://github.com/fleetapps/shipit/commit/918be82d29dc4d4e41e54a8b72f242beb7ce53c3))
+* optimize Grok token usage and enhance UI code examples ([710b02b](https://github.com/fleetapps/shipit/commit/710b02bdfb020ee675e651ac30cea9a6e538433e))
+* replace PartySocket with native WebSocket and update templateSelection to use Gemini LITE models ([a642dac](https://github.com/fleetapps/shipit/commit/a642dac9ff6b12394a7a2dd58b4797fc72162a76))
+* update LLM config to use Claude models like v1 and fix KV namespace ([04a81fb](https://github.com/fleetapps/shipit/commit/04a81fbc449a901aaa8fcf74d7ba7eeda6cb78e5))
+
+
+### Bug Fixes
+
+* allow DeepSeek Chat for templateSelection and add dev:worker script ([f121b61](https://github.com/fleetapps/shipit/commit/f121b61e00718df9da1fc35c8e474a87e719d631))
+* block PartySocket requests from parent Agent class ([c42b60d](https://github.com/fleetapps/shipit/commit/c42b60ded8e17234ffb0801fce6bf4a1d6f78b26))
+* bypass PartySocket in CodeGeneratorAgent by overriding fetch() to use native WebSocket ([785f325](https://github.com/fleetapps/shipit/commit/785f325737f51cdf851d384dca87da904b9fa7bd))
+* complete native WebSocket migration - remove PartySocket blocking hack ([5f08c91](https://github.com/fleetapps/shipit/commit/5f08c91f68245adb96ae2bf9cfbc528ff35b1031))
+* correct Grok model names for x.ai API ([dc9de7e](https://github.com/fleetapps/shipit/commit/dc9de7e7427058a8d2ddcf2ec7700b82dd1bcb6c))
+* only normalize blueprint data for blueprint schemas ([ec0a086](https://github.com/fleetapps/shipit/commit/ec0a0867474ac36e4d2d6bcb2a0df5e3fbba1fac))
+* **phasic:** prevent phase validation hang with timeout and improved UI feedback ([a33978d](https://github.com/fleetapps/shipit/commit/a33978d67551dbbe30fc81320a7b7ade43b38706))
+* properly track native WebSocket connections for broadcast functionality ([88b08f2](https://github.com/fleetapps/shipit/commit/88b08f238c1892ad6b081145ff00de335c770a2e))
+* replace Gemini models with Grok, improve WebSocket resilience, and fix model constraints ([a927eef](https://github.com/fleetapps/shipit/commit/a927eefa0da958a81c2b64d2ca0fe307e8fc8ce6))
+* resolve Claude structured output conflict, switch to Grok LITE models, remove PartySocket ([1dd0e21](https://github.com/fleetapps/shipit/commit/1dd0e21544f5e34cd856260c9a252b902d4b0e1b))
+* respect API retry delays for rate limit errors ([9a5946d](https://github.com/fleetapps/shipit/commit/9a5946dbd249b09639ba8dbb13d7c6dc33b2fe22))
+* **sandbox:** add timeout cleanup to prevent memory leaks ([30f3768](https://github.com/fleetapps/shipit/commit/30f376879152c6035f809abd191c17b27e2e3a78))
+* use 'markdown' format instead of 'json' for Claude structured output ([cebdaac](https://github.com/fleetapps/shipit/commit/cebdaacb52ae0a9aad51e6281685469091e057c9))
+* use correct DeepSeek model IDs without provider prefix (deepseek-chat, deepseek-reasoner) ([e48a88e](https://github.com/fleetapps/shipit/commit/e48a88edd358f164795faa6c8c63f0051354bfcf))
+* use x-goog-api-key header for Gemini API instead of Authorization Bearer ([6580cbc](https://github.com/fleetapps/shipit/commit/6580cbc2f58be985de92749e95ca60effb4d6be7))
+
 ## [1.4.0](https://github.com/cloudflare/vibesdk/compare/v1.3.0...v1.4.0) (2025-12-20)
 
 
