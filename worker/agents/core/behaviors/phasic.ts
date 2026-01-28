@@ -102,6 +102,17 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
                         
         this.logger.info('Generated project name', { projectName });
                         
+        // Calculate total expected phases from blueprint roadmap
+        const roadmapPhases = blueprint?.implementationRoadmap?.length || 0;
+        // Include initial phase if not in roadmap count
+        const totalExpectedPhases = Math.max(roadmapPhases + 1, MAX_PHASES);
+        
+        this.logger.info('Initializing phase counter', {
+            roadmapPhases,
+            totalExpectedPhases,
+            maxPhases: MAX_PHASES
+        });
+
         const nextState: PhasicState = {
             ...this.state,
             projectName,
@@ -116,7 +127,8 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
             hostname,
             metadata: inferenceContext.metadata,
             projectType: this.projectType,
-            behaviorType: 'phasic'
+            behaviorType: 'phasic',
+            phasesCounter: totalExpectedPhases
         };
         this.setState(nextState);
         // Customize template files (package.json, wrangler.jsonc, .bootstrap.js, .gitignore)
@@ -271,6 +283,18 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
     private async launchStateMachine() {
         this.logger.info("Launching state machine");
 
+        // Check if we should use parallel execution (all phases from roadmap)
+        const roadmapPhases = this.state.blueprint.implementationRoadmap || [];
+        const hasIncompletePhases = this.state.generatedPhases.some(p => !p.completed);
+        const shouldUseParallel = roadmapPhases.length > 1 && !hasIncompletePhases && this.state.generatedPhases.length === 0;
+
+        if (shouldUseParallel) {
+            this.logger.info(`Using parallel execution for ${roadmapPhases.length} phases`);
+            await this.executePhasesInParallel();
+            return;
+        }
+
+        // Fall back to sequential execution
         let currentDevState = CurrentDevState.PHASE_IMPLEMENTING;
         const generatedPhases = this.state.generatedPhases;
         const incompletedPhases = generatedPhases.filter(phase => !phase.completed);
@@ -327,6 +351,66 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
         } catch (error) {
             this.logger.error("Error in state machine:", error);
         }
+    }
+
+    /**
+     * Execute all roadmap phases in parallel
+     * Generates phase concepts sequentially (they need context),
+     * but executes implementation in parallel
+     */
+    private async executePhasesInParallel(): Promise<void> {
+        const roadmap = this.state.blueprint.implementationRoadmap || [];
+        const initialPhase = this.state.blueprint.initialPhase;
+
+        // Start with initial phase
+        const allPhases: PhaseConceptType[] = [initialPhase];
+        this.createNewIncompletePhase(initialPhase);
+        
+        // Generate concepts for roadmap phases sequentially (they need context from previous phases)
+        this.logger.info(`Generating concepts for ${roadmap.length} roadmap phases sequentially`);
+        
+        for (let i = 0; i < roadmap.length; i++) {
+            const roadmapPhase = roadmap[i];
+            try {
+                const currentIssues = await this.fetchAllIssues();
+                const concept = await this.generateNextPhase(currentIssues, undefined, i === roadmap.length - 1);
+                if (concept && concept.files.length > 0) {
+                    allPhases.push(concept);
+                    this.createNewIncompletePhase(concept);
+                } else {
+                    this.logger.warn(`Phase generation returned empty concept for: ${roadmapPhase.phase}`);
+                }
+            } catch (error) {
+                this.logger.error(`Failed to generate concept for phase ${roadmapPhase.phase}:`, error);
+                // Continue with next phase
+            }
+        }
+
+        this.logger.info(`Generated ${allPhases.length} phase concepts, executing in parallel`);
+
+        // Execute all phases in parallel
+        const phasePromises = allPhases.map(async (phase, index) => {
+            try {
+                this.logger.info(`[Parallel ${index + 1}/${allPhases.length}] Starting: ${phase.name}`);
+                const issues = await this.fetchAllIssues(true);
+                await this.implementPhase(phase, issues, undefined, false, true);
+                this.markPhaseComplete(phase.name);
+                this.logger.info(`[Parallel ${index + 1}/${allPhases.length}] Completed: ${phase.name}`);
+            } catch (error) {
+                this.logger.error(`[Parallel ${index + 1}/${allPhases.length}] Failed: ${phase.name}`, error);
+                // Continue with other phases even if one fails
+            }
+        });
+
+        // Wait for all phases to complete
+        const results = await Promise.allSettled(phasePromises);
+        const successful = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+
+        this.logger.info(`Parallel execution complete: ${successful} succeeded, ${failed} failed out of ${allPhases.length} total`);
+        
+        // Transition to reviewing
+        await this.executeReviewCycle();
     }
 
     /**
@@ -429,7 +513,39 @@ export class PhasicCodingBehavior extends BaseCodingBehavior<PhasicState> implem
 
             const phasesCounter = this.decrementPhasesCounter();
 
-            if ((phaseConcept.lastPhase || phasesCounter <= 0) && this.state.pendingUserInputs.length === 0) return {currentDevState: CurrentDevState.FINALIZING};
+            // Check if there are remaining phases in the blueprint roadmap
+            const roadmapPhases = this.state.blueprint.implementationRoadmap || [];
+            const completedPhaseNames = this.state.generatedPhases
+                .filter(p => p.completed)
+                .map(p => p.name.toLowerCase());
+            
+            const remainingRoadmapPhases = roadmapPhases.filter(roadmapPhase => {
+                const roadmapPhaseName = roadmapPhase.phase.toLowerCase();
+                return !completedPhaseNames.some(completed => 
+                    completed.includes(roadmapPhaseName) || roadmapPhaseName.includes(completed)
+                );
+            });
+
+            // Only finalize if:
+            // 1. Counter exhausted AND no roadmap phases left, OR
+            // 2. lastPhase is true AND no roadmap phases left AND counter > 0
+            const shouldFinalize = 
+                (phasesCounter <= 0 && remainingRoadmapPhases.length === 0) ||
+                (phaseConcept.lastPhase && remainingRoadmapPhases.length === 0 && phasesCounter > 0);
+            
+            if (shouldFinalize && this.state.pendingUserInputs.length === 0) {
+                this.logger.info("All blueprint phases completed or phase counter exhausted, transitioning to FINALIZING");
+                return {currentDevState: CurrentDevState.FINALIZING};
+            }
+            
+            // Log warning if LLM tried to stop early
+            if (phaseConcept.lastPhase && remainingRoadmapPhases.length > 0) {
+                this.logger.warn(`Ignoring lastPhase flag: ${remainingRoadmapPhases.length} roadmap phases remain`, {
+                    remaining: remainingRoadmapPhases.map(p => p.phase),
+                    completed: completedPhaseNames
+                });
+            }
+            
             return {currentDevState: CurrentDevState.PHASE_GENERATING};
         } catch (error) {
             this.logger.error("Error implementing phase", error);
