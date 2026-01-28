@@ -1112,6 +1112,55 @@ export abstract class BaseCodingBehavior<TState extends BaseProjectState>
         // Invalidate static analysis cache
         this.staticAnalysisCache = null;
         
+        // Ensure sandbox compliance before deployment
+        try {
+            const { SandboxComplianceService } = await import('../../../services/sandbox/sandboxCompliance');
+            const sandboxClient = this.deploymentManager.getClient();
+            const complianceService = new SandboxComplianceService(
+                sandboxClient,
+                this,
+                this.logger,
+                this.env,
+                this.getInferenceContext()
+            );
+            
+            // Get all files to check (from files parameter + agent's file manager)
+            const allFilesToCheck = files.length > 0 ? files : this.fileManager.getAllFiles();
+            const complianceResult = await complianceService.ensureCompliance(
+                this.state.sandboxInstanceId || null,
+                allFilesToCheck
+            );
+            
+            if (!complianceResult.compliant && complianceResult.issues.length > 0) {
+                this.logger.warn('Sandbox compliance issues detected', { 
+                    issues: complianceResult.issues,
+                    fixedFiles: complianceResult.fixedFiles.length 
+                });
+            }
+            
+            // Merge fixed files with original files
+            const filesToDeploy = [...files];
+            complianceResult.fixedFiles.forEach(fixedFile => {
+                const existingIndex = filesToDeploy.findIndex(f => f.filePath === fixedFile.filePath);
+                if (existingIndex >= 0) {
+                    filesToDeploy[existingIndex] = fixedFile;
+                } else {
+                    filesToDeploy.push(fixedFile);
+                }
+            });
+            
+            // Update file manager with fixed files
+            for (const fixedFile of complianceResult.fixedFiles) {
+                await this.fileManager.saveGeneratedFile(fixedFile, 'fix: sandbox compliance');
+            }
+            
+            // Use fixed files for deployment
+            files = filesToDeploy;
+        } catch (error) {
+            this.logger.warn('Sandbox compliance check failed, proceeding with deployment', { error });
+            // Continue with deployment even if compliance check fails
+        }
+        
         // Call deployment manager with callbacks for broadcasting at the right times
         const result = await this.deploymentManager.deployToSandbox(
             files,

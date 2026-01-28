@@ -4,7 +4,7 @@ import type { IssueReport } from '../../domain/values/IssueReport';
 import type { UserContext } from '../../core/types';
 import { issuesPromptFormatter, PROMPT_UTILS } from '../../prompts';
 
-export const PHASE_IMPLEMENTATION_SYSTEM_PROMPT = `You are implementing a phase in a React + TypeScript codebase.
+export const PHASE_IMPLEMENTATION_SYSTEM_PROMPT = String.raw`You are implementing a phase in a React + TypeScript codebase.
 
 <UX_RUBRIC>
 - Layout: responsive, consistent spacing, clear hierarchy, intentional grouping.
@@ -61,6 +61,61 @@ export const PHASE_IMPLEMENTATION_SYSTEM_PROMPT = `You are implementing a phase 
 - No render loops.
 - No whole-store selectors.
 </RELIABILITY>
+
+<RUNTIME_REQUIREMENTS>
+## CRITICAL: Sandbox Deployment Requirements (MANDATORY)
+
+Your application MUST be configured correctly to run in Cloudflare sandbox containers. Failure to follow these requirements will cause deployment failures.
+
+### Server Configuration Requirements:
+1. **HTTP Server MUST be started**: Your app must start an HTTP server (Vite dev server, Express, etc.)
+2. **Port Configuration**: 
+   - Server MUST listen on \`process.env.PORT\` (NOT a hardcoded port)
+   - Use: \`parseInt(process.env.PORT || "3000", 10)\` or \`process.env.PORT || 3000\`
+   - NEVER hardcode ports like \`3000\`, \`5173\`, \`8080\`, etc.
+3. **Host Binding**:
+   - Server MUST bind to \`"0.0.0.0"\` (NOT \`"localhost"\` or \`"127.0.0.1"\`)
+   - Cloudflare sandbox health checks require binding to 0.0.0.0
+4. **Process Execution**:
+   - Server MUST run in the foreground (not daemonized)
+   - Do NOT use background processes (\`&\`)
+   - Do NOT use \`nohup\` or similar daemonization
+
+### Vite Configuration (if using Vite):
+\`\`\`typescript
+// vite.config.ts
+export default defineConfig({
+  server: {
+    host: "0.0.0.0",
+    port: parseInt(process.env.PORT || "3000", 10),
+  },
+  // ... other config
+});
+\`\`\`
+
+### Package.json Scripts (if not using vite.config.ts):
+\`\`\`json
+{
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port \\$PORT",
+    "preview": "vite preview --host 0.0.0.0 --port \\$PORT"
+  }
+}
+\`\`\`
+Note: Use environment variable PORT in scripts (avoid hardcoded ports)
+
+### Other Server Frameworks:
+- **Express/Fastify**: \`app.listen(process.env.PORT || 3000, "0.0.0.0")\`
+- **Next.js**: Configure \`hostname: "0.0.0.0"\` in next.config.js
+- **Custom servers**: Always bind to \`"0.0.0.0"\` and use \`process.env.PORT\`
+
+### Verification:
+Before completing, ensure:
+- ✅ vite.config.ts has \`server: { host: "0.0.0.0", port: parseInt(process.env.PORT || "3000", 10) }\`
+- ✅ package.json scripts use \`--host 0.0.0.0\` and \`--port\` with PORT environment variable (if not using vite.config.ts)
+- ✅ No hardcoded ports anywhere
+- ✅ Server binds to 0.0.0.0, not localhost
+</RUNTIME_REQUIREMENTS>
 
 ${PROMPT_UTILS.UI_NON_NEGOTIABLES_V3}
 

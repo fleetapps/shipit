@@ -455,6 +455,7 @@ export interface AgentConfig {
     conversationalResponse: ModelConfig;
     deepDebugger: ModelConfig;
     agenticProjectBuilder: ModelConfig;
+    sandbox_compliance: ModelConfig;
 }
 
 // Provider and reasoning effort types for validation

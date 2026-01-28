@@ -104,6 +104,13 @@ const PLATFORM_AGENT_CONFIG: AgentConfig = {
         temperature: 0.2,
         fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
+    sandbox_compliance: {
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
+        reasoning_effort: 'low',
+        max_tokens: 4000,
+        temperature: 0,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
+    },
 };
 
 //======================================================================================
@@ -168,6 +175,13 @@ const DEFAULT_AGENT_CONFIG: AgentConfig = {
         name: AIModels.DEEPSEEK_REASONER_V3_2,
         reasoning_effort: 'medium',
         temperature: 0.2,
+        fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
+    },
+    sandbox_compliance: {
+        name: AIModels.DEEPSEEK_CHAT_V3_2,
+        reasoning_effort: 'low',
+        max_tokens: 4000,
+        temperature: 0,
         fallbackModel: AIModels.DEEPSEEK_CHAT_V3_2,
     },
 };
